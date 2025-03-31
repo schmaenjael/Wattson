@@ -1,13 +1,51 @@
 {
-  "name": "Wattson",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+  "name": "wattson",
+  "version": "0.0.1",
+  "description": " ",
   "keywords": [],
-  "author": "",
+  "type": "module",
+  "maintainers": [
+    "schmaenjael"
+  ],
   "license": "ISC",
-  "packageManager": "pnpm@10.7.0"
+  "scripts": {
+    "dev": "concurrently \"npm:dev:*\"",
+    "script": "concurrently \"npm:script:*\"",
+    "build": "concurrently \"npm:build:*\"",
+    "dev:tsc": "tsx --watch \"./src/index.ts\"",
+    "build:tsc": "tsc",
+    "script:lint": "eslint --cache --fix",
+    "script:format": "prettier --write --log-level warn .",
+    "script:register-commands": "tsx --env-file=.env ./scripts/register-commands.ts"
+  },
+  "pre-commit": [
+    "script:format",
+    "script:lint"
+  ],
+  "dependencies": {
+    "@discordjs/rest": "^2.4.3",
+    "discord.js": "^14.18.0",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.23.0",
+    "@total-typescript/ts-reset": "^0.6.1",
+    "@types/node": "^22.13.14",
+    "@typescript-eslint/eslint-plugin": "^6.7.4",
+    "chalk": "4.1.2",
+    "concurrently": "^9.1.2",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^10.0.1",
+    "pre-commit": "^1.2.2",
+    "prettier": "^3.5.1",
+    "tsc-watch": "^6.2.1",
+    "tsx": "^4.19.3",
+    "typescript": "^5.1.6",
+    "typescript-eslint": "^8.28.0"
+  },
+  "packageManager": "pnpm@10.7.0",
+  "engines": {
+    "node": ">=20.9.0",
+    "pnpm": "^10"
+  }
 }
