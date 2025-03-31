@@ -15,13 +15,9 @@
     "allowJs": true,
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
-    "types": [
-      "node"
-    ],
     "paths": {
       "~/*": [
         "./src/*",
-        "./scripts/*"
       ]
     },
     "noEmit": false,

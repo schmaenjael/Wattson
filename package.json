@@ -12,13 +12,14 @@
     "dev": "concurrently \"npm:dev:*\"",
     "script": "concurrently \"npm:script:*\"",
     "build": "concurrently \"npm:build:*\"",
-    "dev:tsc": "tsc-watch --noClear --silent -p ./tsconfig.json --onSuccess \"node ./build/src/index.js\"",
+    "dev:tsc": "tsx --watch \"./src/index.ts\"",
     "build:tsc": "tsc",
     "script:lint": "eslint --cache --fix",
     "script:format": "prettier --write --log-level warn .",
     "script:register-commands": "tsx --env-file=.env ./scripts/register-commands.ts"
   },
   "pre-commit": [
+    "script:format",
     "script:lint"
   ],
   "dependencies": {
