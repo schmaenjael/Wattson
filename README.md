@@ -1,5 +1,7 @@
 # 🕵️ Wattson, VoltEuropa's Discord Agent
 
+<img src="https://s6.imgcdn.dev/YjxG92.png" width="300" alt="Wattson, circa 2025">
+
 ## 📖 Background
 
 > This Bot is the continuation of the discord bot "VoltBot" developed by **fabnem12** and **WhiteBlackGoose**, which is archived starting from version 1.0.0 of Wattson and can be accessed via https://github.com/fabnem12/VoltBot; due to the ever-increasing requirements of the VoltBot, a new start was looked for. This repository aims to restructure the Bot and modernize it to fulfill the requirements of the [Volt Europa Discord Server](https://discord.com/invite/volteuropa).
