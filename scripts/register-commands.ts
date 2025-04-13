@@ -1,5 +1,5 @@
 import { REST, RESTPostAPIApplicationCommandsJSONBody, Routes } from 'discord.js';
-import { commandsCollection } from '~/commands';
+import { commandsCollection } from '~/handlers/commands';
 
 const commands: Array<RESTPostAPIApplicationCommandsJSONBody> = commandsCollection.map(({ data }) => data.toJSON());
 

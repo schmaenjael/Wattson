@@ -16,10 +16,10 @@ Clone the repository:
 $ git clone https://github.com/schmaenjael/Wattson
 ```
 
-Install the dependencies (beware, the project uses `pnpm` instead of `npm`):
+Install the dependencies (beware, the project uses `bun` instead of `npm`):
 
 ```bash
-$ pnpm install
+$ bun install
 ```
 
 Navigate to [discord.dev](https://discord.dev) and get a bot token and create a `.env` file with the following content:
@@ -68,8 +68,8 @@ storyblok-remix-boilerplate
 │   └── reset.d.ts
 ├── eslint.config.mjs
 ├── package.json
-├── pnpm-lock.yaml
-├── pnpm-workspace.yaml
+├── bun-lock.yaml
+├── bun-workspace.yaml
 ├── tsconfig.json
 ├── LICENSE
 └── README.md
