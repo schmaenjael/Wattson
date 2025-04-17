@@ -21,7 +21,7 @@ const registerCommands = async () => {
   await new REST()
     .setToken(process.env.TOKEN)
     .put(Routes.applicationCommands(process.env.CLIENT_ID), { body: commands })
-    .catch((err) => console.log({ err }, 'Failed to register commands'))
+    .catch((error) => console.error({ error }, 'Failed to register commands'))
     .then(() => console.log(`Registered ${commands.length} global application commands`));
 };
 

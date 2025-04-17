@@ -49,6 +49,6 @@ export class Client extends _Client {
           Logger.getInstance().info(`Successfully initialized bot <@${process.env.APPLICATION_ID}>.`)
         )
       )
-      .catch((err) => Logger.getInstance().fatal(Object(err), `Failed to start the server, due to an error.`));
+      .catch((error) => Logger.getInstance().fatal(Object(error), `Failed to start the server, due to an error.`));
   }
 }

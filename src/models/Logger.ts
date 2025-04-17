@@ -22,7 +22,7 @@ export class Logger {
     const ns = appFeatureMap[module].namespace;
 
     if (!this.parentLogger) this.parentLogger = new Logger();
-    if (!this.loggerPool.get(ns)) this.loggerPool.set(ns, this.parentLogger.getChildLogger({}, { msgPrefix: ns }));
+    if (!this.loggerPool.get(ns)) this.loggerPool.set(ns, this.parentLogger.getChildLogger({}, { msgPrefix: `${ns} ` }));
 
     return this.loggerPool.get(ns);
   }

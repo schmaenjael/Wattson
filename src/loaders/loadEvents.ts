@@ -24,11 +24,11 @@ export const loadEvents = async (client: Client) => {
         else client.on(name, (...args: unknown[]) => event.execute(client, ...args));
 
         logger.debug(`Loaded event <${name}> from ${filePath}`);
-      } catch (err) {
-        logger.error({ err }, `Failed to load event ${file} from ${filePath}`);
+      } catch (error) {
+        logger.error({ error }, `Failed to load event ${file} from ${filePath}`);
       }
     }
-  } catch (err) {
-    logger.error({ err }, 'Failed to read events directory');
+  } catch (error) {
+    logger.error({ error }, 'Failed to read events directory');
   }
 };

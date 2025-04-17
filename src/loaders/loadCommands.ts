@@ -26,12 +26,12 @@ export const getCommandsCollection = async () => {
         commands.set(data.name, command);
 
         logger.debug(`Loaded command <${data.name}> from ${filePath}`);
-      } catch (err) {
-        logger.error({ err }, `Failed to load command ${file} from ${filePath}`);
+      } catch (error) {
+        logger.error({ error }, `Failed to load command ${file} from ${filePath}`);
       }
     }
-  } catch (err) {
-    logger.error({ err }, 'Failed to read commands directory');
+  } catch (error) {
+    logger.error({ error }, 'Failed to read commands directory');
   }
 
   return commands;

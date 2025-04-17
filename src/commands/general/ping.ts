@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, ApplicationCommandType, MessageFlags, EmbedBuilder } from 'discord.js';
 
 import { AppFeature } from '~/constants';
-import { Command } from '~/models';
+import { Command, Logger } from '~/models';
 
 import assets from '~/utilities/assetHandler';
 
@@ -32,6 +32,9 @@ export default new Command<ApplicationCommandType.ChatInput>({
         ],
         files: [assets.volt['256x256'].file],
       });
+      Logger.getInstance(AppFeature.Ping).info(
+        `<${interaction.user.username}> executed ${interaction.commandName} at ${new Date().toISOString()}.`
+      );
     } catch (error) {
       console.log(error);
     }

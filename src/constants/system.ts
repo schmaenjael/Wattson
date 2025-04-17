@@ -43,13 +43,13 @@ export enum AppFeature {
 }
 
 export enum LogNamespace {
-  Setup = ' [ SETUP ] ',
-  Bot = ' [  BOT  ] ',
-  Command = ' [  CMD  ] ',
-  Moderation = ' [ MOD ] ',
-  Surveillance = ' [ SURV ] ',
-  Utility = ' [ UTIL ] ',
-  System = ' [ SYS ] ',
+  Setup = '[SETUP]',
+  Bot = '[BOT]',
+  Command = '[CMD]',
+  Moderation = '[MOD]',
+  Surveillance = '[SURV]',
+  Utility = '[UTIL]',
+  System = '[SYS]',
 }
 
 export const appFeatureMap: { [K in AppFeature]: { category: Categories; namespace: LogNamespace } } = {

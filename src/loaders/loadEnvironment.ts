@@ -22,6 +22,6 @@ export const loadEnvironment = async () => {
     process.exit(ProcessExitCode.ERROR);
   }
 
-  logger.info(`Successfully loaded ${REQUIRED_ENV_VARS.join(';')} from the environment.`);
+  logger.info(`Successfully loaded ${REQUIRED_ENV_VARS.join('; ')} from the environment.`);
   logger.info(`The environment is currently set to ${process.env.NODE_ENV} while running Node ${process.version}.`);
 };
