@@ -8,11 +8,10 @@
  *  (c) schmaenjael
  */
 
-import { Client } from '~/models';
-import { setupEnvironment } from '~/utilities';
+import { Client, Logger } from '~/models';
+import { loadEnvironment } from '~/loaders';
 
 const client = Client.getInstance();
-
-setupEnvironment();
+loadEnvironment();
 
 client.start();
