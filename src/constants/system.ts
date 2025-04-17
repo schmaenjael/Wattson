@@ -1,3 +1,7 @@
+import { UInt8 } from '~/models';
+
+export const LOADABLE_FILETYPES = ['.ts'] as const;
+
 /**
  @see Common Unix Error Codes https://tldp.org/LDP/abs/html/index.html
 */
@@ -12,26 +16,17 @@ export enum ProcessExitCode {
   CONFIG = 78 /* configuration error */,
 }
 
-export enum UserPermission {
-  Unverified,
-  Verified,
-  PartyMember,
-  BoardMember,
-  ChatModerator,
-  TeamMember,
-  Developer,
-  Administrator,
-}
-
-export enum AbilityCategories {
+enum AbilityCategories {
   Utility = 'Utility',
   Surveillance = 'Surveillance',
   Moderation = 'Moderation',
 }
 
-export enum SystemCategories {
+enum SystemCategories {
   System = 'System',
 }
+
+export type Categories = SystemCategories | AbilityCategories;
 
 export enum AppFeature {
   Ping = 'Ping',
@@ -57,18 +52,16 @@ export enum LogNamespace {
   System = ' [ SYS ] ',
 }
 
-export const appFeatureMap: {
-  [K in AppFeature]: { category: AbilityCategories | SystemCategories; logNamespace: LogNamespace };
-} = {
-  [AppFeature.Ping]: { category: AbilityCategories.Utility, logNamespace: LogNamespace.Utility },
-  [AppFeature.Stats]: { category: AbilityCategories.Utility, logNamespace: LogNamespace.Utility },
-  [AppFeature.Report]: { category: AbilityCategories.Surveillance, logNamespace: LogNamespace.Surveillance },
-  [AppFeature.Warn]: { category: AbilityCategories.Moderation, logNamespace: LogNamespace.Moderation },
-  [AppFeature.Ban]: { category: AbilityCategories.Moderation, logNamespace: LogNamespace.Moderation },
-  [AppFeature.AutomatedWarn]: { category: AbilityCategories.Moderation, logNamespace: LogNamespace.Moderation },
-  [AppFeature.AutomatedBan]: { category: AbilityCategories.Moderation, logNamespace: LogNamespace.Moderation },
-  [AppFeature.MessageLogging]: { category: AbilityCategories.Surveillance, logNamespace: LogNamespace.Surveillance },
-  [AppFeature.Kill]: { category: SystemCategories.System, logNamespace: LogNamespace.System },
-  [AppFeature.Restart]: { category: SystemCategories.System, logNamespace: LogNamespace.System },
-  [AppFeature.System]: { category: SystemCategories.System, logNamespace: LogNamespace.System },
-};
+export const appFeatureMap: { [K in AppFeature]: { category: Categories; namespace: LogNamespace } } = {
+  [AppFeature.Ping]: { category: AbilityCategories.Utility, namespace: LogNamespace.Utility },
+  [AppFeature.Stats]: { category: AbilityCategories.Utility, namespace: LogNamespace.Utility },
+  [AppFeature.Report]: { category: AbilityCategories.Surveillance, namespace: LogNamespace.Surveillance },
+  [AppFeature.Warn]: { category: AbilityCategories.Moderation, namespace: LogNamespace.Moderation },
+  [AppFeature.Ban]: { category: AbilityCategories.Moderation, namespace: LogNamespace.Moderation },
+  [AppFeature.AutomatedWarn]: { category: AbilityCategories.Moderation, namespace: LogNamespace.Moderation },
+  [AppFeature.AutomatedBan]: { category: AbilityCategories.Moderation, namespace: LogNamespace.Moderation },
+  [AppFeature.MessageLogging]: { category: AbilityCategories.Surveillance, namespace: LogNamespace.Surveillance },
+  [AppFeature.Kill]: { category: SystemCategories.System, namespace: LogNamespace.System },
+  [AppFeature.Restart]: { category: SystemCategories.System, namespace: LogNamespace.System },
+  [AppFeature.System]: { category: SystemCategories.System, namespace: LogNamespace.System },
+} as const;

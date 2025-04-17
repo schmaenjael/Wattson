@@ -1,36 +1,34 @@
 import { readdir } from 'node:fs/promises';
-import { performance } from 'perf_hooks';
+import { join, extname } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
-import { Client } from '~/models/Client';
-import { Event } from '~/models';
-
-import { Logger } from '~/models/Logger';
+import { Client, Event, Logger } from '~/models';
+import { LOADABLE_FILETYPES } from '~/constants';
 
 export const loadEvents = async (client: Client) => {
-  const startTime = performance.now();
-
-  const path = process.cwd() + '/src/events/';
-  const files = await readdir(path, { recursive: true });
   const logger = Logger.getInstance();
+  const path = join(process.cwd(), 'src/events');
 
-  for (const file of files) {
-    if (!file.endsWith('.ts')) continue;
+  try {
+    const files = await readdir(path, { recursive: true });
 
-    try {
-      const {
-        default: { options: event },
-      }: { default: Event } = await import('file://' + path + file);
+    for (const file of files) {
+      if (!LOADABLE_FILETYPES.includes(extname(file))) continue;
+      const filePath = join(path, file);
 
-      if (!event?.name) continue;
+      try {
+        const { default: event }: { default: Event } = await import(pathToFileURL(filePath).href);
+        const { name, once } = event.options;
 
-      if (event.once) client.once(event.name, (...args: any[]) => event.execute(client, ...args));
-      else client.on(event.name, (...args: any[]) => event.execute(client, ...args));
-    } catch (err) {
-      logger.error({ err }, `Error while loading event (${file})`);
-      continue;
+        if (once) client.once(name, (...args: unknown[]) => event.execute(client, ...args));
+        else client.on(name, (...args: unknown[]) => event.execute(client, ...args));
+
+        logger.debug(`Loaded event <${name}> from ${filePath}`);
+      } catch (err) {
+        logger.error({ err }, `Failed to load event ${file} from ${filePath}`);
+      }
     }
+  } catch (err) {
+    logger.error({ err }, 'Failed to read events directory');
   }
-
-  const endTime = performance.now();
-  logger.info(`Loaded events (${Math.floor(endTime - startTime)}ms)`);
 };
