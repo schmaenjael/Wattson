@@ -1,4 +1,4 @@
-interface GenericException {
+export interface GenericException {
   readonly recoverable: boolean;
   toString: () => string;
   log: () => void;

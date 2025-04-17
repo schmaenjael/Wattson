@@ -1,10 +1,10 @@
 import { Client as _Client, ClientOptions, Collection, Partials } from 'discord.js';
 
-import { Command } from './Command';
-import { Logger } from '~/models';
+import { Logger, Command } from '~/models';
+import { loadEvents, loadCommands } from '~/loaders';
 
 import { config } from 'bot.config';
-import { loadEvents } from '~/loaders/loadEvents';
+import { measurePerformance } from '~/utilities/measurePerformance';
 
 export class Client extends _Client {
   private static instance: Client | null = null;
@@ -34,9 +34,21 @@ export class Client extends _Client {
     return this.instance;
   }
 
+  public setCommands(commands: Collection<string, Command>) {
+    this.commands = commands;
+  }
+
+  public getCommands() {
+    return Object.freeze(this.commands);
+  }
+
   public start() {
-    Promise.allSettled([this.login(process.env.TOKEN), loadEvents(this)])
-      .then(() => Logger.getInstance().info(`Successfully initialized bot <@${process.env.APPLICATION_ID}>.`))
+    Promise.allSettled([loadEvents(this), loadCommands(this)])
+      .then(() =>
+        this.login(process.env.TOKEN).then(() =>
+          Logger.getInstance().info(`Successfully initialized bot <@${process.env.APPLICATION_ID}>.`)
+        )
+      )
       .catch((err) => Logger.getInstance().fatal(Object(err), `Failed to start the server, due to an error.`));
   }
 }

@@ -1,11 +1,11 @@
 import { type Bindings, type ChildLoggerOptions, type Logger as PinoLogger, pino } from 'pino';
 
-import { config } from 'bot.config';
 import { AppFeature, appFeatureMap, LogNamespace } from '~/constants';
+import { config } from 'bot.config';
 
 export class Logger {
   private logger: PinoLogger<string, boolean>;
-  private static parentLogger: Logger = new Logger();
+  private static parentLogger: Logger;
   private static loggerPool: Map<string, any> = new Map<LogNamespace, Logger>();
 
   private constructor() {
@@ -19,9 +19,11 @@ export class Logger {
   }
 
   public static getInstance(module: AppFeature = AppFeature.System): Logger {
-    const ns = appFeatureMap[module].logNamespace;
+    const ns = appFeatureMap[module].namespace;
 
+    if (!this.parentLogger) this.parentLogger = new Logger();
     if (!this.loggerPool.get(ns)) this.loggerPool.set(ns, this.parentLogger.getChildLogger({}, { msgPrefix: ns }));
+
     return this.loggerPool.get(ns);
   }
 
