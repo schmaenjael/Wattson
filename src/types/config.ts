@@ -1,48 +1,27 @@
-import { GatewayIntentBits, PresenceData, Snowflake } from 'discord.js';
 import { TransportMultiOptions, TransportPipelineOptions, TransportSingleOptions } from 'pino';
+import { GatewayIntentBits, PresenceData, Snowflake } from 'discord.js';
 
-import { UInt8 } from '~/utilities';
-import { AppFeature, UserPermission } from '~/constants/system';
+import { UserRole } from '~/models';
+import { AppFeature } from '~/constants';
 
-type Prefix = '!' | '#' | '$' | '%' | '&' | '+' | '-' | '.' | ':' | ';' | '<' | '=' | '?' | '@' | '\\' | '^' | '|' | '~';
+type Verification = { enabled: boolean };
+type Channel = { name: string; id: Snowflake };
+type AppLog = { [process.env.NODE_ENV]?: TransportSingleOptions | TransportMultiOptions | TransportPipelineOptions };
+type ValidPrefix = '!' | '#' | '$' | '%' | '&' | '+' | '-' | '.' | ':' | ';' | '<' | '=' | '?' | '@' | '\\' | '^' | '|' | '~';
+type Surveillance = {
+  enabled: boolean;
+  excludedChannels: Channel[];
+  surveillanceChannels: (Channel & { features: Array<AppFeature> })[];
+};
 
 export interface AppConfig {
-  prefix?: Prefix;
+  prefix?: ValidPrefix;
   serverWhitelist: Snowflake[];
-  appLog: AppConfigAppLog;
+  appLog: AppLog;
   intents: Array<GatewayIntentBits>;
   partials: boolean;
-  presence: AppConfigPresence;
-  permissionTree: AppConfigPermissionRole[];
-  surveillance?: AppConfigSurveillance;
-  verification?: AppConfigVerification;
-}
-
-interface AppConfigVerification {
-  enabled: boolean;
-}
-
-interface AppConfigPermissionRole {
-  name: UserPermission;
-  id: Snowflake;
-  //* Permissions are encoded in the following format
-  // Unverified, Verified, Volter, Board Member, Chat Moderator, Discord Team Member, Developer, Administrator
-  permissions: UInt8;
-}
-
-interface AppConfigSurveillance {
-  enabled: boolean;
-  excludedChannels: AppConfigChannel[];
-  surveillanceChannels: (AppConfigChannel & { features: Array<AppFeature> })[];
-}
-
-interface AppConfigChannel {
-  name: string;
-  id: Snowflake;
-}
-
-interface AppConfigPresence extends PresenceData {}
-
-interface AppConfigAppLog {
-  [process.env.NODE_ENV]?: TransportSingleOptions | TransportMultiOptions | TransportPipelineOptions;
+  presence: PresenceData;
+  permissionTree: UserRole[];
+  surveillance?: Surveillance;
+  verification?: Verification;
 }
