@@ -16,7 +16,7 @@
     "build:tsc": "tsc",
     "script:lint": "eslint --cache",
     "script:format": "prettier --write --log-level warn .",
-    "script:register-commands": "bun --env-file=.env ./scripts/register-commands.ts"
+    "script:register-commands": "bun --env-file=.env ./scripts/register-commands.ts | pino-pretty"
   },
   "pre-commit": [
     "script:format",

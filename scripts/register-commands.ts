@@ -1,20 +1,28 @@
-import { REST, RESTPostAPIApplicationCommandsJSONBody, Routes } from 'discord.js';
-import { commandsCollection } from '~/handlers/commands';
+import {
+  APIApplicationCommandSubcommandGroupOption,
+  APIApplicationCommandSubcommandOption,
+  REST,
+  RESTPostAPIChatInputApplicationCommandsJSONBody,
+  RESTPostAPIContextMenuApplicationCommandsJSONBody,
+  Routes,
+} from 'discord.js';
 
-const commands: Array<RESTPostAPIApplicationCommandsJSONBody> = commandsCollection.map(({ data }) => data.toJSON());
+import { getCommandsCollection } from '~/loaders';
 
-const rest = new REST().setToken(process.env.TOKEN);
+const registerCommands = async () => {
+  const commandsCollection = await getCommandsCollection();
+  const commands: (
+    | RESTPostAPIChatInputApplicationCommandsJSONBody
+    | APIApplicationCommandSubcommandOption
+    | APIApplicationCommandSubcommandGroupOption
+    | RESTPostAPIContextMenuApplicationCommandsJSONBody
+  )[] = commandsCollection.map(({ options }) => options.data.toJSON());
 
-(async () => {
-  try {
-    console.log(`Started refreshing ${commands.length} application (/) commands.`);
+  await new REST()
+    .setToken(process.env.TOKEN)
+    .put(Routes.applicationCommands(process.env.CLIENT_ID), { body: commands })
+    .catch((err) => console.log({ err }, 'Failed to register commands'))
+    .then(() => console.log(`Registered ${commands.length} global application commands`));
+};
 
-    const data: any = await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: commands });
-
-    console.log(data);
-
-    console.log(`Successfully reloaded ${data.length} application (/) commands.`);
-  } catch (error) {
-    console.error(error);
-  }
-})();
+await registerCommands();
