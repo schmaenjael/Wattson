@@ -9,14 +9,16 @@
   ],
   "license": "ISC",
   "scripts": {
+    "start": "bun run ./build/src/index.js",
+    "build": "tsc --build",
     "dev": "concurrently \"npm:dev:*\"",
-    "script": "concurrently \"npm:script:*\"",
-    "build": "concurrently \"npm:build:*\"",
     "dev:tsc": "bun --watch  \"./src/index.ts\" | pino-pretty",
-    "build:tsc": "tsc",
+    "dev:typesafe-i18n": "typesafe-i18n",
+    "script": "concurrently \"npm:script:*\"",
     "script:lint": "eslint --cache",
     "script:format": "prettier --write --log-level warn .",
-    "script:register-commands": "bun --env-file=.env ./scripts/register-commands.ts | pino-pretty"
+    "script:register-commands": "bun --env-file=.env ./scripts/register-commands.ts | pino-pretty",
+    "script:typesafe-i18n": "typesafe-i18n --no-watch"
   },
   "pre-commit": [
     "script:format",
@@ -26,7 +28,9 @@
     "@discordjs/rest": "^2.4.3",
     "discord.js": "^14.18.0",
     "dotenv": "^16.4.7",
-    "pino": "^9.6.0"
+    "mongoose": "^8.13.2",
+    "pino": "^9.6.0",
+    "typesafe-i18n": "^5.26.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.23.0",

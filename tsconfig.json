@@ -13,7 +13,7 @@
     "allowJs": true,
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
-    "paths": { "~/*": ["./src/*"] },
+    "paths": { "~/*": ["./src/*"], "@/*": ["./*"] },
     "noEmit": false,
     "skipLibCheck": true
   }

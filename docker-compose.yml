@@ -1,24 +1,31 @@
 version: '3.8'
 
 services:
-  discord-bot:
-    image: .
-    container_name: discord-bot
+  wattson:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wattson
     environment:
-      - DISCORD_TOKEN=your_discord_token_here
-      - MONGO_URI=mongodb://mongo:27017/your_database_name
-    depends_on:
-      - mongo
-    restart: always
-
-  mongo:
-    image: mongo:latest
-    container_name: mongo
+      - NODE_ENV=production
+      - ENV=docker
+      - MONGO_URI=mongodb://root:example@mongo:27017/wattsondb?authSource=admin
     volumes:
-      - mongo-data:/data/db
+      - ./logs:/home/bun/app/logs
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+  mongodb:
+    image: mongo:7
+    container_name: mongodb
     ports:
       - '27017:27017'
-    restart: always
-
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_DATABASE: wattsondb
+    volumes:
+      - mongo-data:/data/db
+    restart: unless-stopped
 volumes:
   mongo-data:
