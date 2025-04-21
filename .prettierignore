@@ -8,3 +8,4 @@ yarn.json
 /public/build
 /public/_build
 /app/styles/
+/src/i18n/i18n-*.ts

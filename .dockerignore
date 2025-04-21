@@ -1,0 +1,10 @@
+.npmrc
+.nvmrc
+.prettierrc
+.prettierignore
+.typesafe-i18n.json
+LICENSE
+ARCHITECTURE.md
+README.md
+eslint.config.mjs
+.vscode

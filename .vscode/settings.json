@@ -6,6 +6,9 @@
     "**/.DS_Store": true,
     "**/Thumbs.db": true,
     "**/build": true,
-    "**/node_modules": true
+    "**/node_modules": true,
+    // generated files:
+    "src/i18n/i18n-*": true,
+    "src/i18n/formatters.ts": true
   }
 }
