@@ -7,7 +7,7 @@ import {
   Routes,
 } from 'discord.js';
 
-import { getCommandsCollection } from '~/loaders';
+import { getCommandsCollection } from '~/core/loaders';
 
 const registerCommands = async () => {
   const commandsCollection = await getCommandsCollection();

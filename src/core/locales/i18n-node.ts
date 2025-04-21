@@ -1,0 +1,10 @@
+import { i18n } from './i18n-util.js';
+import { loadAllLocales } from './i18n-util.sync.js';
+import type { LocaleTranslationFunctions } from 'typesafe-i18n';
+import type { Locales, Translations, TranslationFunctions } from './i18n-types.js';
+
+loadAllLocales();
+
+export const L: LocaleTranslationFunctions<Locales, Translations, TranslationFunctions> = i18n();
+
+export default L;

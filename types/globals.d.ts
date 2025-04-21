@@ -1,13 +1,14 @@
 import { Snowflake } from 'discord.js';
 
-export interface Environment {
-  NODE_ENV: 'production' | 'development' | 'test';
-  TOKEN: string;
-  CLIENT_ID: Snowflake;
-  APPLICATION_ID: Snowflake;
-}
-
 declare global {
+  interface Environment {
+    NODE_ENV: 'production' | 'development' | 'test';
+    TOKEN: string;
+    CLIENT_ID: Snowflake;
+    APPLICATION_ID: Snowflake;
+    ENV: 'docker' | undefined;
+  }
+
   interface Window {
     env: Environment;
   }
@@ -16,3 +17,5 @@ declare global {
     interface ProcessEnv extends Environment {}
   }
 }
+
+export {};

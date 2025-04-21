@@ -8,10 +8,12 @@
  *  (c) schmaenjael
  */
 
-import { Client, Logger } from '~/models';
-import { loadEnvironment } from '~/loaders';
+import { loadEnvironment } from '~/core/loaders';
+import { loadAllLocales } from '~/core/locales';
+import { Client } from '~/core/models';
 
 const client = Client.getInstance();
 loadEnvironment();
+loadAllLocales();
 
 client.start();
