@@ -1,0 +1,57 @@
+services:
+  wattson:
+    profiles: ['production']
+    build:
+      context: .
+      dockerfile: Dockerfile.wattson
+      args:
+        NODE_ENV: 'production'
+    container_name: wattson
+    environment:
+      - TOKEN=${TOKEN:?err}
+      - CLIENT_ID=${CLIENT_ID:?err}
+      - APPLICATION_ID=${APPLICATION_ID:?err}
+      - NODE_ENV=${NODE_ENV:?err}
+      - MONGO_URI=${MONGO_URI:?err}
+      - MONGO_USERNAME=${MONGO_USERNAME:?err}
+      - MONGO_PASSWORD=${MONGO_PASSWORD:?err}
+      - MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE:?err}
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+    networks:
+      - wattson-net
+  mongodb:
+    profiles: ['production', 'development']
+    build:
+      context: .
+      dockerfile: Dockerfile.mongodb
+    container_name: mongodb
+    ports:
+      - '27017:27017'
+    environment:
+      MONGO_USERNAME: ${MONGO_USERNAME:?err}
+      MONGO_PASSWORD: ${MONGO_PASSWORD:?err}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:?err}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:?err}
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE:?err}
+    volumes:
+      - mongo-data:/data/db
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'mongo', '--eval', "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
+    networks:
+      - wattson-net
+networks:
+  wattson-net:
+    driver: bridge
+volumes:
+  mongo-data:

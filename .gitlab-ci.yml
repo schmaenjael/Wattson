@@ -1,0 +1,12 @@
+stages:
+  - lint
+
+lint:
+  stage: lint
+  image: oven/bun:latest
+  script:
+    - bun install
+    - bun run script:lint
+  only:
+    - merge_requests
+    - main
