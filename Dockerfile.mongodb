@@ -1,12 +1,14 @@
 FROM mongo:8.0.8
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends gettext-base \
+ && apt-get install -y --no-install-recommends gettext-base dos2unix dash \
  && rm -rf /var/lib/apt/lists/*
+
 
 COPY ./scripts/init-db.template.js /tmp/init-db.template.js
 COPY ./scripts/entrypoint.sh /opt/scripts/entrypoint.sh
 
-RUN chmod +x /opt/scripts/entrypoint.sh
+RUN dos2unix /opt/scripts/entrypoint.sh \
+ && chmod +x /opt/scripts/entrypoint.sh
 
 ENTRYPOINT ["/opt/scripts/entrypoint.sh"]

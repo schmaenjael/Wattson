@@ -16,8 +16,8 @@ services:
       - MONGO_USERNAME=${MONGO_USERNAME:?err}
       - MONGO_PASSWORD=${MONGO_PASSWORD:?err}
       - MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE:?err}
-    # depends_on:
-    #   - mongodb
+    depends_on:
+      - mongodb
     restart: unless-stopped
     networks:
       - wattson-net
