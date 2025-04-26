@@ -1,0 +1,10 @@
+.npmrc
+.nvmrc
+.prettierrc
+.prettierignore
+LICENSE
+ARCHITECTURE.md
+README.md
+eslint.config.mjs
+.vscode
+/node_modules
