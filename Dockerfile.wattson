@@ -1,0 +1,26 @@
+FROM oven/bun:latest
+
+WORKDIR /home/bun/app
+
+COPY package*.json ./
+COPY bun.lock ./
+COPY tsconfig.json ./
+
+COPY bot.config.ts ./
+COPY .typesafe-i18n.json ./
+
+COPY src ./src
+COPY types ./types
+COPY scripts ./scripts
+COPY assets ./assets
+
+RUN bun install --frozen-lockfile --no-progress
+
+# default $NODE_ENV, overwrite in docker-compose.yml
+ARG NODE_ENV=production
+ENV NODE_ENV=${NODE_ENV}
+
+# build project if $NODE_ENV = production and execute command registry (rate limited!)
+RUN if [ "$NODE_ENV" = "production" ]; then bun run build && bun run ./build/scripts/register-commands.js ; fi
+
+CMD ["bun", "start"]

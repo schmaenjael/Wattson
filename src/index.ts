@@ -1,35 +1,18 @@
-import { Client, Events, GatewayIntentBits, MessageFlags } from 'discord.js';
+/*
+ *  __          __  _______ _______ _____  ____  _   _
+ *  \ \        / /\|__   __|__   __/ ____|/ __ \| \ | |
+ *   \ \  /\  / /  \  | |     | | | (___ | |  | |  \| |
+ *    \ \/  \/ / /\ \ | |     | |  \___ \| |  | | . ` |
+ *     \  /\  / ____ \| |     | |  ____) | |__| | |\  |
+ *      \/  \/_/    \_|_|     |_| |_____/ \____/|_| \_|
+ *  (c) schmaenjael
+ */
 
-import { commandsCollection } from '~/commands/';
+import { loadEnvironment } from '~/core/loaders';
+import { loadAllLocales } from '~/core/locales';
+import { loadDatabase } from '~/database';
+import { Client } from '~/core/models';
 
-import 'dotenv/config';
+const client = Client.getInstance();
 
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-  ],
-});
-
-client.on(Events.ClientReady, (readyClient) => console.log(`Logged in as ${readyClient.user.tag}!`));
-
-client.on(Events.InteractionCreate, async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
-
-  const command = commandsCollection.get(interaction.commandName);
-
-  if (!command) {
-    console.error(`No command matching ${interaction.commandName} was found.`);
-    return;
-  }
-
-  try {
-    await command.execute(interaction);
-  } catch (error) {
-    console.error(error);
-  }
-});
-
-await client.login(process.env.TOKEN);
+Promise.all([loadEnvironment(), loadAllLocales(), loadDatabase()]).then(() => client.start());
