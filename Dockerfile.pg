@@ -1,0 +1,11 @@
+FROM postgres:15
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends gettext-base dos2unix \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY ./scripts/init-db.template.sql /tmp/scripts/init-db.template.sql
+COPY ./scripts/init-db.sh /docker-entrypoint-initdb.d/init-db.sh
+
+RUN dos2unix /docker-entrypoint-initdb.d/init-db.sh \
+ && chmod +x /docker-entrypoint-initdb.d/init-db.sh

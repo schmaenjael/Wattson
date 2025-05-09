@@ -12,34 +12,31 @@ services:
       - CLIENT_ID=${CLIENT_ID:?err}
       - APPLICATION_ID=${APPLICATION_ID:?err}
       - NODE_ENV=${NODE_ENV:?err}
-      - MONGO_URI=${MONGO_URI:?err}
-      - MONGO_USERNAME=${MONGO_USERNAME:?err}
-      - MONGO_PASSWORD=${MONGO_PASSWORD:?err}
-      - MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE:?err}
+      - POSTGRES_HOST=postgres
     depends_on:
       - mongodb
     restart: unless-stopped
     networks:
       - wattson-net
-  mongodb:
+  postgres:
     profiles: ['production', 'development']
     build:
       context: .
-      dockerfile: Dockerfile.mongodb
-    container_name: mongodb
+      dockerfile: Dockerfile.pg
+    container_name: postgres
     ports:
-      - '27017:27017'
+      - '5432:5432'
     environment:
-      MONGO_USERNAME: ${MONGO_USERNAME:?err}
-      MONGO_PASSWORD: ${MONGO_PASSWORD:?err}
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:?err}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:?err}
-      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE:?err}
+      POSTGRES_USER: ${POSTGRES_USER:?err}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?err}
+      POSTGRES_DB: ${POSTGRES_DB:?err}
+      BOT_USERNAME: ${BOT_USERNAME:?err}
+      BOT_PASSWORD: ${BOT_PASSWORD:?err}
     volumes:
-      - mongo-data:/data/db
+      - postgres-data:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ['CMD', 'mongo', '--eval', "db.adminCommand('ping')"]
+      test: ['CMD-SHELL', 'pg_isready -U ${BOT_USERNAME} -d ${POSTGRES_DB}']
       interval: 30s
       timeout: 5s
       retries: 5
@@ -54,4 +51,4 @@ networks:
   wattson-net:
     driver: bridge
 volumes:
-  mongo-data:
+  postgres-data:
