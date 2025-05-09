@@ -1,14 +1,27 @@
 import type { BaseTranslation } from '../i18n-types.js';
 
 const en = {
-  GENERAL: { EMBED_FOOTER_TEXT: 'Wattson, in service for Europe' },
+  SYSTEM: {
+    STATUS: {
+      STATE: 'Startup Status',
+      SERVICE_LATENCY: 'Service Latency',
+      SERVICE_LAUNCH_TIME: 'Launch Time',
+      SERVICE_UPTIME: 'Service Uptime',
+      API_LATENCY: 'API Latency',
+      DATABASE: 'Database Connection',
+      SHARDS: 'Shard Count',
+      LOADED_COMMANDS: 'Loaded Commands',
+    },
+    EVENT_READY: {
+      EMBED_TITLE: 'Wattson - Always at your service',
+      EMBED_DESCRIPTION: 'The honorable detective Watson is now online and ready to serve.',
+    },
+  },
+  GENERAL: { WATTSON_IN_SERVICE: 'Wattson, in service for Europe' },
   UTIL: {
-    PING: {
-      RESPONSE_TITLE: 'Wattson - Constable Pong',
-      RESPONSE_DESCRIPTION: 'Ah! A signal most curious — I daresay, the latency is but a fleeting whisper..',
-      RESPONSE_FIELD_SERVICE_LATENCY: 'Service Latency',
-      RESPONSE_FIELD_SERVICE_UPTIME: 'Service Uptime',
-      RESPONSE_FIELD_API_LATENCY: 'API Latency',
+    COMMAND_PING: {
+      EMBED_TITLE: 'Wattson - Constable Pong',
+      EMBED_DESCRIPTION: 'Ah! A signal most curious — I daresay, the latency is but a fleeting whisper..',
     },
   },
 } satisfies BaseTranslation;

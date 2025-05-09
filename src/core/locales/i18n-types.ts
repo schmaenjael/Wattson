@@ -14,67 +14,135 @@ export type Translation = RootTranslation
 export type Translations = RootTranslation
 
 type RootTranslation = {
+	SYSTEM: {
+		STATUS: {
+			/**
+			 * S​t​a​r​t​u​p​ ​S​t​a​t​u​s
+			 */
+			STATE: string
+			/**
+			 * S​e​r​v​i​c​e​ ​L​a​t​e​n​c​y
+			 */
+			SERVICE_LATENCY: string
+			/**
+			 * L​a​u​n​c​h​ ​T​i​m​e
+			 */
+			SERVICE_LAUNCH_TIME: string
+			/**
+			 * S​e​r​v​i​c​e​ ​U​p​t​i​m​e
+			 */
+			SERVICE_UPTIME: string
+			/**
+			 * A​P​I​ ​L​a​t​e​n​c​y
+			 */
+			API_LATENCY: string
+			/**
+			 * D​a​t​a​b​a​s​e​ ​C​o​n​n​e​c​t​i​o​n
+			 */
+			DATABASE: string
+			/**
+			 * S​h​a​r​d​ ​C​o​u​n​t
+			 */
+			SHARDS: string
+			/**
+			 * L​o​a​d​e​d​ ​C​o​m​m​a​n​d​s
+			 */
+			LOADED_COMMANDS: string
+		}
+		EVENT_READY: {
+			/**
+			 * W​a​t​t​s​o​n​ ​-​ ​A​l​w​a​y​s​ ​a​t​ ​y​o​u​r​ ​s​e​r​v​i​c​e
+			 */
+			EMBED_TITLE: string
+			/**
+			 * T​h​e​ ​h​o​n​o​r​a​b​l​e​ ​C​o​n​s​t​a​b​l​e​ ​i​s​ ​n​o​w​ ​o​n​l​i​n​e​ ​a​n​d​ ​r​e​a​d​y​ ​t​o​ ​s​e​r​v​e​.
+			 */
+			EMBED_DESCRIPTION: string
+		}
+	}
 	GENERAL: {
 		/**
 		 * W​a​t​t​s​o​n​,​ ​i​n​ ​s​e​r​v​i​c​e​ ​f​o​r​ ​E​u​r​o​p​e
 		 */
-		EMBED_FOOTER_TEXT: string
+		WATTSON_IN_SERVICE: string
 	}
 	UTIL: {
-		PING: {
+		COMMAND_PING: {
 			/**
 			 * W​a​t​t​s​o​n​ ​-​ ​C​o​n​s​t​a​b​l​e​ ​P​o​n​g
 			 */
-			RESPONSE_TITLE: string
+			EMBED_TITLE: string
 			/**
 			 * A​h​!​ ​A​ ​s​i​g​n​a​l​ ​m​o​s​t​ ​c​u​r​i​o​u​s​ ​—​ ​I​ ​d​a​r​e​s​a​y​,​ ​t​h​e​ ​l​a​t​e​n​c​y​ ​i​s​ ​b​u​t​ ​a​ ​f​l​e​e​t​i​n​g​ ​w​h​i​s​p​e​r​.​.
 			 */
-			RESPONSE_DESCRIPTION: string
-			/**
-			 * S​e​r​v​i​c​e​ ​L​a​t​e​n​c​y
-			 */
-			RESPONSE_FIELD_SERVICE_LATENCY: string
-			/**
-			 * S​e​r​v​i​c​e​ ​U​p​t​i​m​e
-			 */
-			RESPONSE_FIELD_SERVICE_UPTIME: string
-			/**
-			 * A​P​I​ ​L​a​t​e​n​c​y
-			 */
-			RESPONSE_FIELD_API_LATENCY: string
+			EMBED_DESCRIPTION: string
 		}
 	}
 }
 
 export type TranslationFunctions = {
+	SYSTEM: {
+		STATUS: {
+			/**
+			 * Startup Status
+			 */
+			STATE: () => LocalizedString
+			/**
+			 * Service Latency
+			 */
+			SERVICE_LATENCY: () => LocalizedString
+			/**
+			 * Launch Time
+			 */
+			SERVICE_LAUNCH_TIME: () => LocalizedString
+			/**
+			 * Service Uptime
+			 */
+			SERVICE_UPTIME: () => LocalizedString
+			/**
+			 * API Latency
+			 */
+			API_LATENCY: () => LocalizedString
+			/**
+			 * Database Connection
+			 */
+			DATABASE: () => LocalizedString
+			/**
+			 * Shard Count
+			 */
+			SHARDS: () => LocalizedString
+			/**
+			 * Loaded Commands
+			 */
+			LOADED_COMMANDS: () => LocalizedString
+		}
+		EVENT_READY: {
+			/**
+			 * Wattson - Always at your service
+			 */
+			EMBED_TITLE: () => LocalizedString
+			/**
+			 * The honorable Constable is now online and ready to serve.
+			 */
+			EMBED_DESCRIPTION: () => LocalizedString
+		}
+	}
 	GENERAL: {
 		/**
 		 * Wattson, in service for Europe
 		 */
-		EMBED_FOOTER_TEXT: () => LocalizedString
+		WATTSON_IN_SERVICE: () => LocalizedString
 	}
 	UTIL: {
-		PING: {
+		COMMAND_PING: {
 			/**
 			 * Wattson - Constable Pong
 			 */
-			RESPONSE_TITLE: () => LocalizedString
+			EMBED_TITLE: () => LocalizedString
 			/**
 			 * Ah! A signal most curious — I daresay, the latency is but a fleeting whisper..
 			 */
-			RESPONSE_DESCRIPTION: () => LocalizedString
-			/**
-			 * Service Latency
-			 */
-			RESPONSE_FIELD_SERVICE_LATENCY: () => LocalizedString
-			/**
-			 * Service Uptime
-			 */
-			RESPONSE_FIELD_SERVICE_UPTIME: () => LocalizedString
-			/**
-			 * API Latency
-			 */
-			RESPONSE_FIELD_API_LATENCY: () => LocalizedString
+			EMBED_DESCRIPTION: () => LocalizedString
 		}
 	}
 }

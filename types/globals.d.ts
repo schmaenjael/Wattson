@@ -6,10 +6,12 @@ declare global {
     TOKEN: string;
     CLIENT_ID: Snowflake;
     APPLICATION_ID: Snowflake;
-    MONGO_URI: string;
-    MONGO_PASSWORD: string;
-    MONGO_USERNAME: string;
-    MONGO_INITDB_DATABASE: string;
+    POSTGRES_USER: string;
+    POSTGRES_PASSWORD: string;
+    POSTGRES_DB: string;
+    BOT_USERNAME: string;
+    BOT_PASSWORD: string;
+    POSTGRES_HOST: string;
   }
 
   interface Window {

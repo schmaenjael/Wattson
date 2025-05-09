@@ -1,10 +1,9 @@
 import { Events, MessageFlags } from 'discord.js';
 
-import { Event } from '~/core/models';
-import { AppFeature } from '~/settings';
-import { Logger } from '~/utilities';
-
 import { usePermissions } from '~/core/middleware';
+import { AppFeature } from '~/settings';
+import { Event } from '~/core/models';
+import { Logger } from '~/utilities';
 
 export default new Event({
   name: Events.InteractionCreate,
