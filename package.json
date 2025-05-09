@@ -13,7 +13,7 @@
     "build": "tsc --build",
     "dev": "concurrently \"bun:dev:*\"",
     "dev:tsc": "bun --watch  \"./src/index.ts\" | pino-pretty",
-    "dev:typesafe-i18n": "typesafe-i18n",
+    "dev:typesafe-i18n": "typesafe-i18n --watch",
     "script": "concurrently \"bun:script:*\"",
     "script:lint": "eslint --cache",
     "script:format": "prettier --write --log-level warn .",
@@ -26,8 +26,11 @@
   ],
   "dependencies": {
     "@discordjs/rest": "^2.4.3",
+    "@types/pg": "^8.11.14",
     "discord.js": "^14.18.0",
-    "mongoose": "^8.13.2",
+    "dotenv": "^16.5.0",
+    "drizzle-orm": "^0.43.1",
+    "pg": "^8.15.6",
     "pino": "^9.6.0",
     "typesafe-i18n": "^5.26.2"
   },
@@ -38,6 +41,7 @@
     "@typescript-eslint/eslint-plugin": "^6.7.4",
     "chalk": "4.1.2",
     "concurrently": "^9.1.2",
+    "drizzle-kit": "^0.31.1",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prefer-arrow": "^1.2.3",
@@ -49,6 +53,6 @@
     "typescript-eslint": "^8.28.0"
   },
   "engines": {
-    "node": ">=20.9.0"
+    "bun": ">=1.2.8"
   }
 }
