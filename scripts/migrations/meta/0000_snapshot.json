@@ -1,0 +1,290 @@
+{
+  "id": "cba4cfb9-7798-4b3c-8a49-f8017cab2865",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.tblBans": {
+      "name": "tblBans",
+      "schema": "",
+      "columns": {
+        "id": { "name": "id", "type": "serial", "primaryKey": true, "notNull": true },
+        "fkUserTargetId": { "name": "fkUserTargetId", "type": "serial", "primaryKey": false, "notNull": true },
+        "fkModeratorId": { "name": "fkModeratorId", "type": "serial", "primaryKey": false, "notNull": true },
+        "fkGuildId": { "name": "fkGuildId", "type": "serial", "primaryKey": false, "notNull": true },
+        "createdAt": { "name": "createdAt", "type": "timestamp with time zone", "primaryKey": false, "notNull": true, "default": "now()" },
+        "expiresAt": { "name": "expiresAt", "type": "timestamp with time zone", "primaryKey": false, "notNull": false },
+        "comment": { "name": "comment", "type": "varchar(512)", "primaryKey": false, "notNull": false },
+        "appealable": { "name": "appealable", "type": "boolean", "primaryKey": false, "notNull": true },
+        "successfullyAppealed": { "name": "successfullyAppealed", "type": "boolean", "primaryKey": false, "notNull": false }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "tblBans_fkUserTargetId_tblUsers_id_fk": {
+          "name": "tblBans_fkUserTargetId_tblUsers_id_fk",
+          "tableFrom": "tblBans",
+          "tableTo": "tblUsers",
+          "columnsFrom": ["fkUserTargetId"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "tblBans_fkModeratorId_tblUsers_id_fk": {
+          "name": "tblBans_fkModeratorId_tblUsers_id_fk",
+          "tableFrom": "tblBans",
+          "tableTo": "tblUsers",
+          "columnsFrom": ["fkModeratorId"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "tblBans_fkGuildId_tblGuild_id_fk": {
+          "name": "tblBans_fkGuildId_tblGuild_id_fk",
+          "tableFrom": "tblBans",
+          "tableTo": "tblGuild",
+          "columnsFrom": ["fkGuildId"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.tblGuild": {
+      "name": "tblGuild",
+      "schema": "",
+      "columns": {
+        "id": { "name": "id", "type": "serial", "primaryKey": true, "notNull": true },
+        "guildId": { "name": "guildId", "type": "char(20)", "primaryKey": false, "notNull": true },
+        "prefix": { "name": "prefix", "type": "char(1)", "primaryKey": false, "notNull": true },
+        "reportLogChannel": { "name": "reportLogChannel", "type": "char(20)", "primaryKey": false, "notNull": false },
+        "warningLogChannel": { "name": "warningLogChannel", "type": "char(20)", "primaryKey": false, "notNull": false },
+        "automodLogChannel": { "name": "automodLogChannel", "type": "char(20)", "primaryKey": false, "notNull": false },
+        "banLogChannel": { "name": "banLogChannel", "type": "char(20)", "primaryKey": false, "notNull": false },
+        "config": { "name": "config", "type": "jsonb", "primaryKey": false, "notNull": true },
+        "joinedAt": { "name": "joinedAt", "type": "timestamp with time zone", "primaryKey": false, "notNull": true, "default": "now()" }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": { "tblGuild_guildId_unique": { "name": "tblGuild_guildId_unique", "nullsNotDistinct": false, "columns": ["guildId"] } },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.tblReports": {
+      "name": "tblReports",
+      "schema": "",
+      "columns": {
+        "id": { "name": "id", "type": "serial", "primaryKey": true, "notNull": true },
+        "fkUserReportedId": { "name": "fkUserReportedId", "type": "serial", "primaryKey": false, "notNull": true },
+        "fkUserReporterId": { "name": "fkUserReporterId", "type": "serial", "primaryKey": false, "notNull": true },
+        "fkGuildId": { "name": "fkGuildId", "type": "serial", "primaryKey": false, "notNull": true },
+        "createdAt": { "name": "createdAt", "type": "timestamp with time zone", "primaryKey": false, "notNull": true, "default": "now()" },
+        "comment": { "name": "comment", "type": "varchar(512)", "primaryKey": false, "notNull": false }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "tblReports_fkUserReportedId_tblUsers_id_fk": {
+          "name": "tblReports_fkUserReportedId_tblUsers_id_fk",
+          "tableFrom": "tblReports",
+          "tableTo": "tblUsers",
+          "columnsFrom": ["fkUserReportedId"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "tblReports_fkUserReporterId_tblUsers_id_fk": {
+          "name": "tblReports_fkUserReporterId_tblUsers_id_fk",
+          "tableFrom": "tblReports",
+          "tableTo": "tblUsers",
+          "columnsFrom": ["fkUserReporterId"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "tblReports_fkGuildId_tblGuild_id_fk": {
+          "name": "tblReports_fkGuildId_tblGuild_id_fk",
+          "tableFrom": "tblReports",
+          "tableTo": "tblGuild",
+          "columnsFrom": ["fkGuildId"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.tblRoles": {
+      "name": "tblRoles",
+      "schema": "",
+      "columns": {
+        "id": { "name": "id", "type": "serial", "primaryKey": true, "notNull": true },
+        "discordId": { "name": "discordId", "type": "char(20)", "primaryKey": false, "notNull": true },
+        "fkGuildId": { "name": "fkGuildId", "type": "serial", "primaryKey": false, "notNull": true }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "tblRoles_fkGuildId_tblGuild_id_fk": {
+          "name": "tblRoles_fkGuildId_tblGuild_id_fk",
+          "tableFrom": "tblRoles",
+          "tableTo": "tblGuild",
+          "columnsFrom": ["fkGuildId"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.tblStatistics": {
+      "name": "tblStatistics",
+      "schema": "",
+      "columns": {
+        "id": { "name": "id", "type": "serial", "primaryKey": true, "notNull": true },
+        "fkGuildId": { "name": "fkGuildId", "type": "serial", "primaryKey": false, "notNull": true },
+        "name": { "name": "name", "type": "varchar(100)", "primaryKey": false, "notNull": true },
+        "value": { "name": "value", "type": "jsonb", "primaryKey": false, "notNull": true },
+        "recordedAt": { "name": "recordedAt", "type": "timestamp with time zone", "primaryKey": false, "notNull": true, "default": "now()" }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "tblStatistics_fkGuildId_tblGuild_id_fk": {
+          "name": "tblStatistics_fkGuildId_tblGuild_id_fk",
+          "tableFrom": "tblStatistics",
+          "tableTo": "tblGuild",
+          "columnsFrom": ["fkGuildId"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.tblUsers": {
+      "name": "tblUsers",
+      "schema": "",
+      "columns": {
+        "id": { "name": "id", "type": "serial", "primaryKey": true, "notNull": true },
+        "discordId": { "name": "discordId", "type": "char(20)", "primaryKey": false, "notNull": true },
+        "username": { "name": "username", "type": "char(32)", "primaryKey": false, "notNull": true },
+        "joinedDiscord": { "name": "joinedDiscord", "type": "timestamp with time zone", "primaryKey": false, "notNull": true, "default": "now()" },
+        "partyMember": { "name": "partyMember", "type": "boolean", "primaryKey": false, "notNull": true }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "tblUsers_discordId_unique": { "name": "tblUsers_discordId_unique", "nullsNotDistinct": false, "columns": ["discordId"] }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.tblUsersInGuild": {
+      "name": "tblUsersInGuild",
+      "schema": "",
+      "columns": {
+        "id": { "name": "id", "type": "serial", "primaryKey": true, "notNull": true },
+        "fkGuildId": { "name": "fkGuildId", "type": "serial", "primaryKey": false, "notNull": true },
+        "fkUserId": { "name": "fkUserId", "type": "serial", "primaryKey": false, "notNull": true }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "tblUsersInGuild_fkGuildId_tblGuild_id_fk": {
+          "name": "tblUsersInGuild_fkGuildId_tblGuild_id_fk",
+          "tableFrom": "tblUsersInGuild",
+          "tableTo": "tblGuild",
+          "columnsFrom": ["fkGuildId"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "tblUsersInGuild_fkUserId_tblUsers_id_fk": {
+          "name": "tblUsersInGuild_fkUserId_tblUsers_id_fk",
+          "tableFrom": "tblUsersInGuild",
+          "tableTo": "tblUsers",
+          "columnsFrom": ["fkUserId"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.tblWarnings": {
+      "name": "tblWarnings",
+      "schema": "",
+      "columns": {
+        "id": { "name": "id", "type": "serial", "primaryKey": true, "notNull": true },
+        "fkUserTargetId": { "name": "fkUserTargetId", "type": "serial", "primaryKey": false, "notNull": true },
+        "fkModeratorId": { "name": "fkModeratorId", "type": "serial", "primaryKey": false, "notNull": true },
+        "fkGuildId": { "name": "fkGuildId", "type": "serial", "primaryKey": false, "notNull": true },
+        "createdAt": { "name": "createdAt", "type": "timestamp with time zone", "primaryKey": false, "notNull": true, "default": "now()" },
+        "comment": { "name": "comment", "type": "varchar(512)", "primaryKey": false, "notNull": false }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "tblWarnings_fkUserTargetId_tblUsers_id_fk": {
+          "name": "tblWarnings_fkUserTargetId_tblUsers_id_fk",
+          "tableFrom": "tblWarnings",
+          "tableTo": "tblUsers",
+          "columnsFrom": ["fkUserTargetId"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "tblWarnings_fkModeratorId_tblUsers_id_fk": {
+          "name": "tblWarnings_fkModeratorId_tblUsers_id_fk",
+          "tableFrom": "tblWarnings",
+          "tableTo": "tblUsers",
+          "columnsFrom": ["fkModeratorId"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "tblWarnings_fkGuildId_tblGuild_id_fk": {
+          "name": "tblWarnings_fkGuildId_tblGuild_id_fk",
+          "tableFrom": "tblWarnings",
+          "tableTo": "tblGuild",
+          "columnsFrom": ["fkGuildId"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": { "columns": {}, "schemas": {}, "tables": {} }
+}
