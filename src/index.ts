@@ -10,9 +10,20 @@
 
 import { loadEnvironment } from '~/core/loaders';
 import { loadAllLocales } from '~/core/locales';
-import { loadDatabase } from '~/database';
 import { Client } from '~/core/models';
+import { Logger, Utils } from '~/utilities';
+import { ProcessExitCode } from './settings';
+import DatabaseClient from '~/database';
 
 const client = Client.getInstance();
 
-Promise.all([loadEnvironment(), loadAllLocales(), loadDatabase()]).then(() => client.start());
+Promise.all([
+  Utils.measurePerformance(loadEnvironment, 'loading environment variables')(),
+  Utils.measurePerformance(loadAllLocales, 'loading localization (i18n)')(),
+  Utils.measurePerformance(DatabaseClient.loadDatabase, 'initializing database connection')(),
+])
+  .then(() => client.start())
+  .catch((error) => {
+    Logger.getInstance().fatal(Object(error), `Failed to start the server, due to an error.`);
+    process.exit(ProcessExitCode.ERROR);
+  });

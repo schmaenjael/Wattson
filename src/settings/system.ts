@@ -71,3 +71,8 @@ export const appFeatureMap: { [K in AppFeature]: { category: Categories; namespa
   [AppFeature.System]: { category: SystemCategories.System, namespace: LogNamespace.System, color: Colors.Yellow },
   [AppFeature.Database]: { category: SystemCategories.Database, namespace: LogNamespace.Database, color: Colors.Yellow },
 } as const;
+
+export const SNOWFLAKE_ID_LENGTH = 20;
+export const MAX_PREFIX_LENGTH = 1;
+export const USERNAME_LENGTH = 32;
+export const MAX_COMMENT_LENGTH = 512;

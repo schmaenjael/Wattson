@@ -1,7 +1,6 @@
 import { type Bindings, type ChildLoggerOptions, type Logger as PinoLogger, pino } from 'pino';
 
 import { AppFeature, appFeatureMap, LogNamespace } from '~/settings';
-import { config } from '@/bot.config';
 
 export class Logger {
   private logger: PinoLogger<string, boolean>;
@@ -14,7 +13,6 @@ export class Logger {
       redact: { paths: process.env.NODE_ENV !== 'development' ? ['*.token', 'token'] : [], censor: '[REDACTED]' },
       timestamp: () => `,"timestamp":"${new Date(Date.now()).toISOString()}"`,
       formatters: { level: (label: string) => ({ level: label.toUpperCase() }) },
-      transport: config.appLog[process.env.NODE_ENV],
     });
   }
 
