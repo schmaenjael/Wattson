@@ -1,12 +1,13 @@
-import { Client as _Client, ActivityType, ClientOptions, Collection, GatewayIntentBits, Partials } from 'discord.js';
+import { Client as _Client, ActivityType, ApplicationCommandType, ClientOptions, Collection, GatewayIntentBits, Partials } from 'discord.js';
 
-import { loadEvents, loadCommands } from '~/core/loaders';
+import { loadEvents, loadSlashCommands, loadTextCommands } from '~/core/loaders';
 import { Logger, Utils } from '~/utilities';
 import { Command } from '~/core/models';
+import DatabaseClient from '~/database';
 
 export class Client extends _Client {
   private static instance: Client | null = null;
-  private commands = new Collection<string, Command>();
+  private commands = new Collection<string, Command<ApplicationCommandType>>();
 
   private constructor() {
     super({
@@ -46,7 +47,7 @@ export class Client extends _Client {
     return this.instance;
   }
 
-  public setCommands(commands: Collection<string, Command>) {
+  public setCommands(commands: Collection<string, Command<ApplicationCommandType>>) {
     this.commands = Object.freeze(commands);
   }
 
@@ -55,7 +56,7 @@ export class Client extends _Client {
   }
 
   public start() {
-    Promise.all([Utils.measurePerformance(() => loadEvents(this), 'events')(), Utils.measurePerformance(() => loadCommands(this), 'commands')()])
+    Promise.all([Utils.measurePerformance(() => loadEvents(this), 'events')(), Utils.measurePerformance(() => loadSlashCommands(this), 'commands')()])
       .then(() =>
         this.login(process.env.TOKEN).then(() => Logger.getInstance().info(`Successfully initialized bot <@${process.env.APPLICATION_ID}>.`))
       )

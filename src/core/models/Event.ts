@@ -1,4 +1,4 @@
-import { ClientEvents, Interaction } from 'discord.js';
+import { ClientEvents } from 'discord.js';
 
 import { EventOptions } from '~/core/types';
 import { Client } from '~/core/models';
@@ -18,6 +18,6 @@ export class Event<T extends keyof ClientEvents = any> {
 
     middleware?.forEach((apply) => this.execute.bind(apply(this, client, ...args)));
 
-    await executeCommand(client, ...args);
+    await executeCommand(this, client, ...args);
   }
 }
