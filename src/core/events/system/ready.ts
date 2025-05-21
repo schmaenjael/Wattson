@@ -9,14 +9,14 @@ import { L } from '~/core/locales';
 import { BigColumnPadding, SmallRowPadding } from '~/core/components/padding';
 
 export default new Event({
-  name: Events.ClientReady,
+  type: Events.ClientReady,
   feature: AppFeature.System,
   once: true,
   middleware: [],
-  async executeCommand(client, interaction) {
+  async executeCommand(event, client, interaction) {
     const logger = Logger.getInstance();
     const db = DatabaseClient.getInstance();
-    const guilds = await db.select({ guildId: tblGuild.guildId }).from(tblGuild);
+    const guilds = await db.select({ guildId: tblGuild.id }).from(tblGuild);
 
     guilds.forEach(async ({ guildId }) => {
       const config = await DatabaseClient.loadConfig(guildId);
@@ -34,7 +34,7 @@ export default new Event({
       await channel.send({
         embeds: [
           new EmbedBuilder()
-            .setColor(appFeatureMap[AppFeature.System].color)
+            .setColor(appFeatureMap[event.options.feature].color)
             .setTitle(L[guild.preferredLocale].SYSTEM.EVENT_READY.EMBED_TITLE())
             .setDescription(`> *${L[guild.preferredLocale].SYSTEM.EVENT_READY.EMBED_DESCRIPTION()}*`)
             .addFields(
@@ -51,7 +51,10 @@ export default new Event({
               BigColumnPadding,
               {
                 name: `📂 ${L[guild.preferredLocale].SYSTEM.STATUS.LOADED_COMMANDS()}`,
-                value: `${client.getCommands().map(({ options }) => `• ${options.data.name} \n`)}`,
+                value: `${client
+                  .getCommands()
+                  .map(({ options }) => `• ${options.data.name}`)
+                  .join('\n')}`,
                 inline: true,
               },
               { name: `👩‍💻 ${L[guild.preferredLocale].SYSTEM.STATUS.SERVICE_LATENCY()}`, value: `${Math.abs(interaction.ws.ping)}ms`, inline: true },

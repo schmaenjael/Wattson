@@ -79,6 +79,37 @@ storyblok-remix-boilerplate
 
 To learn about architecture decisions, please refer to the `ARCHITECTURE` documentation.
 
+## ✨ Features
+
+### Functional Requirements:
+
+- [x] Status-Discord-Log on startup
+- [x] Ping functionality
+- [x] Welcome Message
+- [x] Multi-Guild Handling
+- [ ] RBAC System based on Server Roles
+- [x] Rule centralization
+- [ ] User Beaviour Logging
+- [ ] Automized Verification Process with \[OBSCR\]
+- [ ] Reports
+- [ ] Warns
+- [ ] Statistics
+- [ ] Starboard functionality
+  - [ ] Post to BSKY
+  - [ ] Post to Instagram
+  - [ ] Post to Volt Intranet
+- [ ] Automod of Messages, User Descriptions (maybe via a lightweight LLM?)
+- [ ] Courting functionality
+
+### Non-Functional Requirements:
+
+- [x] Platform Agnostic Deployment (e.g. Docker)
+- [ ] Continuous Deployment via CI/CD
+- [x] Secure
+- [ ] Well-Documented
+- [x] High Performance
+- [ ] Redact sensitve logging
+
 ## 🐛 Bugs
 
 If you have questions, feature requests or a bug you want to report, please click [here](https://github.com/schmaenjael/Wattson/issues) to file an issue.

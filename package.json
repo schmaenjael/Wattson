@@ -13,7 +13,7 @@
     "build": "tsc --build",
     "dev": "concurrently \"bun:dev:*\"",
     "dev:tsc": "bun --watch  \"./src/index.ts\" | pino-pretty",
-    "dev:typesafe-i18n": "typesafe-i18n --watch",
+    "dev:typesafe-i18n": "typesafe-i18n",
     "script": "concurrently \"bun:script:*\"",
     "script:lint": "eslint --cache",
     "script:format": "prettier --write --log-level warn .",

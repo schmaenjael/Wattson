@@ -6,5 +6,8 @@ node_modules
 
 **/*.db
 
+**/_*.sql
+/scripts/migrations
+
 .env
 bot.config.ts
