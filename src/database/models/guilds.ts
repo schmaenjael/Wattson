@@ -5,21 +5,13 @@ import { AppFeature } from '~/settings';
 
 import { SNOWFLAKE_ID_LENGTH } from '~/settings';
 
-type ValidPrefix = '!' | '#' | '$' | '%' | '&' | '+' | '-' | '.' | ':' | ';' | '<' | '=' | '?' | '@' | '\\' | '^' | '|' | '~';
+//? type ValidPrefix = '!' | '#' | '$' | '%' | '&' | '+' | '-' | '.' | ':' | ';' | '<' | '=' | '?' | '@' | '\\' | '^' | '|' | '~';
 
-type Channel = {
-  /** @description channel id*/
-  id: Snowflake;
-};
+type Channel = Snowflake;
 
 type Feature = {
   /** @description if the feature is enabled */
   enabled: boolean;
-};
-
-type SurveillanceLogChannel = Channel & {
-  /** @description the log actions */
-  log: AppFeature[];
 };
 
 type System = {
@@ -27,6 +19,8 @@ type System = {
   notificationChannelId?: Snowflake;
   /** @description if the bot should log the system messages */
   systemNotificationEnabled?: boolean;
+  /** @description in which channels the redacted publicly available actions should be logged */
+  publicLogChannel?: Channel;
 };
 
 type Verification = {
@@ -46,13 +40,23 @@ type Verification = {
 type Surveillance = {
   /** @description which channels the bot should ignore */
   excludedChannels?: Channel[];
-  /** @description in which channels the surveillance and moderator actions should be logged */
-  surveillanceLogChannels?: SurveillanceLogChannel[];
+  /** @description in which channels the surveillance actions should be logged */
+  surveillanceLogChannel?: Channel;
+  /** @description in which channels the reports should be logged */
+  reportsLogChannel?: Channel;
+  /** @description in which channels the warnings should be logged */
+  warningsLogChannel?: Channel;
+  /** @description in which channels the bans should be logged */
+  banLogChannel?: Channel;
 };
 
+/**
+ *  AppConfig specifies the configuration receveid from the Database, stored as JSON
+ *  @see wattson/tblGuild[config]
+ */
 export interface AppConfig {
-  /** @description the prefix the bot should listen too besides slash commands */
-  prefix?: ValidPrefix;
+  /**? @description the prefix the bot should listen too besides slash commands */
+  //? prefix?: ValidPrefix;
   /** @description system relevant configuration */
   system: System & Feature;
   /** @description the surveillance config */
@@ -62,8 +66,7 @@ export interface AppConfig {
 }
 
 export const tblGuild = pgTable('tblGuild', {
-  id: serial('id').primaryKey(),
-  guildId: char('guildId', { length: SNOWFLAKE_ID_LENGTH }).unique().notNull(),
+  id: char('guildId', { length: SNOWFLAKE_ID_LENGTH }).primaryKey().notNull(),
   config: jsonb('config').notNull().$type<AppConfig>(),
   joinedAt: timestamp('joinedAt', { withTimezone: true }).notNull().defaultNow(),
 });

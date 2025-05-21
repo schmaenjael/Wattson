@@ -29,7 +29,7 @@ class DatabaseClient {
         const { config } = await DatabaseClient.instance
           .select({ config: tblGuild.config })
           .from(tblGuild)
-          .where(eq(tblGuild.guildId, guildId))
+          .where(eq(tblGuild.id, guildId))
           .limit(1)
           .then((rows) => rows[0]);
 

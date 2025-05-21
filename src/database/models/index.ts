@@ -5,3 +5,4 @@ export * from './roles';
 export * from './statistics';
 export * from './users';
 export * from './warnings';
+export * from './rules';
