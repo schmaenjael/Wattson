@@ -32,6 +32,7 @@ enum SystemCategories {
 export type Categories = SystemCategories | AbilityCategories;
 
 export enum AppFeature {
+  Welcome = 'Welcome',
   Ping = 'Ping',
   Stats = 'Stats',
   Report = 'Report',
@@ -39,11 +40,12 @@ export enum AppFeature {
   Ban = 'Ban',
   AutomatedWarn = 'AutomatedWarn',
   AutomatedBan = 'AutomatedBan',
-  MessageLogging = 'MessageLogging',
+  Surveillance = 'MessageLogging',
   Kill = 'Kill',
   Restart = 'Restart',
   System = 'System',
   Database = 'Database',
+  Rules = 'Rules',
 }
 
 export enum LogNamespace {
@@ -58,18 +60,20 @@ export enum LogNamespace {
 }
 
 export const appFeatureMap: { [K in AppFeature]: { category: Categories; namespace: LogNamespace; color: HexColorString } } = {
-  [AppFeature.Ping]: { category: AbilityCategories.Utility, namespace: LogNamespace.Utility, color: Colors.White },
+  [AppFeature.Ping]: { category: AbilityCategories.Utility, namespace: LogNamespace.Utility, color: Colors.Orange },
   [AppFeature.Stats]: { category: AbilityCategories.Utility, namespace: LogNamespace.Utility, color: Colors.White },
+  [AppFeature.Rules]: { category: AbilityCategories.Utility, namespace: LogNamespace.Utility, color: Colors.Purple },
   [AppFeature.Report]: { category: AbilityCategories.Surveillance, namespace: LogNamespace.Surveillance, color: Colors.White },
   [AppFeature.Warn]: { category: AbilityCategories.Moderation, namespace: LogNamespace.Moderation, color: Colors.White },
   [AppFeature.Ban]: { category: AbilityCategories.Moderation, namespace: LogNamespace.Moderation, color: Colors.White },
   [AppFeature.AutomatedWarn]: { category: AbilityCategories.Moderation, namespace: LogNamespace.Moderation, color: Colors.White },
   [AppFeature.AutomatedBan]: { category: AbilityCategories.Moderation, namespace: LogNamespace.Moderation, color: Colors.White },
-  [AppFeature.MessageLogging]: { category: AbilityCategories.Surveillance, namespace: LogNamespace.Surveillance, color: Colors.White },
+  [AppFeature.Surveillance]: { category: AbilityCategories.Surveillance, namespace: LogNamespace.Surveillance, color: Colors.White },
   [AppFeature.Kill]: { category: SystemCategories.System, namespace: LogNamespace.System, color: Colors.White },
   [AppFeature.Restart]: { category: SystemCategories.System, namespace: LogNamespace.System, color: Colors.White },
   [AppFeature.System]: { category: SystemCategories.System, namespace: LogNamespace.System, color: Colors.Yellow },
   [AppFeature.Database]: { category: SystemCategories.Database, namespace: LogNamespace.Database, color: Colors.Yellow },
+  [AppFeature.Welcome]: { category: AbilityCategories.Utility, namespace: LogNamespace.Utility, color: Colors.Purple },
 } as const;
 
 export const SNOWFLAKE_ID_LENGTH = 20;

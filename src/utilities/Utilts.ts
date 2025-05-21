@@ -22,4 +22,9 @@ export class Utils {
 
   /** Yields a random Integer */
   public static randomInteger = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+  /** Converts string to Title Case
+   * @see https://stackoverflow.com/questions/196972/convert-string-to-title-case-with-javascript
+   */
+  public static toTitleCase = (str: string) => str.replace(/\w\S*/g, (text) => text.charAt(0).toUpperCase() + text.substring(1).toLowerCase());
 }

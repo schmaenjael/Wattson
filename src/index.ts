@@ -17,13 +17,14 @@ import DatabaseClient from '~/database';
 
 const client = Client.getInstance();
 
+/* Initialize Environment */
 Promise.all([
   Utils.measurePerformance(loadEnvironment, 'loading environment variables')(),
   Utils.measurePerformance(loadAllLocales, 'loading localization (i18n)')(),
   Utils.measurePerformance(DatabaseClient.loadDatabase, 'initializing database connection')(),
 ])
   .then(() => client.start())
-  .catch((error) => {
-    Logger.getInstance().fatal(Object(error), `Failed to start the server, due to an error.`);
+  .catch((error: Error) => {
+    Logger.getInstance().fatal(Object(error), `Failed to start the server, due to ${error.name} unexpectedly being thrown: ${error.cause}`);
     process.exit(ProcessExitCode.ERROR);
   });

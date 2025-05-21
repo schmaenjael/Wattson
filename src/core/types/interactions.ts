@@ -53,16 +53,24 @@ interface Interaction<T> {
 }
 
 export interface EventOptions<T extends keyof ClientEvents> extends Interaction<T> {
-  name: T;
+  type: T;
   once?: boolean;
   middleware?: Array<MiddlewareFunctionEvent<T>>;
-  executeCommand(client: Client, ...args: ClientEvents[T]): Promise<unknown>; //TODO
+  executeCommand(event: Event<T>, client: Client, ...args: ClientEvents[T]): Promise<unknown>; //TODO
 }
 
 export interface CommandOptions<T extends ApplicationCommandType> extends Interaction<T> {
+  type: T;
   data: DataType<T>;
   cooldown?: number;
   middleware?: Array<MiddlewareFunctionCommand<T>>;
   autocomplete?(client: Client, interaction: AutocompleteInteraction): unknown;
+  /**
+   * Defines the command execution after the middleware.
+   * @param command
+   * @param client
+   * @param interaction
+   * @throws RecoverableException or FatalException on error
+   */
   executeCommand(command: Command<T>, client: Client, interaction: InteractionType<T>): Promise<unknown>;
 }
