@@ -1,1 +1,0 @@
-ALTER TABLE "tblGuild" ALTER COLUMN "prefix" DROP NOT NULL;
