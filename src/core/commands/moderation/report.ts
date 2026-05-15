@@ -1,75 +1,86 @@
-import { ApplicationCommandType, MessageFlags, EmbedBuilder, ContextMenuCommandBuilder, TextChannel, InteractionContextType } from 'discord.js';
+import {
+  ActionRowBuilder,
+  ApplicationCommandType,
+  ButtonBuilder,
+  ButtonStyle,
+  ContextMenuCommandBuilder,
+  InteractionContextType,
+  TextChannel,
+} from 'discord.js';
 
-import { type InferSelectModel } from 'drizzle-orm';
 import { appFeatureMap, AppFeature } from '~/settings';
-import { useGuildOnlyMessageCommand } from '~/core/middleware';
 import { baseLocale } from '~/core/locales';
-import { Command, RecoverableException } from '~/core/models';
-import DatabaseClient, { tblReports } from '~/database';
+import { Command, BotException } from '~/core/models';
+import { getSettings, insertReport, recordAuditEvent, upsertUser, AuditEventType } from '~/database';
 
 import { ReportEmbed, ReportReceivedEmbed } from '~/core/components/Report';
 
-const insertReport = async (
-  report: Pick<InferSelectModel<typeof tblReports>, 'fkUserReportedId' | 'fkUserReporterId' | 'fkGuildId' | 'message' | 'channelId' | 'messageLink'>
-): Promise<boolean> => {
-  const db = DatabaseClient.getInstance();
-
-  try {
-    const value = await db.insert(tblReports).values(report).returning();
-    console.log(value);
-    return !!value;
-  } catch (error) {
-    console.error('Error while inserting report into database', error);
-    return false;
-  }
-};
-
 export default new Command<ApplicationCommandType.Message>({
   type: ApplicationCommandType.Message,
-  feature: AppFeature.Ping,
+  feature: AppFeature.Report,
   data: new ContextMenuCommandBuilder().setName('report').setType(ApplicationCommandType.Message).setContexts(InteractionContextType.Guild),
-  middleware: [useGuildOnlyMessageCommand], // gurantees a guild context
-  async executeCommand(command, client, message) {
-    const config = await DatabaseClient.loadConfig(message.guildId!);
+  middleware: [],
+  async executeCommand(command, client, interaction) {
+    const settings = await getSettings();
 
     const reportEmbed = new ReportEmbed({
       color: appFeatureMap[command.options.feature].color,
       locale: baseLocale,
-      authorName: message.targetMessage.author.displayName,
-      authorIcon: message.targetMessage.author.avatarURL() || message.targetMessage.author.defaultAvatarURL,
-      authorId: message.targetMessage.author.id,
-      targetChannel: message.targetMessage.channelId,
-      reporterId: message.user.id,
-      targetUrl: message.targetMessage.url,
+      authorName: interaction.targetMessage.author.displayName,
+      authorIcon: interaction.targetMessage.author.avatarURL() || interaction.targetMessage.author.defaultAvatarURL,
+      authorId: interaction.targetMessage.author.id,
+      targetChannel: interaction.targetMessage.channelId,
+      reporterId: interaction.user.id,
+      targetUrl: interaction.targetMessage.url,
     });
 
     const appreciationEmbed = new ReportReceivedEmbed({
       color: appFeatureMap[command.options.feature].color,
-      locale: message.locale,
-      authorId: message.user.id,
-      targetUrl: message.targetMessage.url,
+      locale: interaction.locale,
+      authorId: interaction.user.id,
+      targetUrl: interaction.targetMessage.url,
     });
 
-    console.log('yes');
+    await Promise.all([
+      upsertUser({ id: interaction.user.id, username: interaction.user.username }),
+      upsertUser({ id: interaction.targetMessage.author.id, username: interaction.targetMessage.author.username }),
+    ]);
 
-    const reportSuccessful = await insertReport({
-      fkUserReportedId: message.targetMessage.author.id,
-      fkUserReporterId: message.user.id,
-      fkGuildId: message.guildId!,
-      message: message.targetMessage.content,
-      channelId: message.targetMessage.channelId,
-      messageLink: message.targetMessage.url,
-    });
-
-    console.log('no');
-
-    const channel = (await message.guild!.channels.fetch(config.surveillance.reportsLogChannel!)) as TextChannel;
-    channel.send({ embeds: [reportEmbed.render()], files: [...reportEmbed.attachments, ...message.targetMessage.attachments.values().toArray()] });
-
-    await message.reply({ embeds: [appreciationEmbed.render()], flags: appreciationEmbed.flags });
-
-    if (!reportSuccessful) {
-      throw new RecoverableException(client, `Error while inserting report into database`);
+    let report;
+    try {
+      report = await insertReport({
+        reporterId: interaction.user.id,
+        reportedUserId: interaction.targetMessage.author.id,
+        channelId: interaction.targetMessage.channelId,
+        messageId: interaction.targetMessage.id,
+        messageContent: interaction.targetMessage.content,
+        messageLink: interaction.targetMessage.url,
+      });
+    } catch (error) {
+      throw new BotException(client, 'Error while inserting report into database', error);
     }
+
+    await recordAuditEvent({
+      eventType: AuditEventType.ReportFiled,
+      actorUserId: interaction.user.id,
+      targetUserId: interaction.targetMessage.author.id,
+      payload: { reportId: report.id, messageLink: interaction.targetMessage.url },
+    });
+
+    if (settings.reportsLogChannelId) {
+      const channel = (await interaction.guild!.channels.fetch(settings.reportsLogChannelId)) as TextChannel;
+      const actionRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setCustomId(`report:dismiss:${report.id}`).setLabel('Dismiss').setEmoji('❌').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(`report:warn:${report.id}`).setLabel('Warn').setEmoji('⚠️').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId(`report:ban:${report.id}`).setLabel('Ban').setEmoji('🔨').setStyle(ButtonStyle.Danger)
+      );
+      await channel.send({
+        embeds: [reportEmbed.render()],
+        files: [...reportEmbed.attachments, ...interaction.targetMessage.attachments.values().toArray()],
+        components: [actionRow],
+      });
+    }
+
+    await interaction.reply({ embeds: [appreciationEmbed.render()], flags: appreciationEmbed.flags });
   },
 });
