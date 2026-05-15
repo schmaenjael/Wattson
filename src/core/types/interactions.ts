@@ -14,7 +14,7 @@ import type {
 } from 'discord.js';
 
 import type { Client, Permission, Event, Command } from '~/core/models';
-import type { AppFeature } from '~/settings';
+import type { AppFeature, ProcessExitCode } from '~/settings';
 
 export type InteractionType<CommandType extends ApplicationCommandType> = CommandType extends ApplicationCommandType.ChatInput
   ? ChatInputCommandInteraction
@@ -39,38 +39,55 @@ export type MiddlewareFunction<T> = T extends keyof ClientEvents
     ? MiddlewareFunctionCommand<T>
     : never;
 
-type MiddlewareFunctionEvent<T extends keyof ClientEvents> = (event: Event<T>, client: Client, ...args: ClientEvents[T]) => Promise<unknown>;
+type MiddlewareFunctionEvent<T extends keyof ClientEvents> = (event: Event<T>, client: Client, ...args: ClientEvents[T]) => Promise<MiddlewareResult>;
 
 type MiddlewareFunctionCommand<T extends ApplicationCommandType> = (
   command: Command<T>,
   client: Client,
   interaction: InteractionType<T>
-) => Promise<unknown>;
+) => Promise<MiddlewareResult>;
 
-interface Interaction<T> {
+export type AfterwareFunction<T> = T extends keyof ClientEvents
+  ? AfterwareFunctionEvent<T>
+  : T extends ApplicationCommandType
+    ? AfterwareFunctionCommand<T>
+    : never;
+
+export type AfterwareFunctionEvent<T extends keyof ClientEvents> = (event: Event<T>, client: Client, ...args: ClientEvents[T]) => Promise<void>;
+
+export type AfterwareFunctionCommand<T extends ApplicationCommandType> = (
+  command: Command<T>,
+  client: Client,
+  interaction: InteractionType<T>,
+  middlewareData: Array<MiddlewareResult>,
+  commandResult: unknown
+) => Promise<void>;
+
+interface Interaction {
   feature: AppFeature;
   requiredPermissions?: Permission[];
 }
 
-export interface EventOptions<T extends keyof ClientEvents> extends Interaction<T> {
+export interface EventOptions<T extends keyof ClientEvents> extends Interaction {
   type: T;
   once?: boolean;
   middleware?: Array<MiddlewareFunctionEvent<T>>;
-  executeCommand(event: Event<T>, client: Client, ...args: ClientEvents[T]): Promise<unknown>; //TODO
+  afterware?: Array<AfterwareFunctionEvent<T>>;
+  executeCommand(event: Event<T>, client: Client, ...args: ClientEvents[T]): Promise<unknown>;
 }
 
-export interface CommandOptions<T extends ApplicationCommandType> extends Interaction<T> {
+export interface MiddlewareResult {
+  status: ProcessExitCode;
+  payload?: unknown;
+}
+
+export interface CommandOptions<T extends ApplicationCommandType> extends Interaction {
   type: T;
+  global?: boolean;
   data: DataType<T>;
   cooldown?: number;
   middleware?: Array<MiddlewareFunctionCommand<T>>;
+  afterware?: Array<AfterwareFunctionCommand<T>>;
   autocomplete?(client: Client, interaction: AutocompleteInteraction): unknown;
-  /**
-   * Defines the command execution after the middleware.
-   * @param command
-   * @param client
-   * @param interaction
-   * @throws RecoverableException or FatalException on error
-   */
-  executeCommand(command: Command<T>, client: Client, interaction: InteractionType<T>): Promise<unknown>;
+  executeCommand(command: Command<T>, client: Client, interaction: InteractionType<T>, middlewareData: Array<MiddlewareResult>): Promise<unknown>;
 }

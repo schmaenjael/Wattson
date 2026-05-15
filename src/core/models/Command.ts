@@ -1,7 +1,8 @@
 import { ApplicationCommandType } from 'discord.js';
 
-import { CommandOptions, InteractionType } from '~/core/types';
-import { Client, RecoverableException } from '~/core/models';
+import { CommandOptions, InteractionType, MiddlewareResult } from '~/core/types';
+import { BotException, Client } from '~/core/models';
+import { ProcessExitCode } from '~/settings';
 import { Logger } from '~/utilities';
 
 export class Command<T extends ApplicationCommandType = ApplicationCommandType.ChatInput> {
@@ -14,14 +15,31 @@ export class Command<T extends ApplicationCommandType = ApplicationCommandType.C
   }
 
   public async execute(client: Client, interaction: InteractionType<T>) {
-    const { executeCommand, middleware } = this.options;
+    const { executeCommand, middleware, afterware } = this.options;
 
     try {
-      middleware?.forEach((apply) => this.execute.bind(apply(this, client, interaction)));
-      await executeCommand(this, client, interaction);
+      const results: Array<MiddlewareResult> = [];
+
+      if (middleware) {
+        for (const fn of middleware) {
+          const result = await fn(this, client, interaction);
+          results.push(result);
+          if (result.status !== ProcessExitCode.OK) {
+            this.logger.debug({ command: interaction.commandName, status: result.status }, 'Middleware short-circuited command execution.');
+            return;
+          }
+        }
+      }
+
+      const commandResult = await executeCommand(this, client, interaction, results);
+
+      if (afterware) {
+        for (const fn of afterware) {
+          await fn(this, client, interaction, results, commandResult);
+        }
+      }
     } catch (error: unknown) {
-      /* No matter which code arrives this position, it will always be a non-fatal error, thus error handling can be promted to the respective layer */
-      throw new RecoverableException(client, `${interaction.commandName} by ${interaction.user.username}`, error);
+      throw new BotException(client, `${interaction.commandName} by ${interaction.user.username}`, error);
     }
   }
 }

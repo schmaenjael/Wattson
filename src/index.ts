@@ -8,21 +8,21 @@
  *  (c) schmaenjael
  */
 
-import { loadEnvironment } from '~/core/loaders';
-import { loadAllLocales } from '~/core/locales';
 import { Client } from '~/core/models';
-import { Logger, Utils } from '~/utilities';
-import { ProcessExitCode } from './settings';
-import DatabaseClient from '~/database';
+import { Logger, measurePerformance } from '~/utilities';
+import { ProcessExitCode } from '~/settings';
+import { loadAllLocales } from '~/core/locales';
+import { loadEnvironment } from '~/core/loaders';
+import { connectDatabase, ensureSettingsSeeded } from '~/database';
 
 const client = Client.getInstance();
 
-/* Initialize Environment */
 Promise.all([
-  Utils.measurePerformance(loadEnvironment, 'loading environment variables')(),
-  Utils.measurePerformance(loadAllLocales, 'loading localization (i18n)')(),
-  Utils.measurePerformance(DatabaseClient.loadDatabase, 'initializing database connection')(),
+  measurePerformance(loadEnvironment, 'loading environment variables')(),
+  measurePerformance(loadAllLocales, 'loading localization (i18n)')(),
+  measurePerformance(connectDatabase, 'initializing database connection')(),
 ])
+  .then(() => ensureSettingsSeeded())
   .then(() => client.start())
   .catch((error: Error) => {
     Logger.getInstance().fatal(Object(error), `Failed to start the server, due to ${error.name} unexpectedly being thrown: ${error.cause}`);

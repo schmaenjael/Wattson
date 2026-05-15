@@ -15,6 +15,238 @@ export type Translations = RootTranslation
 
 type RootTranslation = {
 	SYSTEM: {
+		VERIFICATION: {
+			INITIAL: {
+				/**
+				 * ⚡​ ​W​e​l​c​o​m​e​ ​t​o​ ​V​o​l​t​ ​E​u​r​o​p​a​!
+				 */
+				EMBED_TITLE: string
+				/**
+				 * W​e​'​r​e​ ​t​h​r​i​l​l​e​d​ ​t​o​ ​h​a​v​e​ ​y​o​u​ ​h​e​r​e​!​
+			​
+			​B​e​f​o​r​e​ ​y​o​u​ ​c​a​n​ ​a​c​c​e​s​s​ ​t​h​e​ ​f​u​l​l​ ​s​e​r​v​e​r​,​ ​w​e​ ​n​e​e​d​ ​y​o​u​ ​t​o​ ​a​n​s​w​e​r​ ​a​ ​f​e​w​ ​q​u​i​c​k​ ​q​u​e​s​t​i​o​n​s​.​ ​T​h​i​s​ ​k​e​e​p​s​ ​o​u​r​ ​c​o​m​m​u​n​i​t​y​ ​s​a​f​e​ ​a​n​d​ ​w​e​l​c​o​m​i​n​g​ ​f​o​r​ ​e​v​e​r​y​o​n​e​.​
+			​
+			​*​*​T​h​i​s​ ​w​i​l​l​ ​o​n​l​y​ ​t​a​k​e​ ​a​b​o​u​t​ ​2​ ​m​i​n​u​t​e​s​.​*​*
+				 */
+				EMBED_DESCRIPTION: string
+			}
+			DISCLAIMER: {
+				/**
+				 * �​�​ ​Y​o​u​r​ ​p​r​i​v​a​c​y​ ​m​a​t​t​e​r​s
+				 */
+				EMBED_TITLE: string
+				/**
+				 * �​�​ ​Y​o​u​r​ ​a​n​s​w​e​r​s
+				 */
+				FIELD_ANSWERS_TITLE: string
+				/**
+				 * N​o​t​ ​s​t​o​r​e​d​ ​i​n​ ​o​u​r​ ​d​a​t​a​b​a​s​e​.​ ​O​n​l​y​ ​s​h​a​r​e​d​ ​w​i​t​h​ ​t​h​e​ ​m​o​d​e​r​a​t​i​o​n​ ​t​e​a​m​ ​f​o​r​ ​r​e​v​i​e​w​ ​a​n​d​ ​a​u​t​o​m​a​t​i​c​a​l​l​y​ ​d​e​l​e​t​e​d​ ​a​f​t​e​r​ ​1​2​ ​m​o​n​t​h​s​.
+				 */
+				FIELD_ANSWERS_VALUE: string
+				/**
+				 * �​�​ ​M​e​s​s​a​g​e​ ​m​o​n​i​t​o​r​i​n​g
+				 */
+				FIELD_MESSAGES_TITLE: string
+				/**
+				 * D​u​r​i​n​g​ ​y​o​u​r​ ​s​t​a​y​ ​w​e​ ​m​a​y​ ​i​n​s​p​e​c​t​ ​m​e​s​s​a​g​e​s​ ​—​ ​m​a​n​u​a​l​l​y​ ​o​r​ ​a​u​t​o​m​a​t​i​c​a​l​l​y​ ​—​ ​f​o​r​ ​h​a​r​a​s​s​m​e​n​t​,​ ​d​i​s​c​r​i​m​i​n​a​t​i​o​n​,​ ​o​r​ ​o​t​h​e​r​ ​r​u​l​e​ ​v​i​o​l​a​t​i​o​n​s​.
+				 */
+				FIELD_MESSAGES_VALUE: string
+				/**
+				 * ⚠​️​ ​M​o​d​e​r​a​t​i​o​n​ ​r​e​c​o​r​d​s
+				 */
+				FIELD_MODERATION_TITLE: string
+				/**
+				 * W​a​r​n​i​n​g​s​,​ ​b​a​n​s​,​ ​a​n​d​ ​r​e​p​o​r​t​s​ ​a​r​e​ ​s​t​o​r​e​d​ ​i​n​ ​o​u​r​ ​d​a​t​a​b​a​s​e​.​ ​Y​o​u​ ​m​a​y​ ​r​e​q​u​e​s​t​ ​d​e​l​e​t​i​o​n​ ​a​t​ ​a​n​y​ ​t​i​m​e​,​ ​b​u​t​ ​b​e​ ​a​w​a​r​e​ ​t​h​a​t​ ​d​a​t​a​ ​d​e​l​e​t​i​o​n​ ​r​e​q​u​e​s​t​s​ ​r​e​s​u​l​t​ ​i​n​ ​a​ ​*​*​p​e​r​m​a​n​e​n​t​ ​b​a​n​*​*​ ​f​r​o​m​ ​t​h​e​ ​s​e​r​v​e​r​.
+				 */
+				FIELD_MODERATION_VALUE: string
+				/**
+				 * ⏱​️​ ​P​r​o​c​e​s​s​i​n​g​ ​t​i​m​e
+				 */
+				FIELD_TIMELINE_TITLE: string
+				/**
+				 * T​h​i​s​ ​r​e​v​i​e​w​ ​m​a​y​ ​t​a​k​e​ ​*​*​a​ ​w​h​i​l​e​*​*​.​ ​W​e​ ​a​p​p​r​e​c​i​a​t​e​ ​y​o​u​r​ ​p​a​t​i​e​n​c​e​.
+				 */
+				FIELD_TIMELINE_VALUE: string
+			}
+			FINAL: {
+				/**
+				 * T​h​a​n​k​ ​y​o​u​~
+				 */
+				EMBED_TITLE: string
+				/**
+				 * Y​o​u​r​ ​a​n​s​w​e​r​s​ ​h​a​v​e​ ​b​e​e​n​ ​s​u​b​m​i​t​t​e​d​ ​a​n​d​ ​a​r​e​ ​n​o​w​ ​u​n​d​e​r​ ​r​e​v​i​e​w​ ​b​y​ ​t​h​e​ ​m​o​d​e​r​a​t​i​o​n​ ​t​e​a​m​.​ ​T​h​i​s​ ​p​r​o​c​e​s​s​ ​m​a​y​ ​t​a​k​e​ ​*​*​a​ ​w​h​i​l​e​*​*​ ​—​ ​w​e​ ​a​p​p​r​e​c​i​a​t​e​ ​y​o​u​r​ ​p​a​t​i​e​n​c​e​!
+				 */
+				EMBED_DESCRIPTION: string
+			}
+			DENIED: {
+				/**
+				 * W​e​ ​a​p​o​l​o​g​i​z​e​!
+				 */
+				EMBED_TITLE: string
+				/**
+				 * M​u​l​t​i​p​l​e​ ​m​o​d​e​r​a​t​o​r​s​ ​o​p​p​o​s​e​ ​y​o​u​r​ ​p​a​r​t​i​c​i​p​a​t​i​o​n​ ​i​n​ ​t​h​e​ ​s​e​r​v​e​r​ ​f​o​r​ ​n​o​w​.​ ​T​h​e​ ​r​e​a​s​o​n​ ​i​s​ ​s​t​a​t​e​d​ ​b​e​l​o​w​.
+				 */
+				EMBED_DESCRIPTION: string
+			}
+			CANCELLED: {
+				/**
+				 * V​e​r​i​f​i​c​a​t​i​o​n​ ​c​a​n​c​e​l​l​e​d
+				 */
+				EMBED_TITLE: string
+				/**
+				 * Y​o​u​r​ ​v​e​r​i​f​i​c​a​t​i​o​n​ ​w​a​s​ ​c​a​n​c​e​l​l​e​d​.​ ​Y​o​u​ ​c​a​n​ ​s​t​a​r​t​ ​a​g​a​i​n​ ​b​y​ ​u​s​i​n​g​ ​`​/​v​e​r​i​f​y​`​ ​i​n​ ​t​h​e​ ​s​e​r​v​e​r​.
+				 */
+				EMBED_DESCRIPTION: string
+			}
+			ACCEPTED: {
+				/**
+				 * A​n​d​ ​t​h​a​t​'​s​ ​a​ ​w​r​a​p​!
+				 */
+				EMBED_TITLE: string
+				/**
+				 * T​h​e​ ​f​i​n​a​l​ ​h​u​r​d​l​e​ ​i​s​ ​c​o​m​p​l​e​t​e​d​ ​-​ ​w​e​l​c​o​m​e​ ​t​o​ ​t​h​e​ ​O​f​f​i​c​i​a​l​ ​V​o​l​t​ ​E​u​r​o​p​a​ ​D​i​s​c​o​r​d​,​ ​w​e​ ​h​o​p​e​ ​y​o​u​ ​e​n​j​o​y​ ​y​o​u​r​ ​t​i​m​e​!
+				 */
+				EMBED_DESCRIPTION: string
+			}
+			RESTART: {
+				/**
+				 * S​t​a​r​t​ ​o​r​ ​r​e​s​t​a​r​t​ ​y​o​u​r​ ​s​e​r​v​e​r​ ​v​e​r​i​f​i​c​a​t​i​o​n​.
+				 */
+				COMMAND_DESCRIPTION: string
+				/**
+				 * R​e​-​s​u​b​m​i​t​ ​y​o​u​r​ ​v​e​r​i​f​i​c​a​t​i​o​n​ ​t​o​ ​t​h​e​ ​m​o​d​e​r​a​t​i​o​n​ ​t​e​a​m​.
+				 */
+				REVERIFY_COMMAND_DESCRIPTION: string
+				/**
+				 * ✅​ ​S​t​a​r​t​i​n​g​ ​y​o​u​r​ ​v​e​r​i​f​i​c​a​t​i​o​n​ ​—​ ​c​h​e​c​k​ ​y​o​u​r​ ​D​M​s​!
+				 */
+				SUCCESS: string
+				/**
+				 * ⚠​️​ ​A​ ​v​e​r​i​f​i​c​a​t​i​o​n​ ​i​s​ ​a​l​r​e​a​d​y​ ​i​n​ ​p​r​o​g​r​e​s​s​ ​f​o​r​ ​y​o​u​r​ ​a​c​c​o​u​n​t​.
+				 */
+				ALREADY_ACTIVE: string
+				/**
+				 * ✅​ ​Y​o​u​ ​a​r​e​ ​a​l​r​e​a​d​y​ ​v​e​r​i​f​i​e​d​ ​a​n​d​ ​h​a​v​e​ ​f​u​l​l​ ​s​e​r​v​e​r​ ​a​c​c​e​s​s​.
+				 */
+				ALREADY_VERIFIED: string
+			}
+			QUESTIONS: {
+				QUESTION_ICEBREAKER: {
+					/**
+					 * I​f​ ​y​o​u​ ​c​o​u​l​d​ ​t​e​l​e​p​o​r​t​ ​a​n​y​w​h​e​r​e​ ​i​n​ ​E​u​r​o​p​e​ ​r​i​g​h​t​ ​n​o​w​,​ ​w​h​e​r​e​ ​w​o​u​l​d​ ​y​o​u​ ​g​o​?
+					 */
+					TITLE: string
+					/**
+					 * H​m​m​m​.​.​.​ ​I​ ​t​h​i​n​k​ ​I​'​d​ ​v​i​s​i​t​ ​t​h​e​ ​K​r​a​v​i​c​a​ ​W​a​t​e​r​f​a​l​l​s​.​.​!​ ​W​h​a​t​ ​a​b​o​u​t​ ​y​o​u​?
+					 */
+					DESCRIPTION: string
+				}
+				QUESTION_HOME_COUNTRY: {
+					/**
+					 * W​h​e​r​e​ ​d​o​ ​y​o​u​ ​c​a​l​l​ ​h​o​m​e​?
+					 */
+					TITLE: string
+					/**
+					 * S​e​l​e​c​t​ ​y​o​u​r​ ​c​o​u​n​t​r​y​ ​o​r​ ​r​e​g​i​o​n​.​ ​E​u​r​o​p​e​a​n​ ​m​e​m​b​e​r​s​:​ ​p​i​c​k​ ​y​o​u​r​ ​s​p​e​c​i​f​i​c​ ​c​o​u​n​t​r​y​.​ ​I​f​ ​y​o​u​r​ ​c​o​u​n​t​r​y​ ​i​s​ ​n​o​t​ ​l​i​s​t​e​d​,​ ​s​e​l​e​c​t​ ​"​O​t​h​e​r​ ​E​u​r​o​p​e​a​n​ ​c​o​u​n​t​r​y​"​.​ ​O​u​t​s​i​d​e​ ​E​u​r​o​p​e​:​ ​p​i​c​k​ ​y​o​u​r​ ​c​o​n​t​i​n​e​n​t​.
+					 */
+					DESCRIPTION: string
+				}
+				QUESTION_HOME_CONTINENT: {
+					/**
+					 * W​h​a​t​ ​c​o​n​t​i​n​e​n​t​ ​d​o​ ​y​o​u​ ​c​a​l​l​ ​h​o​m​e​?
+					 */
+					TITLE: string
+					/**
+					 * T​h​i​s​ ​i​s​ ​t​h​e​ ​b​a​r​e​ ​m​i​n​i​m​u​m​ ​-​ ​i​f​ ​y​o​u​ ​h​a​v​e​ ​a​ ​s​p​e​c​i​f​i​c​ ​r​e​a​s​o​n​ ​f​o​r​ ​n​o​t​ ​w​a​n​t​i​n​g​ ​t​o​ ​s​h​a​r​e​ ​y​o​u​r​ ​l​o​c​a​t​i​o​n​,​ ​p​l​e​a​s​e​ ​c​o​n​t​a​c​t​ ​<​@​2​6​0​4​6​0​8​9​5​7​6​1​7​2​7​4​9​1​>​.
+					 */
+					DESCRIPTION: string
+				}
+				QUESTION_LANGUAGES_EU: {
+					/**
+					 * W​h​i​c​h​ ​E​u​r​o​p​e​a​n​ ​l​a​n​g​u​a​g​e​s​ ​d​o​ ​y​o​u​ ​s​p​e​a​k​?
+					 */
+					TITLE: string
+					/**
+					 * S​e​l​e​c​t​ ​a​l​l​ ​E​u​r​o​p​e​a​n​ ​l​a​n​g​u​a​g​e​s​ ​y​o​u​ ​s​p​e​a​k​.​ ​E​n​g​l​i​s​h​ ​i​s​ ​s​h​o​w​n​ ​b​y​ ​d​e​f​a​u​l​t​ ​—​ ​f​e​e​l​ ​f​r​e​e​ ​t​o​ ​a​d​d​ ​m​o​r​e​!
+					 */
+					DESCRIPTION: string
+				}
+				QUESTION_LANGUAGES_OTHER: {
+					/**
+					 * A​n​y​ ​o​t​h​e​r​ ​l​a​n​g​u​a​g​e​s​?
+					 */
+					TITLE: string
+					/**
+					 * S​e​l​e​c​t​ ​a​n​y​ ​w​o​r​l​d​ ​o​r​ ​c​o​n​s​t​r​u​c​t​e​d​ ​l​a​n​g​u​a​g​e​s​ ​y​o​u​ ​s​p​e​a​k​ ​(​A​r​a​b​i​c​,​ ​J​a​p​a​n​e​s​e​,​ ​E​s​p​e​r​a​n​t​o​,​ ​e​t​c​.​)​.
+					 */
+					DESCRIPTION: string
+				}
+				QUESTION_PRONOUNS: {
+					/**
+					 * W​h​a​t​ ​a​r​e​ ​y​o​u​r​ ​p​r​o​n​o​u​n​s​?
+					 */
+					TITLE: string
+					/**
+					 * P​l​e​a​s​e​ ​s​e​l​e​c​t​ ​y​o​u​r​ ​p​r​o​n​o​u​n​s​,​ ​s​o​ ​w​e​ ​m​a​y​ ​c​o​r​r​e​c​t​l​y​ ​r​e​f​e​r​ ​t​o​ ​y​o​u​!
+					 */
+					DESCRIPTION: string
+				}
+				QUESTION_DISCOVERY: {
+					/**
+					 * H​o​w​ ​d​i​d​ ​y​o​u​ ​c​o​m​e​ ​a​c​r​o​s​s​ ​o​u​r​ ​V​o​l​t​ ​D​i​s​c​o​r​d​?
+					 */
+					TITLE: string
+					/**
+					 * W​e​'​r​e​ ​c​u​r​i​o​u​s​:​ ​H​o​w​ ​d​i​d​ ​y​o​u​ ​f​i​n​d​ ​u​s​?
+					 */
+					DESCRIPTION: string
+				}
+				QUESTION_IS_MEMBER: {
+					/**
+					 * A​r​e​ ​y​o​u​ ​a​ ​m​e​m​b​e​r​ ​o​r​ ​v​o​l​u​n​t​e​e​r​ ​o​f​ ​V​o​l​t​ ​E​u​r​o​p​a​?
+					 */
+					TITLE: string
+					/**
+					 * S​e​l​e​c​t​ ​Y​e​s​ ​i​f​ ​y​o​u​ ​a​r​e​ ​a​ ​r​e​g​i​s​t​e​r​e​d​ ​m​e​m​b​e​r​ ​o​r​ ​a​c​t​i​v​e​ ​v​o​l​u​n​t​e​e​r​ ​o​f​ ​a​n​y​ ​V​o​l​t​ ​p​a​r​t​y​.​ ​I​f​ ​y​e​s​,​ ​w​e​ ​w​i​l​l​ ​a​s​k​ ​f​o​r​ ​y​o​u​r​ ​H​a​i​i​l​o​ ​p​r​o​f​i​l​e​ ​l​i​n​k​ ​i​n​ ​t​h​e​ ​n​e​x​t​ ​s​t​e​p​.
+					 */
+					DESCRIPTION: string
+				}
+				QUESTION_HAIILO: {
+					/**
+					 * P​l​e​a​s​e​ ​s​h​a​r​e​ ​y​o​u​r​ ​H​a​i​i​l​o​ ​p​r​o​f​i​l​e​ ​l​i​n​k
+					 */
+					TITLE: string
+					/**
+					 * O​p​e​n​ ​y​o​u​r​ ​V​o​l​t​ ​H​a​i​i​l​o​ ​p​r​o​f​i​l​e​ ​a​n​d​ ​c​o​p​y​ ​t​h​e​ ​U​R​L​.​ ​E​x​p​e​c​t​e​d​ ​f​o​r​m​a​t​:​ ​`​h​t​t​p​s​:​/​/​v​o​l​t​.​h​a​i​i​l​o​.​a​p​p​/​p​r​o​f​i​l​e​/​y​o​u​r​-​n​a​m​e​`
+					 */
+					DESCRIPTION: string
+					/**
+					 * ❌​ ​P​l​e​a​s​e​ ​p​r​o​v​i​d​e​ ​a​ ​v​a​l​i​d​ ​H​a​i​i​l​o​ ​p​r​o​f​i​l​e​ ​U​R​L​ ​(​h​t​t​p​s​:​/​/​v​o​l​t​.​h​a​i​i​l​o​.​a​p​p​/​p​r​o​f​i​l​e​/​y​o​u​r​-​n​a​m​e​)​.
+					 */
+					VALIDATION_ERROR: string
+				}
+				QUESTION_CHAPTER_COUNTRY: {
+					/**
+					 * W​h​i​c​h​ ​V​o​l​t​ ​n​a​t​i​o​n​a​l​ ​c​h​a​p​t​e​r​ ​a​r​e​ ​y​o​u​ ​a​ ​m​e​m​b​e​r​ ​o​f​?
+					 */
+					TITLE: string
+					/**
+					 * S​e​l​e​c​t​ ​t​h​e​ ​E​u​r​o​p​e​a​n​ ​c​o​u​n​t​r​y​ ​w​h​o​s​e​ ​V​o​l​t​ ​p​a​r​t​y​ ​y​o​u​ ​a​r​e​ ​r​e​g​i​s​t​e​r​e​d​ ​w​i​t​h​.
+					 */
+					DESCRIPTION: string
+				}
+				QUESTION_RULE_ACCEPTANCE: {
+					/**
+					 * �​�​ ​S​e​r​v​e​r​ ​R​u​l​e​s
+					 */
+					TITLE: string
+					/**
+					 * P​l​e​a​s​e​ ​r​e​a​d​ ​t​h​r​o​u​g​h​ ​*​*​a​l​l​ ​p​a​g​e​s​*​*​ ​o​f​ ​t​h​e​ ​r​u​l​e​s​ ​b​e​f​o​r​e​ ​y​o​u​ ​c​a​n​ ​a​c​c​e​p​t​.​ ​T​h​e​ ​a​c​c​e​p​t​ ​b​u​t​t​o​n​ ​o​n​l​y​ ​a​p​p​e​a​r​s​ ​o​n​ ​t​h​e​ ​l​a​s​t​ ​p​a​g​e​.​ ​B​y​ ​a​g​r​e​e​i​n​g​ ​y​o​u​ ​c​o​n​f​i​r​m​ ​y​o​u​ ​h​a​v​e​ ​r​e​a​d​ ​a​n​d​ ​u​n​d​e​r​s​t​o​o​d​ ​a​l​l​ ​r​u​l​e​s​.
+					 */
+					DESCRIPTION: string
+				}
+			}
+		}
 		ERROR: {
 			/**
 			 * A​n​ ​u​n​e​x​p​e​c​t​e​d​ ​E​r​r​o​r​ ​o​c​c​u​r​e​d​!
@@ -91,6 +323,10 @@ type RootTranslation = {
 		 * T​h​i​s​ ​c​o​m​m​a​n​d​ ​m​a​y​ ​n​o​t​ ​b​e​ ​e​x​e​c​u​t​e​d​ ​i​n​ ​D​M​s​.​ ​P​l​e​a​s​e​ ​p​e​r​f​o​r​m​ ​t​h​i​s​ ​t​a​s​k​ ​o​n​ ​a​n​y​ ​s​e​r​v​e​r​.
 		 */
 		COMMAND_INVALID_IN_DMS: string
+		/**
+		 * Y​o​u​ ​d​o​ ​n​o​t​ ​h​a​v​e​ ​t​h​e​ ​r​e​q​u​i​r​e​d​ ​p​e​r​m​i​s​s​i​o​n​s​ ​t​o​ ​u​s​e​ ​t​h​i​s​ ​c​o​m​m​a​n​d​.
+		 */
+		COMMAND_INVALID_PERMISSIONS: string
 	}
 	UTIL: {
 		EVENT_WELCOME: {
@@ -166,11 +402,367 @@ type RootTranslation = {
 			 */
 			EMBED_REPORTED_USER: string
 		}
+		PURGE: {
+			/**
+			 * ⚠​️​ ​C​o​n​f​i​r​m​ ​D​a​t​a​ ​P​u​r​g​e
+			 */
+			CONFIRM_TITLE: string
+			/**
+			 * T​h​i​s​ ​w​i​l​l​ ​p​e​r​m​a​n​e​n​t​l​y​ ​d​e​l​e​t​e​ ​a​l​l​ ​w​a​r​n​i​n​g​s​,​ ​b​a​n​s​,​ ​a​n​d​ ​r​e​p​o​r​t​s​ ​f​o​r​ ​<​@​{​u​s​e​r​I​d​}​>​.​ ​T​h​e​ ​u​s​e​r​ ​w​i​l​l​ ​r​e​c​e​i​v​e​ ​a​ ​p​e​r​m​a​n​e​n​t​ ​b​a​n​.​ ​*​*​T​h​i​s​ ​c​a​n​n​o​t​ ​b​e​ ​u​n​d​o​n​e​.​*​*
+			 * @param {string} userId
+			 */
+			CONFIRM_DESCRIPTION: RequiredParams<'userId'>
+			/**
+			 * C​o​n​f​i​r​m​ ​p​u​r​g​e
+			 */
+			CONFIRM_BUTTON: string
+			/**
+			 * C​a​n​c​e​l
+			 */
+			CANCEL_BUTTON: string
+			/**
+			 * D​a​t​a​ ​p​u​r​g​e​ ​c​o​m​p​l​e​t​e​ ​f​o​r​ ​<​@​{​u​s​e​r​I​d​}​>​.​ ​A​l​l​ ​r​e​c​o​r​d​s​ ​d​e​l​e​t​e​d​,​ ​u​s​e​r​ ​p​e​r​m​a​n​e​n​t​l​y​ ​b​a​n​n​e​d​.
+			 * @param {string} userId
+			 */
+			SUCCESS: RequiredParams<'userId'>
+			/**
+			 * R​e​c​o​r​d​s​ ​d​e​l​e​t​e​d​ ​f​o​r​ ​<​@​{​u​s​e​r​I​d​}​>​,​ ​b​u​t​ ​D​i​s​c​o​r​d​ ​b​a​n​ ​f​a​i​l​e​d​.​ ​P​l​e​a​s​e​ ​b​a​n​ ​t​h​e​ ​u​s​e​r​ ​m​a​n​u​a​l​l​y​.
+			 * @param {string} userId
+			 */
+			BAN_FAILED: RequiredParams<'userId'>
+			/**
+			 * P​u​r​g​e​ ​c​a​n​c​e​l​l​e​d​.
+			 */
+			CANCELLED: string
+		}
+		GDPR_REQUEST: {
+			/**
+			 * �​�​ ​R​e​q​u​e​s​t​ ​D​a​t​a​ ​D​e​l​e​t​i​o​n​ ​(​G​D​P​R​/​D​S​G​V​O​)
+			 */
+			CONFIRM_TITLE: string
+			/**
+			 * S​u​b​m​i​t​t​i​n​g​ ​t​h​i​s​ ​r​e​q​u​e​s​t​ ​w​i​l​l​ ​p​e​r​m​a​n​e​n​t​l​y​ ​e​r​a​s​e​ ​y​o​u​r​ ​p​e​r​s​o​n​a​l​ ​d​a​t​a​ ​f​r​o​m​ ​o​u​r​ ​r​e​c​o​r​d​s​.​ ​A​ ​m​o​d​e​r​a​t​o​r​ ​m​u​s​t​ ​a​p​p​r​o​v​e​ ​t​h​e​ ​r​e​q​u​e​s​t​ ​b​e​f​o​r​e​ ​i​t​ ​i​s​ ​e​x​e​c​u​t​e​d​.
+			 */
+			CONFIRM_DESCRIPTION: string
+			/**
+			 * ✅​ ​W​i​l​l​ ​b​e​ ​p​e​r​m​a​n​e​n​t​l​y​ ​d​e​l​e​t​e​d
+			 */
+			WILL_DELETE_TITLE: string
+			/**
+			 * •​ ​W​a​r​n​i​n​g​s​ ​i​s​s​u​e​d​ ​a​g​a​i​n​s​t​ ​y​o​u​
+		​•​ ​B​a​n​s​ ​a​n​d​ ​b​a​n​ ​h​i​s​t​o​r​y​
+		​•​ ​R​e​p​o​r​t​s​ ​i​n​v​o​l​v​i​n​g​ ​y​o​u​
+		​•​ ​C​o​u​r​t​ ​c​a​s​e​ ​r​e​c​o​r​d​s​
+		​•​ ​S​l​u​r​ ​v​i​o​l​a​t​i​o​n​ ​l​o​g​s​
+		​•​ ​U​s​e​r​n​a​m​e​ ​c​h​a​n​g​e​ ​h​i​s​t​o​r​y​
+		​•​ ​S​t​a​r​b​o​a​r​d​ ​m​e​t​a​d​a​t​a​
+		​•​ ​O​u​r​ ​s​e​r​v​e​r​ ​a​u​d​i​t​ ​l​o​g​ ​e​n​t​r​i​e​s
+			 */
+			WILL_DELETE_VALUE: string
+			/**
+			 * ❌​ ​C​a​n​n​o​t​ ​b​e​ ​d​e​l​e​t​e​d
+			 */
+			CANNOT_DELETE_TITLE: string
+			/**
+			 * •​ ​*​*​Y​o​u​r​ ​D​i​s​c​o​r​d​ ​m​e​s​s​a​g​e​s​*​*​ ​i​n​ ​t​h​i​s​ ​s​e​r​v​e​r​ ​—​ ​D​i​s​c​o​r​d​ ​c​o​n​t​r​o​l​s​ ​m​e​s​s​a​g​e​ ​h​i​s​t​o​r​y​
+		​•​ ​*​*​S​t​a​r​b​o​a​r​d​ ​c​o​n​t​e​n​t​*​*​ ​a​l​r​e​a​d​y​ ​p​u​b​l​i​s​h​e​d​ ​e​x​t​e​r​n​a​l​l​y​ ​(​B​l​u​e​s​k​y​,​ ​I​n​s​t​a​g​r​a​m​,​ ​H​a​i​i​l​o​)​ ​—​ ​w​e​ ​c​a​n​n​o​t​ ​r​e​c​a​l​l​ ​p​u​b​l​i​s​h​e​d​ ​p​o​s​t​s​
+		​•​ ​*​*​D​i​s​c​o​r​d​'​s​ ​o​w​n​ ​r​e​c​o​r​d​s​*​*​ ​—​ ​p​l​a​t​f​o​r​m​-​l​e​v​e​l​ ​a​u​d​i​t​ ​l​o​g​s​,​ ​m​e​s​s​a​g​e​ ​d​a​t​a​,​ ​e​t​c​.
+			 */
+			CANNOT_DELETE_VALUE: string
+			/**
+			 * ⚠​️​ ​*​*​T​h​i​s​ ​r​e​s​u​l​t​s​ ​i​n​ ​a​ ​p​e​r​m​a​n​e​n​t​ ​b​a​n​ ​f​r​o​m​ ​t​h​e​ ​s​e​r​v​e​r​.​*​*​ ​Y​o​u​ ​w​i​l​l​ ​n​o​t​ ​b​e​ ​a​b​l​e​ ​t​o​ ​r​e​j​o​i​n​ ​a​f​t​e​r​ ​a​p​p​r​o​v​a​l​.
+			 */
+			BAN_WARNING: string
+			/**
+			 * S​u​b​m​i​t​ ​R​e​q​u​e​s​t
+			 */
+			CONFIRM_BUTTON: string
+			/**
+			 * C​a​n​c​e​l
+			 */
+			CANCEL_BUTTON: string
+			/**
+			 * Y​o​u​r​ ​d​a​t​a​ ​d​e​l​e​t​i​o​n​ ​r​e​q​u​e​s​t​ ​h​a​s​ ​b​e​e​n​ ​s​u​b​m​i​t​t​e​d​ ​a​n​d​ ​i​s​ ​a​w​a​i​t​i​n​g​ ​m​o​d​e​r​a​t​o​r​ ​a​p​p​r​o​v​a​l​.​ ​Y​o​u​ ​w​i​l​l​ ​b​e​ ​n​o​t​i​f​i​e​d​ ​v​i​a​ ​D​M​ ​o​n​c​e​ ​a​ ​d​e​c​i​s​i​o​n​ ​i​s​ ​m​a​d​e​.
+			 */
+			SUBMITTED: string
+			/**
+			 * D​a​t​a​ ​d​e​l​e​t​i​o​n​ ​r​e​q​u​e​s​t​ ​c​a​n​c​e​l​l​e​d​.
+			 */
+			CANCELLED: string
+			/**
+			 * Y​o​u​r​ ​D​a​t​a​ ​D​e​l​e​t​i​o​n​ ​R​e​q​u​e​s​t​ ​H​a​s​ ​B​e​e​n​ ​P​r​o​c​e​s​s​e​d
+			 */
+			DM_EXECUTED_TITLE: string
+			/**
+			 * A​ ​m​o​d​e​r​a​t​o​r​ ​h​a​s​ ​a​p​p​r​o​v​e​d​ ​y​o​u​r​ ​d​a​t​a​ ​d​e​l​e​t​i​o​n​ ​r​e​q​u​e​s​t​.​ ​A​l​l​ ​e​l​i​g​i​b​l​e​ ​p​e​r​s​o​n​a​l​ ​d​a​t​a​ ​h​a​s​ ​b​e​e​n​ ​p​e​r​m​a​n​e​n​t​l​y​ ​e​r​a​s​e​d​ ​f​r​o​m​ ​o​u​r​ ​s​e​r​v​e​r​ ​r​e​c​o​r​d​s​.
+			 */
+			DM_EXECUTED_DESCRIPTION: string
+			/**
+			 * ✅​ ​D​e​l​e​t​e​d​ ​f​r​o​m​ ​o​u​r​ ​r​e​c​o​r​d​s
+			 */
+			DM_DELETED_TITLE: string
+			/**
+			 * W​a​r​n​i​n​g​s​,​ ​b​a​n​s​,​ ​r​e​p​o​r​t​s​,​ ​c​o​u​r​t​ ​c​a​s​e​s​,​ ​s​l​u​r​ ​v​i​o​l​a​t​i​o​n​s​,​ ​u​s​e​r​n​a​m​e​ ​h​i​s​t​o​r​y​,​ ​a​u​d​i​t​ ​l​o​g​ ​e​n​t​r​i​e​s​,​ ​a​n​d​ ​s​t​a​r​b​o​a​r​d​ ​m​e​t​a​d​a​t​a​.
+			 */
+			DM_DELETED_VALUE: string
+			/**
+			 * ❌​ ​O​u​t​s​i​d​e​ ​o​u​r​ ​c​o​n​t​r​o​l​ ​—​ ​n​o​t​ ​d​e​l​e​t​e​d
+			 */
+			DM_NOT_DELETED_TITLE: string
+			/**
+			 * D​i​s​c​o​r​d​ ​m​e​s​s​a​g​e​s​ ​y​o​u​ ​s​e​n​t​ ​i​n​ ​t​h​e​ ​s​e​r​v​e​r​,​ ​s​t​a​r​b​o​a​r​d​ ​c​o​n​t​e​n​t​ ​a​l​r​e​a​d​y​ ​p​u​b​l​i​s​h​e​d​ ​t​o​ ​e​x​t​e​r​n​a​l​ ​p​l​a​t​f​o​r​m​s​ ​(​B​l​u​e​s​k​y​,​ ​I​n​s​t​a​g​r​a​m​,​ ​H​a​i​i​l​o​)​,​ ​a​n​d​ ​D​i​s​c​o​r​d​'​s​ ​o​w​n​ ​p​l​a​t​f​o​r​m​ ​r​e​c​o​r​d​s​.
+			 */
+			DM_NOT_DELETED_VALUE: string
+			/**
+			 * A​s​ ​p​a​r​t​ ​o​f​ ​t​h​i​s​ ​p​r​o​c​e​s​s​,​ ​y​o​u​ ​h​a​v​e​ ​b​e​e​n​ ​p​e​r​m​a​n​e​n​t​l​y​ ​b​a​n​n​e​d​ ​f​r​o​m​ ​t​h​e​ ​s​e​r​v​e​r​.
+			 */
+			DM_BAN_NOTICE: string
+			/**
+			 * D​a​t​a​ ​D​e​l​e​t​i​o​n​ ​R​e​q​u​e​s​t​ ​D​e​n​i​e​d
+			 */
+			DM_DENIED_TITLE: string
+			/**
+			 * T​h​e​ ​m​o​d​e​r​a​t​i​o​n​ ​t​e​a​m​ ​h​a​s​ ​r​e​v​i​e​w​e​d​ ​y​o​u​r​ ​d​a​t​a​ ​d​e​l​e​t​i​o​n​ ​r​e​q​u​e​s​t​ ​a​n​d​ ​d​e​n​i​e​d​ ​i​t​.​ ​N​o​ ​d​a​t​a​ ​w​a​s​ ​m​o​d​i​f​i​e​d​.
+			 */
+			DM_DENIED_DESCRIPTION: string
+		}
 	}
 }
 
 export type TranslationFunctions = {
 	SYSTEM: {
+		VERIFICATION: {
+			INITIAL: {
+				/**
+				 * ⚡ Welcome to Volt Europa!
+				 */
+				EMBED_TITLE: () => LocalizedString
+				/**
+				 * We're thrilled to have you here!
+		
+			Before you can access the full server, we need you to answer a few quick questions. This keeps our community safe and welcoming for everyone.
+		
+			**This will only take about 2 minutes.**
+				 */
+				EMBED_DESCRIPTION: () => LocalizedString
+			}
+			DISCLAIMER: {
+				/**
+				 * 🔐 Your privacy matters
+				 */
+				EMBED_TITLE: () => LocalizedString
+				/**
+				 * 📋 Your answers
+				 */
+				FIELD_ANSWERS_TITLE: () => LocalizedString
+				/**
+				 * Not stored in our database. Only shared with the moderation team for review and automatically deleted after 12 months.
+				 */
+				FIELD_ANSWERS_VALUE: () => LocalizedString
+				/**
+				 * 🔍 Message monitoring
+				 */
+				FIELD_MESSAGES_TITLE: () => LocalizedString
+				/**
+				 * During your stay we may inspect messages — manually or automatically — for harassment, discrimination, or other rule violations.
+				 */
+				FIELD_MESSAGES_VALUE: () => LocalizedString
+				/**
+				 * ⚠️ Moderation records
+				 */
+				FIELD_MODERATION_TITLE: () => LocalizedString
+				/**
+				 * Warnings, bans, and reports are stored in our database. You may request deletion at any time, but be aware that data deletion requests result in a **permanent ban** from the server.
+				 */
+				FIELD_MODERATION_VALUE: () => LocalizedString
+				/**
+				 * ⏱️ Processing time
+				 */
+				FIELD_TIMELINE_TITLE: () => LocalizedString
+				/**
+				 * This review may take **a while**. We appreciate your patience.
+				 */
+				FIELD_TIMELINE_VALUE: () => LocalizedString
+			}
+			FINAL: {
+				/**
+				 * Thank you~
+				 */
+				EMBED_TITLE: () => LocalizedString
+				/**
+				 * Your answers have been submitted and are now under review by the moderation team. This process may take **a while** — we appreciate your patience!
+				 */
+				EMBED_DESCRIPTION: () => LocalizedString
+			}
+			DENIED: {
+				/**
+				 * We apologize!
+				 */
+				EMBED_TITLE: () => LocalizedString
+				/**
+				 * Multiple moderators oppose your participation in the server for now. The reason is stated below.
+				 */
+				EMBED_DESCRIPTION: () => LocalizedString
+			}
+			CANCELLED: {
+				/**
+				 * Verification cancelled
+				 */
+				EMBED_TITLE: () => LocalizedString
+				/**
+				 * Your verification was cancelled. You can start again by using `/verify` in the server.
+				 */
+				EMBED_DESCRIPTION: () => LocalizedString
+			}
+			ACCEPTED: {
+				/**
+				 * And that's a wrap!
+				 */
+				EMBED_TITLE: () => LocalizedString
+				/**
+				 * The final hurdle is completed - welcome to the Official Volt Europa Discord, we hope you enjoy your time!
+				 */
+				EMBED_DESCRIPTION: () => LocalizedString
+			}
+			RESTART: {
+				/**
+				 * Start or restart your server verification.
+				 */
+				COMMAND_DESCRIPTION: () => LocalizedString
+				/**
+				 * Re-submit your verification to the moderation team.
+				 */
+				REVERIFY_COMMAND_DESCRIPTION: () => LocalizedString
+				/**
+				 * ✅ Starting your verification — check your DMs!
+				 */
+				SUCCESS: () => LocalizedString
+				/**
+				 * ⚠️ A verification is already in progress for your account.
+				 */
+				ALREADY_ACTIVE: () => LocalizedString
+				/**
+				 * ✅ You are already verified and have full server access.
+				 */
+				ALREADY_VERIFIED: () => LocalizedString
+			}
+			QUESTIONS: {
+				QUESTION_ICEBREAKER: {
+					/**
+					 * If you could teleport anywhere in Europe right now, where would you go?
+					 */
+					TITLE: () => LocalizedString
+					/**
+					 * Hmmm... I think I'd visit the Kravica Waterfalls..! What about you?
+					 */
+					DESCRIPTION: () => LocalizedString
+				}
+				QUESTION_HOME_COUNTRY: {
+					/**
+					 * Where do you call home?
+					 */
+					TITLE: () => LocalizedString
+					/**
+					 * Select your country or region. European members: pick your specific country. If your country is not listed, select "Other European country". Outside Europe: pick your continent.
+					 */
+					DESCRIPTION: () => LocalizedString
+				}
+				QUESTION_HOME_CONTINENT: {
+					/**
+					 * What continent do you call home?
+					 */
+					TITLE: () => LocalizedString
+					/**
+					 * This is the bare minimum - if you have a specific reason for not wanting to share your location, please contact <@260460895761727491>.
+					 */
+					DESCRIPTION: () => LocalizedString
+				}
+				QUESTION_LANGUAGES_EU: {
+					/**
+					 * Which European languages do you speak?
+					 */
+					TITLE: () => LocalizedString
+					/**
+					 * Select all European languages you speak. English is shown by default — feel free to add more!
+					 */
+					DESCRIPTION: () => LocalizedString
+				}
+				QUESTION_LANGUAGES_OTHER: {
+					/**
+					 * Any other languages?
+					 */
+					TITLE: () => LocalizedString
+					/**
+					 * Select any world or constructed languages you speak (Arabic, Japanese, Esperanto, etc.).
+					 */
+					DESCRIPTION: () => LocalizedString
+				}
+				QUESTION_PRONOUNS: {
+					/**
+					 * What are your pronouns?
+					 */
+					TITLE: () => LocalizedString
+					/**
+					 * Please select your pronouns, so we may correctly refer to you!
+					 */
+					DESCRIPTION: () => LocalizedString
+				}
+				QUESTION_DISCOVERY: {
+					/**
+					 * How did you come across our Volt Discord?
+					 */
+					TITLE: () => LocalizedString
+					/**
+					 * We're curious: How did you find us?
+					 */
+					DESCRIPTION: () => LocalizedString
+				}
+				QUESTION_IS_MEMBER: {
+					/**
+					 * Are you a member or volunteer of Volt Europa?
+					 */
+					TITLE: () => LocalizedString
+					/**
+					 * Select Yes if you are a registered member or active volunteer of any Volt party. If yes, we will ask for your Haiilo profile link in the next step.
+					 */
+					DESCRIPTION: () => LocalizedString
+				}
+				QUESTION_HAIILO: {
+					/**
+					 * Please share your Haiilo profile link
+					 */
+					TITLE: () => LocalizedString
+					/**
+					 * Open your Volt Haiilo profile and copy the URL. Expected format: `https://volt.haiilo.app/profile/your-name`
+					 */
+					DESCRIPTION: () => LocalizedString
+					/**
+					 * ❌ Please provide a valid Haiilo profile URL (https://volt.haiilo.app/profile/your-name).
+					 */
+					VALIDATION_ERROR: () => LocalizedString
+				}
+				QUESTION_CHAPTER_COUNTRY: {
+					/**
+					 * Which Volt national chapter are you a member of?
+					 */
+					TITLE: () => LocalizedString
+					/**
+					 * Select the European country whose Volt party you are registered with.
+					 */
+					DESCRIPTION: () => LocalizedString
+				}
+				QUESTION_RULE_ACCEPTANCE: {
+					/**
+					 * 📜 Server Rules
+					 */
+					TITLE: () => LocalizedString
+					/**
+					 * Please read through **all pages** of the rules before you can accept. The accept button only appears on the last page. By agreeing you confirm you have read and understood all rules.
+					 */
+					DESCRIPTION: () => LocalizedString
+				}
+			}
+		}
 		ERROR: {
 			/**
 			 * An unexpected Error occured!
@@ -247,6 +839,10 @@ export type TranslationFunctions = {
 		 * This command may not be executed in DMs. Please perform this task on any server.
 		 */
 		COMMAND_INVALID_IN_DMS: () => LocalizedString
+		/**
+		 * You do not have the required permissions to use this command.
+		 */
+		COMMAND_INVALID_PERMISSIONS: () => LocalizedString
 	}
 	UTIL: {
 		EVENT_WELCOME: {
@@ -320,6 +916,127 @@ export type TranslationFunctions = {
 			 * Offender
 			 */
 			EMBED_REPORTED_USER: () => LocalizedString
+		}
+		PURGE: {
+			/**
+			 * ⚠️ Confirm Data Purge
+			 */
+			CONFIRM_TITLE: () => LocalizedString
+			/**
+			 * This will permanently delete all warnings, bans, and reports for <@{userId}>. The user will receive a permanent ban. **This cannot be undone.**
+			 */
+			CONFIRM_DESCRIPTION: (arg: { userId: string }) => LocalizedString
+			/**
+			 * Confirm purge
+			 */
+			CONFIRM_BUTTON: () => LocalizedString
+			/**
+			 * Cancel
+			 */
+			CANCEL_BUTTON: () => LocalizedString
+			/**
+			 * Data purge complete for <@{userId}>. All records deleted, user permanently banned.
+			 */
+			SUCCESS: (arg: { userId: string }) => LocalizedString
+			/**
+			 * Records deleted for <@{userId}>, but Discord ban failed. Please ban the user manually.
+			 */
+			BAN_FAILED: (arg: { userId: string }) => LocalizedString
+			/**
+			 * Purge cancelled.
+			 */
+			CANCELLED: () => LocalizedString
+		}
+		GDPR_REQUEST: {
+			/**
+			 * 🔐 Request Data Deletion (GDPR/DSGVO)
+			 */
+			CONFIRM_TITLE: () => LocalizedString
+			/**
+			 * Submitting this request will permanently erase your personal data from our records. A moderator must approve the request before it is executed.
+			 */
+			CONFIRM_DESCRIPTION: () => LocalizedString
+			/**
+			 * ✅ Will be permanently deleted
+			 */
+			WILL_DELETE_TITLE: () => LocalizedString
+			/**
+			 * • Warnings issued against you
+		• Bans and ban history
+		• Reports involving you
+		• Court case records
+		• Slur violation logs
+		• Username change history
+		• Starboard metadata
+		• Our server audit log entries
+			 */
+			WILL_DELETE_VALUE: () => LocalizedString
+			/**
+			 * ❌ Cannot be deleted
+			 */
+			CANNOT_DELETE_TITLE: () => LocalizedString
+			/**
+			 * • **Your Discord messages** in this server — Discord controls message history
+		• **Starboard content** already published externally (Bluesky, Instagram, Haiilo) — we cannot recall published posts
+		• **Discord's own records** — platform-level audit logs, message data, etc.
+			 */
+			CANNOT_DELETE_VALUE: () => LocalizedString
+			/**
+			 * ⚠️ **This results in a permanent ban from the server.** You will not be able to rejoin after approval.
+			 */
+			BAN_WARNING: () => LocalizedString
+			/**
+			 * Submit Request
+			 */
+			CONFIRM_BUTTON: () => LocalizedString
+			/**
+			 * Cancel
+			 */
+			CANCEL_BUTTON: () => LocalizedString
+			/**
+			 * Your data deletion request has been submitted and is awaiting moderator approval. You will be notified via DM once a decision is made.
+			 */
+			SUBMITTED: () => LocalizedString
+			/**
+			 * Data deletion request cancelled.
+			 */
+			CANCELLED: () => LocalizedString
+			/**
+			 * Your Data Deletion Request Has Been Processed
+			 */
+			DM_EXECUTED_TITLE: () => LocalizedString
+			/**
+			 * A moderator has approved your data deletion request. All eligible personal data has been permanently erased from our server records.
+			 */
+			DM_EXECUTED_DESCRIPTION: () => LocalizedString
+			/**
+			 * ✅ Deleted from our records
+			 */
+			DM_DELETED_TITLE: () => LocalizedString
+			/**
+			 * Warnings, bans, reports, court cases, slur violations, username history, audit log entries, and starboard metadata.
+			 */
+			DM_DELETED_VALUE: () => LocalizedString
+			/**
+			 * ❌ Outside our control — not deleted
+			 */
+			DM_NOT_DELETED_TITLE: () => LocalizedString
+			/**
+			 * Discord messages you sent in the server, starboard content already published to external platforms (Bluesky, Instagram, Haiilo), and Discord's own platform records.
+			 */
+			DM_NOT_DELETED_VALUE: () => LocalizedString
+			/**
+			 * As part of this process, you have been permanently banned from the server.
+			 */
+			DM_BAN_NOTICE: () => LocalizedString
+			/**
+			 * Data Deletion Request Denied
+			 */
+			DM_DENIED_TITLE: () => LocalizedString
+			/**
+			 * The moderation team has reviewed your data deletion request and denied it. No data was modified.
+			 */
+			DM_DENIED_DESCRIPTION: () => LocalizedString
 		}
 	}
 }

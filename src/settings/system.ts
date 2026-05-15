@@ -46,6 +46,12 @@ export enum AppFeature {
   System = 'System',
   Database = 'Database',
   Rules = 'Rules',
+  GdprDeletion = 'GdprDeletion',
+  VolterExport = 'VolterExport',
+  LinkFilter = 'LinkFilter',
+  Profanity = 'Profanity',
+  Sticky = 'Sticky',
+  Modmail = 'Modmail',
 }
 
 export enum LogNamespace {
@@ -74,6 +80,12 @@ export const appFeatureMap: { [K in AppFeature]: { category: Categories; namespa
   [AppFeature.System]: { category: SystemCategories.System, namespace: LogNamespace.System, color: Colors.Yellow },
   [AppFeature.Database]: { category: SystemCategories.Database, namespace: LogNamespace.Database, color: Colors.Yellow },
   [AppFeature.Welcome]: { category: AbilityCategories.Utility, namespace: LogNamespace.Utility, color: Colors.Purple },
+  [AppFeature.GdprDeletion]: { category: AbilityCategories.Moderation, namespace: LogNamespace.Moderation, color: Colors.Red },
+  [AppFeature.VolterExport]: { category: AbilityCategories.Moderation, namespace: LogNamespace.Moderation, color: Colors.Purple },
+  [AppFeature.LinkFilter]: { category: AbilityCategories.Moderation, namespace: LogNamespace.Moderation, color: Colors.Red },
+  [AppFeature.Profanity]: { category: AbilityCategories.Moderation, namespace: LogNamespace.Moderation, color: Colors.Red },
+  [AppFeature.Sticky]: { category: AbilityCategories.Moderation, namespace: LogNamespace.Moderation, color: Colors.Blue },
+  [AppFeature.Modmail]: { category: AbilityCategories.Moderation, namespace: LogNamespace.Moderation, color: Colors.Purple },
 } as const;
 
 export const SNOWFLAKE_ID_LENGTH = 20;

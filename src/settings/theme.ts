@@ -12,10 +12,10 @@ export const Colors: ColorRecord = { ...BotColors, ...VoltColors };
 export const assets = Object.freeze({
   wattson: {
     '256x256': { file: new AttachmentBuilder('assets/wattson-256x256.png'), url: 'attachment://wattson-256x256.png' },
-    appreciationBanner: { file: new AttachmentBuilder('assets/thank-you-banner.png'), url: 'attachment://thank-you-banner.png' },
+    appreciationBanner: { file: new AttachmentBuilder('assets/thank-you-banner.webp'), url: 'attachment://thank-you-banner.webp' },
   },
   volt: {
     '256x256': { file: new AttachmentBuilder('assets/volt-logo-purple-256x256.png'), url: 'attachment://volt-logo-purple-256x256.png' },
-    banner: { file: new AttachmentBuilder('assets/volt-banner-europa.png'), url: 'attachment://volt-banner-europa.png' },
+    banner: { file: new AttachmentBuilder('assets/volt-banner-europa.webp'), url: 'attachment://volt-banner-europa.webp' },
   },
 });

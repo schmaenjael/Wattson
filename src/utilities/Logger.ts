@@ -2,15 +2,34 @@ import { type Bindings, type ChildLoggerOptions, type Logger as PinoLogger, pino
 
 import { AppFeature, appFeatureMap, LogNamespace } from '~/settings';
 
+const REDACT_PATHS = [
+  'token',
+  '*.token',
+  'password',
+  '*.password',
+  'authorization',
+  '*.authorization',
+  'apiKey',
+  '*.apiKey',
+  'api_key',
+  '*.api_key',
+  'email',
+  '*.email',
+  'BOT_PASSWORD',
+  '*.BOT_PASSWORD',
+  'POSTGRES_PASSWORD',
+  '*.POSTGRES_PASSWORD',
+];
+
 export class Logger {
   private logger: PinoLogger<string, boolean>;
   private static parentLogger: Logger;
-  private static loggerPool: Map<string, any> = new Map<LogNamespace, Logger>();
+  private static loggerPool = new Map<LogNamespace, Logger>();
 
   private constructor() {
     this.logger = pino({
-      level: process.env.NODE_ENV === 'production' ? 'warn' : process.env.NODE_ENV === 'test' ? 'info' : 'trace',
-      redact: { paths: process.env.NODE_ENV !== 'development' ? ['*.token', 'token'] : [], censor: '[REDACTED]' },
+      level: process.env.NODE_ENV === 'production' ? 'info' : process.env.NODE_ENV === 'test' ? 'info' : 'trace',
+      redact: { paths: REDACT_PATHS, censor: '[REDACTED]' },
       timestamp: () => `,"timestamp":"${new Date(Date.now()).toISOString()}"`,
       formatters: { level: (label: string) => ({ level: label.toUpperCase() }) },
     });
@@ -20,29 +39,33 @@ export class Logger {
     const ns = appFeatureMap[module].namespace;
 
     if (!this.parentLogger) this.parentLogger = new Logger();
-    if (!this.loggerPool.get(ns)) this.loggerPool.set(ns, this.parentLogger.getChildLogger({}, { msgPrefix: `${ns} ` }));
+    if (!this.loggerPool.has(ns)) {
+      const wrapper = Object.create(Logger.prototype) as Logger;
+      (wrapper as unknown as { logger: PinoLogger<string, boolean> }).logger = this.parentLogger.getChildLogger({}, { msgPrefix: `${ns} ` });
+      this.loggerPool.set(ns, wrapper);
+    }
 
-    return this.loggerPool.get(ns);
+    return this.loggerPool.get(ns)!;
   }
 
-  public fatal(obj: Object, msg?: string) {
-    this.logger.fatal(obj, msg);
+  public fatal(obj: object | string, msg?: string) {
+    this.logger.fatal(obj as object, msg);
   }
 
-  public error(obj: Object, msg?: string) {
-    this.logger.error(obj, msg);
+  public error(obj: object | string, msg?: string) {
+    this.logger.error(obj as object, msg);
   }
 
-  public warn(obj: Object, msg?: string) {
-    this.logger.warn(obj, msg);
+  public warn(obj: object | string, msg?: string) {
+    this.logger.warn(obj as object, msg);
   }
 
-  public info(obj: Object, msg?: string) {
-    this.logger.info(obj, msg);
+  public info(obj: object | string, msg?: string) {
+    this.logger.info(obj as object, msg);
   }
 
-  public debug(obj: Object, msg?: string) {
-    this.logger.debug(obj, msg);
+  public debug(obj: object | string, msg?: string) {
+    this.logger.debug(obj as object, msg);
   }
 
   protected getChildLogger(bindings: Bindings, options?: ChildLoggerOptions) {

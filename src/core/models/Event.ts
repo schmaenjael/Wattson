@@ -1,9 +1,11 @@
 import { ClientEvents } from 'discord.js';
 
-import { EventOptions } from '~/core/types';
+import { EventOptions, MiddlewareResult } from '~/core/types';
 import { Client } from '~/core/models';
+import { ProcessExitCode } from '~/settings';
 import { Logger } from '~/utilities';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export class Event<T extends keyof ClientEvents = any> {
   public readonly options: EventOptions<T>;
   public readonly logger: Readonly<Logger>;
@@ -14,10 +16,24 @@ export class Event<T extends keyof ClientEvents = any> {
   }
 
   public async execute(client: Client, ...args: ClientEvents[T]) {
-    const { executeCommand, middleware } = this.options;
+    const { executeCommand, middleware, afterware } = this.options;
 
-    middleware?.forEach((apply) => this.execute.bind(apply(this, client, ...args)));
+    if (middleware) {
+      for (const fn of middleware) {
+        const result: MiddlewareResult = await fn(this, client, ...args);
+        if (result.status !== ProcessExitCode.OK) {
+          this.logger.debug({ event: this.options.type, status: result.status }, 'Middleware short-circuited event handler.');
+          return;
+        }
+      }
+    }
 
     await executeCommand(this, client, ...args);
+
+    if (afterware) {
+      for (const fn of afterware) {
+        await fn(this, client, ...args);
+      }
+    }
   }
 }

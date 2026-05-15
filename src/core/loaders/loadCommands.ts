@@ -11,6 +11,7 @@ export const getCommandsCollection = async () => {
   const logger = Logger.getInstance();
   const path = join(process.cwd(), 'src/core/commands');
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const commands = new Collection<string, Command<any>>();
 
   try {

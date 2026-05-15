@@ -1,4 +1,4 @@
-import { AttachmentBuilder, BitFieldResolvable, EmbedBuilder, HexColorString, Locale, MessageFlags, MessageFlagsString } from 'discord.js';
+import { AttachmentBuilder, EmbedBuilder, HexColorString, Locale, MessageFlags } from 'discord.js';
 
 interface ComponentRequirements {
   color: HexColorString;
