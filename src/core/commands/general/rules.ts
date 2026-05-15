@@ -1,41 +1,27 @@
-import { ApplicationCommandType, MessageFlags, SlashCommandBuilder, Snowflake, TextChannel } from 'discord.js';
-import { eq } from 'drizzle-orm';
+import { ApplicationCommandType, MessageFlags, SlashCommandBuilder, TextChannel } from 'discord.js';
 
-import DatabaseClient, { tblGuild, RuleCategory, tblRules } from '~/database';
-import { useGuildOnlyChatInput } from '~/core/middleware';
+import { RuleCategory, listRules } from '~/database';
 import { AppFeature, appFeatureMap } from '~/settings';
 import { baseLocale } from '~/core/locales';
 import { Command } from '~/core/models';
-import { Utils } from '~/utilities';
+import { toTitleCase } from '~/utilities';
 
 import { RuleHeaderEmbed, RulesEmbed, handlePaginatedEmbeds } from '~/core/components';
 
-const fetchCategorizedRules = async (guildId: Snowflake, categories: RuleCategory[]) => {
-  const db = DatabaseClient.getInstance();
+const fetchCategorizedRules = async (categories: RuleCategory[]) => {
+  const rules = await listRules();
 
-  const rules = await db
-    .select({
-      title: tblRules.title,
-      categoryIndex: tblRules.categoryIndex,
-      content: tblRules.content,
-      category: tblRules.category,
-      example: tblRules.example,
-    })
-    .from(tblRules)
-    .where(eq(tblRules.fkGuildId, guildId));
-
-  const categorizedRules = Object.groupBy<RuleCategory, (typeof rules)[0]>(
+  return Object.groupBy(
     rules.map((r) => ({ ...r, title: `${categories.indexOf(r.category) + 1}.${r.categoryIndex}. ${r.title}` })),
-    (r) => r.category as RuleCategory
+    (r) => r.category
   );
-
-  return categorizedRules;
 };
 
 export default new Command<ApplicationCommandType.ChatInput>({
   feature: AppFeature.Rules,
   type: ApplicationCommandType.ChatInput,
-  middleware: [useGuildOnlyChatInput],
+  middleware: [],
+  requiredPermissions: [],
   data: new SlashCommandBuilder()
     .setName('rules')
     .setDescription('Manages the ruleset')
@@ -44,28 +30,31 @@ export default new Command<ApplicationCommandType.ChatInput>({
     ),
   async executeCommand(command, client, interaction) {
     const categories = Object.values(RuleCategory);
-    const categorizedRules = await fetchCategorizedRules(interaction?.guildId!, categories);
+    const categorizedRules = await fetchCategorizedRules(categories);
 
     const embeds = Object.entries(categorizedRules).map(([category, list], i) => {
       return new RulesEmbed({
         color: appFeatureMap[command.options.feature].color,
         locale: interaction.locale,
-        title: `📜 ${Utils.toTitleCase(category)}`,
+        title: `📜 ${toTitleCase(category)}`,
         footerText: `Page ${i + 1} of ${categories.length}`,
-        fieldList: list,
+        fieldList: list ?? [],
       });
     });
     const embedList = embeds.flatMap((e) => e.render());
     const embedAttachmentList = [...new Set(embeds.flatMap((e) => e.attachments))];
 
     if (!interaction.options.getBoolean('permanent')) {
-      return await handlePaginatedEmbeds(embedList, interaction, { flags: MessageFlags.Ephemeral, files: embedAttachmentList });
+      return handlePaginatedEmbeds(embedList, interaction, { flags: MessageFlags.Ephemeral, files: embedAttachmentList });
     }
 
     const channel = (await client.channels.fetch(interaction.channelId)) as TextChannel;
     const ruleHeaderEmbed = new RuleHeaderEmbed({ color: appFeatureMap[command.options.feature].color, locale: baseLocale });
 
-    channel.send({ embeds: [ruleHeaderEmbed.render()], files: ruleHeaderEmbed.attachments });
-    await channel.send({ embeds: embedList, files: embedAttachmentList });
+    await channel.send({ embeds: [ruleHeaderEmbed.render()], files: ruleHeaderEmbed.attachments });
+
+    for (let i = 0; i < embedList.length; i += 10) {
+      await channel.send({ embeds: embedList.slice(i, i + 10), ...(i === 0 && { files: embedAttachmentList }) });
+    }
   },
 });

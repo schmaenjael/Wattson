@@ -1,10 +1,11 @@
-import { Events, EmbedBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder } from 'discord.js';
+import { Events } from 'discord.js';
 
 import { Event } from '~/core/models';
-import { AppFeature, appFeatureMap } from '~/settings';
+import { AppFeature } from '~/settings';
 import { Logger } from '~/utilities';
 
-import { baseLocale, L } from '~/core/locales';
+import { getSettings, recordAuditEvent, upsertUser, AuditEventType } from '~/database';
+import { runVerification } from '~/core/providers/verification';
 
 export default new Event({
   type: Events.GuildMemberAdd,
@@ -12,66 +13,25 @@ export default new Event({
   middleware: [],
   async executeCommand(event, client, member) {
     const logger = Logger.getInstance(event.options.feature);
+    const settings = await getSettings();
 
-    const createdAt = `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`;
-    const joinedAt = `<t:${Math.floor((member.joinedTimestamp ?? Date.now()) / 1000)}:R>`;
+    await upsertUser({ id: member.id, username: member.user.username });
+    await recordAuditEvent({
+      eventType: AuditEventType.MemberJoined,
+      targetUserId: member.id,
+      payload: { username: member.user.username, joinedAt: member.joinedTimestamp },
+    });
 
-    const welcomeEmbed = new EmbedBuilder()
-      .setColor(appFeatureMap[event.options.feature].color)
-      .setTitle(`**${L[baseLocale].UTIL.EVENT_WELCOME.EMBED_TITLE()}**`)
-      .setThumbnail(member.user.displayAvatarURL({ size: 2048 }))
-      .addFields(
-        { name: '👤 User', value: `<@${member.id}>`, inline: true },
-        { name: '👤 Username', value: `\`\`${member.user.tag}\`\``, inline: true },
-        { name: '📆 Account Created', value: createdAt, inline: true },
-        { name: '🔗 Join Date', value: joinedAt, inline: true }
-      )
-      .setFooter({ text: `ID: ${member.user.id}` })
-      .setTimestamp();
+    if (!settings.featureWelcomeEnabled) return;
 
-    try {
-      const dmChannel = await member.createDM();
-      await dmChannel.send(`Welcome to **${member.guild.name}**! To get verified, please reply with "I agree".`);
-
-      const filter = (response: any) => {
-        return response.author.id === member.id;
-      };
-
-      const collected = await dmChannel.awaitMessages({ filter, max: 1, time: 15000, errors: ['time'] });
-
-      const reply = collected.first()?.content.trim().toLowerCase();
-
-      if (reply === 'i agree') {
-        await dmChannel.send('Thank you! You are now verified. ✅');
-        console.log(`User ${member.user.tag} verified successfully.`);
-
-        const verifiedRole = member.guild.roles.cache.find((role) => role.name === 'Verified');
-        if (verifiedRole) {
-          await member.roles.add(verifiedRole);
-        } else {
-          console.warn('Verified role not found in the server.');
-        }
-      } else {
-        await dmChannel.send('Incorrect response. Please contact a moderator.');
-        console.log(`User ${member.user.tag} gave an incorrect verification response.`);
-      }
-    } catch (error: any) {
-      if (error instanceof Map) {
-        console.log(`User ${member.user.tag} did not respond to verification in time.`);
-      } else {
-        console.error(`Failed to verify ${member.user.tag}:`, error);
-      }
+    // If OBSCR role is configured, mark the member as verification-in-progress.
+    if (settings.roleObscrId) {
+      await member.roles.add(settings.roleObscrId, 'Verification started').catch(() => null);
     }
 
-    try {
-      const welcomeChannel = member.guild.channels.cache.find((ch) => ch.name === 'anarchiediscord-loooool');
-      if (welcomeChannel && welcomeChannel.isTextBased()) {
-        await welcomeChannel.send({ embeds: [welcomeEmbed] });
-      } else {
-        logger.error('No welcome channel found or channel is not text-based!');
-      }
-    } catch (error) {
-      logger.error(Object(error), `Error while sending welcome message for ${member.user.username}`);
-    }
+    // Fire-and-forget the verification flow (it's long-running; don't block the event).
+    runVerification(client, member).catch((err) => {
+      logger.error(Object(err), `Verification flow crashed for ${member.user.tag}`);
+    });
   },
 });

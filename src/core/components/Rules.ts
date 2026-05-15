@@ -2,7 +2,7 @@ import { AttachmentBuilder, EmbedBuilder } from 'discord.js';
 
 import { Component } from '~/core/models';
 import { assets } from '~/settings';
-import { Utils } from '~/utilities';
+import { toTitleCase } from '~/utilities';
 import { L } from '~/core/locales';
 
 interface RulesEmbedParams {
@@ -27,15 +27,17 @@ export class RulesEmbed extends Component<RulesEmbedParams> {
 
     fieldList
       .sort((a, b) => a.categoryIndex - b.categoryIndex)
+      .slice(0, 25)
       .forEach((entry) => {
-        embed.addFields({ name: Utils.toTitleCase(entry.title), value: `${entry.content}${entry.example ? `\n-# ⇒ ${entry.example}` : ''}` });
+        const value = `${entry.content}${entry.example ? `\n-# ⇒ ${entry.example}` : ''}`;
+        embed.addFields({ name: toTitleCase(entry.title).slice(0, 256), value: value.slice(0, 1024) });
       });
 
     return embed;
   }
 }
 
-interface RuleHeaderEmbedParams {}
+type RuleHeaderEmbedParams = object;
 
 export class RuleHeaderEmbed extends Component<RuleHeaderEmbedParams> {
   public attachments: AttachmentBuilder[] = [];

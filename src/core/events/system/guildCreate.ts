@@ -1,50 +1,31 @@
-import { eq } from 'drizzle-orm';
+import { Events } from 'discord.js';
 
-import DatabaseClient, { AppConfig, tblGuild, tblUsers, tblUsersInGuild } from '~/database';
-import { AppFeature } from '~/settings';
 import { Event } from '~/core/models';
+import { AppFeature } from '~/settings';
 import { Logger } from '~/utilities';
-import { Events, Guild } from 'discord.js';
 
-export const insertAllUsersInGuild = async (guild: Guild) => {
-  const db = DatabaseClient.getInstance();
-
-  try {
-    await guild.members.fetch();
-
-    await db
-      .insert(tblGuild)
-      .values({
-        id: guild.id,
-        config: { system: { systemNotificationEnabled: false }, verification: { enabled: false }, surveillance: { enabled: false } } as AppConfig,
-      })
-      .onConflictDoNothing();
-
-    const members = guild.members.cache.filter((m) => !m.user.bot);
-    const usersToInsert = members.map((member) => ({ id: member.user.id, username: member.user.username, joinedDiscord: member.user.createdAt }));
-    const usersInGuild = members.map((member) => ({ fkGuildId: guild.id, fkUserId: member.user.id }));
-
-    await db.insert(tblUsers).values(usersToInsert).onConflictDoNothing();
-    await db.insert(tblUsersInGuild).values(usersInGuild).onConflictDoNothing();
-
-    console.log(`✅ Inserted ${usersInGuild.length} users into tblUsersInGuild for guild ${guild.name}`);
-  } catch (err) {
-    console.error(`❌ Failed to insert users for guild ${guild.name}:`, err);
-  }
-};
-
+/**
+ * Single-server deployment guardrail. If the bot is added to any guild that
+ * doesn't match process.env.GUILD_ID, it leaves immediately.
+ */
 export default new Event({
   type: Events.GuildCreate,
-  feature: AppFeature.Database,
+  feature: AppFeature.System,
+  middleware: [],
   async executeCommand(event, client, guild) {
-    const logger = Logger.getInstance();
+    const logger = Logger.getInstance(AppFeature.System);
+    const expected = process.env.GUILD_ID;
 
+    if (guild.id === expected) {
+      logger.info(`Joined configured guild: ${guild.name} (${guild.id}).`);
+      return;
+    }
+
+    logger.warn(`Leaving unexpected guild ${guild.name} (${guild.id}); expected ${expected}.`);
     try {
-      insertAllUsersInGuild(guild);
-
-      logger.info(`Joined new guild: ${guild.name} (${guild.id})`);
+      await guild.leave();
     } catch (error) {
-      logger.error({ err: error }, `Failed to insert guild ${guild.id} into database.`);
+      logger.error(Object(error), `Failed to leave unexpected guild ${guild.id}.`);
     }
   },
 });

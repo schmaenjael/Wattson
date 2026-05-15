@@ -21,7 +21,7 @@ export class ReportEmbed extends Component<ReportEmbedParams> {
     return new EmbedBuilder()
       .setColor(color)
       .setTitle(L[locale].MODERATION.REPORT.EMBED_TITLE())
-      .setAuthor({ name: authorName, iconURL: authorIcon })
+      .setAuthor({ name: authorName.slice(0, 256), iconURL: authorIcon || undefined })
       .addFields(
         { name: `${L[locale].MODERATION.REPORT.EMBED_OFFENDER()}`, value: `<@${authorId}>` },
         { name: `${L[locale].MODERATION.REPORT.EMBED_CHANNEL()}`, value: `<#${targetChannel}>` },
