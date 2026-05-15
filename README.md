@@ -113,20 +113,20 @@ cp .env.example .env
 
 | Variable              | Required | Description                                                    |
 | --------------------- | -------- | -------------------------------------------------------------- |
-| `TOKEN`               | ✅        | Discord bot token                                              |
-| `CLIENT_ID`           | ✅        | Discord application client ID                                  |
-| `APPLICATION_ID`      | ✅        | Discord application ID                                         |
-| `GUILD_ID`            | ✅        | The single guild this bot serves                               |
-| `NODE_ENV`            | ✅        | `development` or `production`                                  |
-| `POSTGRES_USER`       | ✅        | Superuser for DB initialisation                                |
-| `POSTGRES_PASSWORD`   | ✅        | Superuser password                                             |
-| `POSTGRES_DB`         | ✅        | Database name                                                  |
-| `POSTGRES_HOST`       | ✅        | Postgres host (`localhost` for local dev)                      |
+| `TOKEN`               | ✅       | Discord bot token                                              |
+| `CLIENT_ID`           | ✅       | Discord application client ID                                  |
+| `APPLICATION_ID`      | ✅       | Discord application ID                                         |
+| `GUILD_ID`            | ✅       | The single guild this bot serves                               |
+| `NODE_ENV`            | ✅       | `development` or `production`                                  |
+| `POSTGRES_USER`       | ✅       | Superuser for DB initialisation                                |
+| `POSTGRES_PASSWORD`   | ✅       | Superuser password                                             |
+| `POSTGRES_DB`         | ✅       | Database name                                                  |
+| `POSTGRES_HOST`       | ✅       | Postgres host (`localhost` for local dev)                      |
 | `POSTGRES_PORT`       |          | Postgres port (default: `5432`)                                |
-| `BOT_USERNAME`        | ✅        | Least-privilege bot DB role                                    |
-| `BOT_PASSWORD`        | ✅        | Bot DB role password                                           |
-| `OLLAMA_ENDPOINT`     | ✅        | `http://localhost:11434` for local dev                         |
-| `OLLAMA_MODEL`        | ✅        | Ollama model name                                              |
+| `BOT_USERNAME`        | ✅       | Least-privilege bot DB role                                    |
+| `BOT_PASSWORD`        | ✅       | Bot DB role password                                           |
+| `OLLAMA_ENDPOINT`     | ✅       | `http://localhost:11434` for local dev                         |
+| `OLLAMA_MODEL`        | ✅       | Ollama model name                                              |
 | `BLOCKLIST_PATHS`     |          | Comma-separated paths to Pi-hole blocklist files (link filter) |
 | `PROFANITY_LIST_PATH` |          | Path to bad-words list (profanity filter)                      |
 
@@ -161,7 +161,7 @@ This must be re-run whenever commands are added, removed, or their options chang
 
 ### 6. Start the bot
 
-I recommend running with ``--build`` whenever a dependency of a Dockerfile changes or a new file was added to the dependency list.
+I recommend running with `--build` whenever a dependency of a Dockerfile changes or a new file was added to the dependency list.
 
 ```bash
 # Development (watch mode)
@@ -217,11 +217,11 @@ For the full repository + schema conventions, see [ARCHITECTURE.md](ARCHITECTURE
 
 ## 🤖 AI-Assisted Development
 
-AI-Assisted or AI-driven development is explicitly allowed, as this code is not deemed security critical. In addition to that, AI agent driven development significantly speeds up the process of writing a codebase such as this, so its a welcome tool. 
+AI-Assisted or AI-driven development is explicitly allowed, as this code is not deemed security critical. In addition to that, AI agent driven development significantly speeds up the process of writing a codebase such as this, so its a welcome tool.
 
-The code structure right now permits effective working with AI driven tools such as Claude or Codex in this codebase. The provided ``CLAUDE.md`` contains a list of instructions that have served well during some feature development.
+The code structure right now permits effective working with AI driven tools such as Claude or Codex in this codebase. The provided `CLAUDE.md` contains a list of instructions that have served well during some feature development.
 
-Before opening a PR, please review AI generated code for clear artificats and that it follows the same coding style that was used up to now. 
+Before opening a PR, please review AI generated code for clear artificats and that it follows the same coding style that was used up to now.
 
 ---
 
@@ -234,6 +234,7 @@ Bug reports and feature requests go on the project's GitLab issue tracker. Inclu
 Wattson is currently maintained by Manuel Mayer (manuel.mayer@volteuropa.org).
 
 List of all maintainers:
+
 - [**Manuel Mayer**](https://github.com/schmaenjael) [![GitHub followers](https://img.shields.io/github/followers/schmaenjael.svg?style=social)](https://github.com/schmaenjael)
 
 ## ⚠️ License
