@@ -1,8 +1,9 @@
 import { ApplicationCommandType } from 'discord.js';
 
-import { Client } from '~/core/models';
+import { CommandOptions, InteractionType, MiddlewareResult } from '~/core/types';
+import { BotException, Client } from '~/core/models';
+import { ProcessExitCode } from '~/settings';
 import { Logger } from '~/utilities';
-import { CommandOptions, InteractionType } from '~/core/types';
 
 export class Command<T extends ApplicationCommandType = ApplicationCommandType.ChatInput> {
   public readonly options: CommandOptions<T>;
@@ -14,9 +15,31 @@ export class Command<T extends ApplicationCommandType = ApplicationCommandType.C
   }
 
   public async execute(client: Client, interaction: InteractionType<T>) {
-    const { executeCommand, middleware } = this.options;
+    const { executeCommand, middleware, afterware } = this.options;
 
-    middleware?.forEach((apply) => this.execute.bind(apply(this, client, interaction)));
-    await executeCommand(this, client, interaction);
+    try {
+      const results: Array<MiddlewareResult> = [];
+
+      if (middleware) {
+        for (const fn of middleware) {
+          const result = await fn(this, client, interaction);
+          results.push(result);
+          if (result.status !== ProcessExitCode.OK) {
+            this.logger.debug({ command: interaction.commandName, status: result.status }, 'Middleware short-circuited command execution.');
+            return;
+          }
+        }
+      }
+
+      const commandResult = await executeCommand(this, client, interaction, results);
+
+      if (afterware) {
+        for (const fn of afterware) {
+          await fn(this, client, interaction, results, commandResult);
+        }
+      }
+    } catch (error: unknown) {
+      throw new BotException(client, `${interaction.commandName} by ${interaction.user.username}`, error);
+    }
   }
 }

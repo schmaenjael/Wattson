@@ -1,4 +1,5 @@
 services:
+  # This service is only used in production mode - for development, use `bun run dev` instead and execute it locally
   wattson:
     profiles: ['production']
     build:
@@ -11,35 +12,70 @@ services:
       - TOKEN=${TOKEN:?err}
       - CLIENT_ID=${CLIENT_ID:?err}
       - APPLICATION_ID=${APPLICATION_ID:?err}
+      - GUILD_ID=${GUILD_ID:?err}
       - NODE_ENV=${NODE_ENV:?err}
-      - MONGO_URI=${MONGO_URI:?err}
-      - MONGO_USERNAME=${MONGO_USERNAME:?err}
-      - MONGO_PASSWORD=${MONGO_PASSWORD:?err}
-      - MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE:?err}
+      - POSTGRES_HOST=${POSTGRES_HOST:-postgres}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB:?err}
+      - BOT_USERNAME=${BOT_USERNAME:?err}
+      - BOT_PASSWORD=${BOT_PASSWORD:?err}
+      - OLLAMA_ENDPOINT=${OLLAMA_ENDPOINT:-http://ollama:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2:3b}
     depends_on:
-      - mongodb
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - wattson-net
-  mongodb:
+  # Ollama LLM service — used by both general automod and harm detection.
+  # The model is baked into the image at build time (see Dockerfile.llm).
+  # Change MODEL_NAME to swap models without touching application code.
+  ollama:
     profiles: ['production', 'development']
     build:
       context: .
-      dockerfile: Dockerfile.mongodb
-    container_name: mongodb
+      dockerfile: Dockerfile.llm
+      args:
+        MODEL_NAME: ${OLLAMA_MODEL:-llama3.2:3b}
+    container_name: ollama
     ports:
-      - '27017:27017'
-    environment:
-      MONGO_USERNAME: ${MONGO_USERNAME:?err}
-      MONGO_PASSWORD: ${MONGO_PASSWORD:?err}
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:?err}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:?err}
-      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE:?err}
-    volumes:
-      - mongo-data:/data/db
+      - '11434:11434'
     restart: unless-stopped
     healthcheck:
-      test: ['CMD', 'mongo', '--eval', "db.adminCommand('ping')"]
+      test: ['CMD-SHELL', 'ollama list > /dev/null 2>&1']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
+    networks:
+      - wattson-net
+  # This service is used in both production and development modes to run the Postgres database
+  postgres:
+    profiles: ['production', 'development']
+    build:
+      context: .
+      dockerfile: Dockerfile.pg
+    container_name: postgres
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?err}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?err}
+      POSTGRES_DB: ${POSTGRES_DB:?err}
+      BOT_USERNAME: ${BOT_USERNAME:?err}
+      BOT_PASSWORD: ${BOT_PASSWORD:?err}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
       interval: 30s
       timeout: 5s
       retries: 5
@@ -50,8 +86,28 @@ services:
         max-file: '3'
     networks:
       - wattson-net
+  # This service is configured for both production and development modes
+  pgadmin:
+    image: dpage/pgadmin4:9.15.0
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:?err}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:?err}
+      PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: 'True'
+      PGADMIN_CONFIG_CONSOLE_LOG_LEVEL: '10'
+      TZ: Europe/Berlin
+    ports:
+      - '15432:80'
+    networks:
+      - wattson-net
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    volumes:
+      - pgadmin:/var/lib/pgadmin
 networks:
   wattson-net:
     driver: bridge
 volumes:
-  mongo-data:
+  postgres-data:
+  pgadmin:

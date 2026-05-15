@@ -6,10 +6,30 @@ declare global {
     TOKEN: string;
     CLIENT_ID: Snowflake;
     APPLICATION_ID: Snowflake;
-    MONGO_URI: string;
-    MONGO_PASSWORD: string;
-    MONGO_USERNAME: string;
-    MONGO_INITDB_DATABASE: string;
+    GUILD_ID: Snowflake;
+
+    POSTGRES_USER: string;
+    POSTGRES_PASSWORD: string;
+    POSTGRES_DB: string;
+    POSTGRES_HOST: string;
+    POSTGRES_PORT?: string;
+    BOT_USERNAME: string;
+    BOT_PASSWORD: string;
+
+    OLLAMA_ENDPOINT?: string;
+    OLLAMA_MODEL?: string;
+
+    BSKY_SERVICE?: string;
+    BSKY_IDENTIFIER?: string;
+    BSKY_APP_PASSWORD?: string;
+
+    INSTAGRAM_ACCESS_TOKEN?: string;
+    INSTAGRAM_BUSINESS_ACCOUNT_ID?: string;
+
+    HAIILO_BASE_URL?: string;
+    HAIILO_API_KEY?: string;
+
+    BLOCKLIST_PATHS?: string;
   }
 
   interface Window {
@@ -17,6 +37,7 @@ declare global {
   }
 
   namespace NodeJS {
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
     interface ProcessEnv extends Environment {}
   }
 }

@@ -1,0 +1,9 @@
+{
+  "timeoutMs": 30000,
+  "categories": {
+    "racism": { "enabled": true, "action": "flag" },
+    "discrimination": { "enabled": true, "action": "flag" },
+    "sexism": { "enabled": true, "action": "flag" },
+    "harassment": { "enabled": true, "action": "flag" }
+  }
+}

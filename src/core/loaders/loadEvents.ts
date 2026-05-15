@@ -19,12 +19,12 @@ export const loadEvents = async (client: Client) => {
 
       try {
         const { default: event }: { default: Event } = await import(pathToFileURL(filePath).href);
-        const { name, once } = event.options;
+        const { type, once } = event.options;
 
-        if (once) client.once(name, (...args: unknown[]) => event.execute(client, ...args));
-        else client.on(name, (...args: unknown[]) => event.execute(client, ...args));
+        if (once) client.once(type, (...args: unknown[]) => event.execute(client, ...args));
+        else client.on(type, (...args: unknown[]) => event.execute(client, ...args));
 
-        logger.debug(`Loaded event <${name}> from ${filePath}`);
+        logger.debug(`Loaded event <${type}> from ${filePath}`);
       } catch (error) {
         logger.error({ error }, `Failed to load event ${file} from ${filePath}`);
       }
