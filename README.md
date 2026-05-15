@@ -10,10 +10,10 @@ To find out more about our mission at Volt Europa, please refer to [VoltEuropa.o
 
 ## 🔽 Installation & Usage
 
-Clone the repository:
+Clone the repository from GitLab:
 
 ```bash
-$ git clone https://github.com/schmaenjael/Wattson
+$ git clone <GITLAB_REPO_URL>
 ```
 
 Install the dependencies (beware, the project uses `bun` instead of `npm`):
@@ -34,19 +34,19 @@ NODE_ENV=[...]
 Afterwards run the application
 
 ```bash
-$ npm run dev
+$ bun run dev
 ```
 
 To deploy the application, we recommend building it first using
 
 ```bash
-$ npm run build
+$ bun run build
 ```
 
 Then reregister the slash commands at the discord API using
 
 ```bash
-$ npm run script:register-commands
+$ bun run script:register-commands
 ```
 
 And finally deploy it by using `node`. Do not forget to adjust the `.env` file to use `production` instead of `development`.
@@ -54,30 +54,43 @@ And finally deploy it by using `node`. Do not forget to adjust the `.env` file t
 ## 📁 Scaffolding
 
 ```bash
-storyblok-remix-boilerplate
+wattson
+├── .gitlab-ci.yml          # CI (lint, typecheck, schema drift, Docker build)
+├── assets                  # banners, avatars, language map
 ├── scripts
+│   ├── migrations          # Drizzle-kit generated SQL
 │   └── register-commands.ts
 ├── src
-│   ├── commands
-│   ├── components
-│   ├── jobs
-│   ├── models
-│   └── index.ts
-├── types
-│   ├── globals.d.ts
-│   └── reset.d.ts
-├── eslint.config.mjs
+│   ├── core
+│   │   ├── commands        # auto-discovered slash/context commands
+│   │   ├── components      # reusable EmbedBuilder wrappers
+│   │   ├── events          # auto-discovered Discord event handlers
+│   │   ├── loaders         # env, locales, events, commands
+│   │   ├── locales         # typesafe-i18n (en/, de/)
+│   │   ├── middleware      # useGuildOnly, usePermissions, useAdmin
+│   │   ├── models          # Client, Command, Event, Component, UserRole
+│   │   ├── providers       # VerificationFlow, AutomodProvider, ExternalPoster
+│   │   ├── scheduler       # banSweeper
+│   │   └── types           # cross-cutting type definitions
+│   ├── database
+│   │   ├── schema          # one file per table + shared/enums/relations
+│   │   ├── repositories    # named queries per table
+│   │   ├── client.ts       # Drizzle connection
+│   │   └── settings.ts     # singleton-row accessor
+│   ├── settings            # env, system, theme
+│   └── utilities           # Logger, Utils, duration
+├── types                   # globals.d.ts, reset.d.ts
+├── ARCHITECTURE.md
+├── docker-compose.yml
+├── Dockerfile.wattson
+├── drizzle.config.ts
 ├── package.json
-├── bun-lock.yaml
-├── bun-workspace.yaml
-├── tsconfig.json
-├── LICENSE
 └── README.md
 ```
 
 ## 🪴 Architecture
 
-To learn about architecture decisions, please refer to the `ARCHITECTURE` documentation.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the canonical design reference (boot flow, command/event contract, settings singleton, repository pattern, provider interfaces, security).
 
 ## ✨ Features
 
@@ -86,33 +99,33 @@ To learn about architecture decisions, please refer to the `ARCHITECTURE` docume
 - [x] Status-Discord-Log on startup
 - [x] Ping functionality
 - [x] Welcome Message
-- [x] Multi-Guild Handling
-- [ ] RBAC System based on Server Roles
+- [x] RBAC System based on Server Roles
 - [x] Rule centralization
-- [ ] User Beaviour Logging
-- [ ] Automized Verification Process with \[OBSCR\]
-- [ ] Reports
-- [ ] Warns
-- [ ] Statistics
-- [ ] Starboard functionality
-  - [ ] Post to BSKY
-  - [ ] Post to Instagram
-  - [ ] Post to Volt Intranet
-- [ ] Automod of Messages, User Descriptions (maybe via a lightweight LLM?)
-- [ ] Courting functionality
+- [x] User Behaviour Logging
+- [x] Automated Verification Process (with OBSCR role marker)
+- [x] Reports (`/reports list|view|resolve|dismiss`)
+- [x] Warns (`/warn`, `/warnings list|revoke`)
+- [x] Bans (`/ban`, `/unban`, automatic expiry sweeper)
+- [x] Statistics (`/stats joins|moderation|activity`)
+- [x] Starboard functionality (in-Discord)
+  - [ ] Post to BSKY _(stub only — awaiting credentials)_
+  - [ ] Post to Instagram _(stub only — awaiting credentials)_
+  - [ ] Post to Volt Intranet (Haiilo) _(stub only — awaiting credentials)_
+- [x] Automod of Messages + User Descriptions (regex or self-hosted Ollama, `/automod` for pattern management)
+- [x] Courting functionality (`/court open|close|dismiss|escalate|list|history`)
 
 ### Non-Functional Requirements:
 
-- [x] Platform Agnostic Deployment (e.g. Docker)
-- [ ] Continuous Deployment via CI/CD
-- [x] Secure
-- [ ] Well-Documented
+- [x] Platform Agnostic Deployment (Docker)
+- [x] Continuous Deployment via CI/CD
+- [x] Secure (env validation, redaction, parameterised queries, append-only moderation)
+- [x] Well-Documented ([ARCHITECTURE.md](ARCHITECTURE.md))
 - [x] High Performance
-- [ ] Redact sensitve logging
+- [x] Redact sensitive logging
 
 ## 🐛 Bugs
 
-If you have questions, feature requests or a bug you want to report, please click [here](https://github.com/schmaenjael/Wattson/issues) to file an issue.
+If you have questions, feature requests or a bug you want to report, please file an issue on the project's GitLab tracker.
 
 ## ⚒️ Maintainers
 

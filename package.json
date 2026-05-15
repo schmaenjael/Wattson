@@ -18,39 +18,43 @@
     "script:lint": "eslint --cache",
     "script:format": "prettier --write --log-level warn .",
     "script:register-commands": "bun --env-file=.env ./scripts/register-commands.ts | pino-pretty",
-    "script:typesafe-i18n": "typesafe-i18n --no-watch"
+    "script:typesafe-i18n": "typesafe-i18n --no-watch",
+    "db:generate": "bun drizzle-kit generate",
+    "db:migrate": "bun drizzle-kit migrate"
   },
   "pre-commit": [
     "script:format",
     "script:lint"
   ],
   "dependencies": {
-    "@discordjs/rest": "^2.4.3",
-    "@types/pg": "^8.11.14",
-    "discord.js": "^14.18.0",
-    "dotenv": "^16.5.0",
-    "drizzle-orm": "^0.43.1",
-    "pg": "^8.15.6",
-    "pino": "^9.6.0",
-    "typesafe-i18n": "^5.26.2"
+    "@discordjs/rest": "^2.6.1",
+    "@types/pg": "^8.20.0",
+    "chart.js": "^4.5.1",
+    "chartjs-node-canvas": "^5.0.0",
+    "discord.js": "^14.26.4",
+    "dotenv": "^17.4.2",
+    "drizzle-orm": "^0.45.2",
+    "pg": "^8.20.0",
+    "pino": "^10.3.1",
+    "typesafe-i18n": "^5.27.1"
   },
   "devDependencies": {
-    "@eslint/js": "^9.23.0",
+    "@eslint/js": "^10.0.1",
     "@total-typescript/ts-reset": "^0.6.1",
-    "@types/node": "^22.13.14",
-    "@typescript-eslint/eslint-plugin": "^6.7.4",
-    "chalk": "4.1.2",
-    "concurrently": "^9.1.2",
-    "drizzle-kit": "^0.31.1",
-    "eslint": "^8.57.1",
-    "eslint-config-prettier": "^10.0.1",
+    "@types/node": "^25.8.0",
+    "@typescript-eslint/eslint-plugin": "^8.59.3",
+    "chalk": "5.6.2",
+    "concurrently": "^9.2.1",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^10.4.0",
+    "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prefer-arrow": "^1.2.3",
-    "pino-pretty": "^13.0.0",
-    "pre-commit": "^1.2.2",
-    "prettier": "^3.5.1",
-    "tsc-watch": "^6.2.1",
-    "typescript": "^5.1.6",
-    "typescript-eslint": "^8.28.0"
+    "pino-pretty": "^13.1.3",
+    "pre-commit": "^2.0.0",
+    "prettier": "^3.8.3",
+    "tsc-watch": "^7.2.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.59.3"
   },
   "engines": {
     "bun": ">=1.2.8"

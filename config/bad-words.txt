@@ -1,0 +1,176 @@
+# bad-words.txt — Wattson profanity filter
+#
+# Format:  <pattern> <severity> [r]
+#   severity 1 — always skipped (no action, no log)
+#   severity 2 — LLM context check (log regardless)
+#   severity 3 — LLM context check (log regardless)
+#   severity 4 — immediate delete + log, no LLM
+#   severity 5 — immediate delete + log, no LLM (racial slurs)
+#
+# Default badWordDeleteThreshold = 4 → severity ≥ 4 immediate delete;
+#   severity 2–3 go to LLM for contextual verdict.
+# Adjust via /config threshold bad_word_delete_threshold.
+#
+# Without 'r' flag: word auto-wrapped as \bword\b (word boundary)
+# With 'r' flag:    raw regex used as-is (include \b manually for boundaries)
+#
+# Lines starting with # and blank lines are ignored.
+
+# ============================================================
+# SEVERITY 5 — Racial & ethnic slurs (immediate delete + ban)
+# ============================================================
+nigga 5
+nigger 5
+chink 5
+spic 5
+kike 5
+gook 5
+coon 5
+paki 5
+wop 5
+
+# ============================================================
+# SEVERITY 4 — Targeted hate slurs (immediate delete)
+# ============================================================
+fag 4
+faggot 4
+tranny 4
+shemale 4
+\bshe\s+male\b 4 r
+rape 4
+raping 4
+rapist 4
+
+# ============================================================
+# SEVERITY 3 — Explicit sexual / NSFW (LLM check by default)
+# ============================================================
+anal 3
+blowjob 3
+\bblow\s+job\b 3 r
+\bblue\s+waffle\b 3 r
+bdsm 3
+bimbo 3
+bondage 3
+cawk 3
+clit 3
+cock 3
+cokmuncher 3
+cowgirl 3
+cum 3
+cunt 3
+cnut 3
+deepthroat 3
+\bdeep\s+throat\b 3 r
+dildo 3
+\bdog\s+style\b 3 r
+\bdoggie\s+style\b 3 r
+\bdoggy\s+style\b 3 r
+ejaculate 3
+ejaculating 3
+ejaculation 3
+ejakulate 3
+erotic 3
+erotism 3
+femdom 3
+fingering 3
+fingerfuck 3
+fistfuck 3
+footjob 3
+\bfoot\s+job\b 3 r
+fuck 3
+fcuk 3
+fook 3
+fooker 3
+fuk 3
+gangbang 3
+\bgang\s+bang\b 3 r
+gaysex 3
+\bgay\s+sex\b 3 r
+handjob 3
+\bhand\s+job\b 3 r
+hentai 3
+hooker 3
+incest 3
+jackoff 3
+\bjack\s+off\b 3 r
+jerkoff 3
+\bjerk\s+off\b 3 r
+jizz 3
+masturbate 3
+masturbating 3
+masturbation 3
+milf 3
+mofo 3
+mothafuck 3
+motherfuck 3
+orgy 3
+orgasm 3
+penis 3
+porn 3
+pussy 3
+pussies 3
+retard 3
+rimming 3
+sadism 3
+sadist 3
+semen 3
+slut 3
+spunk 3
+stripclub 3
+\bstrip\s+club\b 3 r
+threesome 3
+\bthree\s+some\b 3 r
+throating 3
+twat 3
+vagina 3
+wank 3
+whore 3
+whoar 3
+xxx 3
+
+# ============================================================
+# SEVERITY 2 — Strong insults / borderline (LLM check)
+# ============================================================
+ass 2
+arse 2
+anus 2
+ballsack 2
+bastard 2
+bitch 2
+boner 2
+boob 2
+boobs 2
+booobs 2
+\bbooty\s+call\b 2 r
+breasts 2
+bullshit 2
+busty 2
+butthole 2
+crap 2
+crotch 2
+dick 2
+dink 2
+doosh 2
+douche 2
+duche 2
+fatass 2
+homo 2
+horny 2
+muff 2
+nipple 2
+nob 2
+nude 2
+numbnuts 2
+nutsack 2
+panty 2
+panties 2
+playboy 2
+rectum 2
+scrotum 2
+shit 2
+viagra 2
+
+# ============================================================
+# SEVERITY 1 — Mild / always skipped (never logged or acted on)
+# ============================================================
+damn 1
