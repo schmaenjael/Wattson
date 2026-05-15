@@ -1,31 +1,27 @@
-import { Client as _Client, ClientOptions, Collection, Partials } from 'discord.js';
+import { Client as _Client, ActivityType, ApplicationCommandType, ClientOptions, Collection, GatewayIntentBits, Partials } from 'discord.js';
 
-import { loadEvents, loadCommands } from '~/core/loaders';
-import { Logger, Utils } from '~/utilities';
+import { loadEvents, loadSlashCommands } from '~/core/loaders';
+import { Logger, measurePerformance } from '~/utilities';
 import { Command } from '~/core/models';
-
-import { config } from '@/bot.config';
 
 export class Client extends _Client {
   private static instance: Client | null = null;
-  private commands = new Collection<string, Command>();
+  private commands = new Collection<string, Command<ApplicationCommandType>>();
 
   private constructor() {
     super({
-      intents: config.intents,
-      presence: config.presence,
+      intents: [
+        GatewayIntentBits.DirectMessages,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMessageReactions,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.GuildModeration,
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.MessageContent,
+      ],
+      presence: { status: 'dnd', activities: [{ name: 'Keeping the server tidy.. 🧹', type: ActivityType.Watching }] },
       rest: { rejectOnRateLimit: async () => true, version: '10' },
-      partials: config.partials
-        ? [
-            Partials.Channel,
-            Partials.GuildMember,
-            Partials.GuildScheduledEvent,
-            Partials.Message,
-            Partials.Reaction,
-            Partials.ThreadMember,
-            Partials.User,
-          ]
-        : [],
+      partials: [Partials.Channel, Partials.GuildMember, Partials.Message, Partials.Reaction, Partials.User],
     } satisfies ClientOptions);
   }
 
@@ -34,22 +30,17 @@ export class Client extends _Client {
     return this.instance;
   }
 
-  public setCommands(commands: Collection<string, Command>) {
-    this.commands = commands;
+  public setCommands(commands: Collection<string, Command<ApplicationCommandType>>) {
+    this.commands = Object.freeze(commands);
   }
 
   public getCommands() {
-    return Object.freeze(this.commands);
+    return this.commands;
   }
 
-  public start() {
-    Promise.allSettled([
-      Utils.measurePerformance(() => loadEvents(this), 'events')(),
-      Utils.measurePerformance(() => loadCommands(this), 'commands')(),
-    ])
-      .then(() =>
-        this.login(process.env.TOKEN).then(() => Logger.getInstance().info(`Successfully initialized bot <@${process.env.APPLICATION_ID}>.`))
-      )
-      .catch((error) => Logger.getInstance().fatal(Object(error), `Failed to start the server, due to an error.`));
+  public async start(): Promise<void> {
+    await Promise.all([measurePerformance(() => loadEvents(this), 'events')(), measurePerformance(() => loadSlashCommands(this), 'commands')()]);
+    await this.login(process.env.TOKEN);
+    Logger.getInstance().info(`Successfully initialized bot <@${process.env.APPLICATION_ID}>.`);
   }
 }

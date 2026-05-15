@@ -1,44 +1,27 @@
-import { SlashCommandBuilder, ApplicationCommandType, MessageFlags, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, ApplicationCommandType, MessageFlags } from 'discord.js';
 
-import { AppFeature } from '~/settings';
-import { Logger } from '~/utilities';
+import { appFeatureMap, AppFeature } from '~/settings';
 import { Command } from '~/core/models';
 
-import { assets, appFeatureMap } from '~/settings';
-import { L } from '~/core/locales';
+import { PingEmbed } from '~/core/components';
 
 export default new Command<ApplicationCommandType.ChatInput>({
   feature: AppFeature.Ping,
+  type: ApplicationCommandType.ChatInput,
+  middleware: [],
+  requiredPermissions: [],
   data: new SlashCommandBuilder().setName('ping').setDescription('Replies with Pong!'),
   async executeCommand(command, client, interaction) {
-    const serviceLatency = Math.abs(Date.now() - interaction.createdTimestamp);
-    const serviceUptime = Math.floor(process.uptime());
-    const apiLatency = Math.abs(interaction.client.ws.ping);
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    try {
-      await interaction.reply({
-        flags: MessageFlags.Ephemeral,
-        withResponse: true,
-        embeds: [
-          new EmbedBuilder()
-            .setColor(appFeatureMap[command.options.feature].color)
-            .setTitle(L[interaction.locale].UTIL.PING.RESPONSE_TITLE())
-            .setDescription(`> *${L[interaction.locale].UTIL.PING.RESPONSE_DESCRIPTION()}*`)
-            .addFields(
-              { name: `🏓 ${L[interaction.locale].UTIL.PING.RESPONSE_FIELD_SERVICE_LATENCY()}`, value: `${serviceLatency}ms` },
-              { name: `⏰ ${L[interaction.locale].UTIL.PING.RESPONSE_FIELD_SERVICE_UPTIME()}`, value: `${serviceUptime}s` },
-              { name: `👩‍💻 ${L[interaction.locale].UTIL.PING.RESPONSE_FIELD_API_LATENCY()}`, value: `${apiLatency}ms` }
-            )
-            .setFooter({ text: L[interaction.locale].GENERAL.EMBED_FOOTER_TEXT(), iconURL: assets.volt['256x256'].url })
-            .setTimestamp(),
-        ],
-        files: [assets.volt['256x256'].file],
-      });
-      Logger.getInstance(AppFeature.Ping).info(
-        `<${interaction.user.username}> executed ${interaction.commandName} at ${new Date().toISOString()} lang: ${interaction.locale}.`
-      );
-    } catch (error) {
-      console.log(error);
-    }
+    const embed = new PingEmbed({
+      color: appFeatureMap[command.options.feature].color,
+      locale: interaction.locale,
+      apiLatency: Math.abs(interaction.client.ws.ping),
+      serviceLatency: Math.abs(Date.now() - interaction.createdTimestamp),
+      serviceUptime: Math.floor(process.uptime()),
+    });
+
+    await interaction.editReply({ embeds: [embed.render()], files: embed.attachments });
   },
 });

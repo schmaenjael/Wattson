@@ -1,0 +1,110 @@
+import { ApplicationCommandType, EmbedBuilder, MessageFlags, SlashCommandBuilder, TextChannel } from 'discord.js';
+
+import { BotException, Command, Permission } from '~/core/models';
+import { AppFeature, appFeatureMap, ProcessExitCode } from '~/settings';
+import { AuditEventType, getSettings, insertMute, recordAuditEvent, upsertUser } from '~/database';
+import { parseDuration } from '~/utilities';
+
+export default new Command<ApplicationCommandType.ChatInput>({
+  feature: AppFeature.Warn,
+  type: ApplicationCommandType.ChatInput,
+  requiredPermissions: [Permission.Moderation],
+  middleware: [],
+  data: new SlashCommandBuilder()
+    .setName('mute')
+    .setDescription('Assign the muted role to a user.')
+    .addUserOption((o) => o.setName('user').setDescription('User to mute').setRequired(true))
+    .addStringOption((o) => o.setName('reason').setDescription('Reason').setRequired(true).setMaxLength(500))
+    .addStringOption((o) => o.setName('duration').setDescription('Duration like 30m, 2h, 7d, 1w (blank = indefinite)').setRequired(false)),
+
+  async executeCommand(command, client, interaction, middlewareData) {
+    if (middlewareData.some((m) => m.status !== ProcessExitCode.OK)) return;
+
+    const target = interaction.options.getUser('user', true);
+    const reason = interaction.options.getString('reason', true);
+    const durationStr = interaction.options.getString('duration', false);
+
+    if (target.id === interaction.user.id) {
+      await interaction.reply({ content: 'You cannot mute yourself.', flags: MessageFlags.Ephemeral });
+      return;
+    }
+    if (target.bot) {
+      await interaction.reply({ content: 'Refusing to mute a bot.', flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    let expiresAt: Date | null = null;
+    if (durationStr) {
+      const ms = parseDuration(durationStr);
+      if (!ms) {
+        await interaction.reply({ content: `Invalid duration: \`${durationStr}\`. Use e.g. 30m, 2h, 7d, 1w.`, flags: MessageFlags.Ephemeral });
+        return;
+      }
+      expiresAt = new Date(Date.now() + ms);
+    }
+
+    const settings = await getSettings();
+
+    if (!settings.roleMutedId) {
+      await interaction.reply({ content: 'Muted role not configured. Set it via `/config role`.', flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    await Promise.all([
+      upsertUser({ id: target.id, username: target.username }),
+      upsertUser({ id: interaction.user.id, username: interaction.user.username }),
+    ]);
+
+    const member = await interaction.guild!.members.fetch(target.id).catch(() => null);
+    if (!member) {
+      await interaction.editReply({ content: `${target.tag} is not in the server.` });
+      return;
+    }
+
+    if (member.roles.cache.has(settings.roleMutedId)) {
+      await interaction.editReply({ content: `<@${target.id}> is already muted.` });
+      return;
+    }
+
+    try {
+      await member.roles.add(settings.roleMutedId, `[mute #mod:${interaction.user.username}] ${reason}`);
+    } catch (err) {
+      throw new BotException(client, `Failed to assign muted role to ${target.tag}`, err);
+    }
+
+    const mute = await insertMute({ targetUserId: target.id, moderatorId: interaction.user.id, reason, expiresAt });
+
+    await recordAuditEvent({
+      eventType: AuditEventType.MuteIssued,
+      actorUserId: interaction.user.id,
+      targetUserId: target.id,
+      payload: { muteId: mute.id, reason, expiresAt: expiresAt?.toISOString() ?? null },
+    });
+
+    if (settings.warningsLogChannelId) {
+      const logChannel = (await interaction.guild!.channels.fetch(settings.warningsLogChannelId)) as TextChannel | null;
+      await logChannel
+        ?.send({
+          embeds: [
+            new EmbedBuilder()
+              .setColor(appFeatureMap[command.options.feature].color)
+              .setTitle(`Mute #${mute.id}`)
+              .addFields(
+                { name: 'Target', value: `<@${target.id}>`, inline: true },
+                { name: 'Moderator', value: `<@${interaction.user.id}>`, inline: true },
+                { name: 'Reason', value: reason },
+                { name: 'Expires', value: expiresAt ? `<t:${Math.floor(expiresAt.getTime() / 1000)}:F>` : 'indefinite', inline: true }
+              )
+              .setTimestamp(mute.createdAt),
+          ],
+        })
+        .catch(() => null);
+    }
+
+    await interaction.editReply({
+      content: `Muted <@${target.id}>. Mute **#${mute.id}** recorded${expiresAt ? `; expires <t:${Math.floor(expiresAt.getTime() / 1000)}:R>` : ' (indefinite)'}.`,
+    });
+  },
+});

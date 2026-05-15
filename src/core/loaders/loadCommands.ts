@@ -11,6 +11,7 @@ export const getCommandsCollection = async () => {
   const logger = Logger.getInstance();
   const path = join(process.cwd(), 'src/core/commands');
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const commands = new Collection<string, Command<any>>();
 
   try {
@@ -38,7 +39,12 @@ export const getCommandsCollection = async () => {
   return commands;
 };
 
-export async function loadCommands(client: Client) {
+export const loadSlashCommands = async (client: Client) => {
   const commands = await getCommandsCollection();
   client.setCommands(commands);
-}
+};
+
+export const loadTextCommands = async (client: Client) => {
+  const commands = await getCommandsCollection();
+  client.setCommands(commands);
+};

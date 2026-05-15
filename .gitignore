@@ -4,8 +4,12 @@ node_modules
 **/build
 **/.next
 
-**/*.sql
 **/*.db
+
+**/_*.sql
+/scripts/migrations
 
 .env
 bot.config.ts
+
+.eslintcache

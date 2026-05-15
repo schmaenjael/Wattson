@@ -1,15 +1,189 @@
 import type { BaseTranslation } from '../i18n-types.js';
 
 const de = {
-  GENERAL: { EMBED_FOOTER_TEXT: 'Wattson, im Dienst für Europa' },
+  SYSTEM: {
+    VERIFICATION: {
+      INITIAL: {
+        EMBED_TITLE: '⚡ Willkommen bei Volt Europa!',
+        EMBED_DESCRIPTION:
+          'Schön, dass du da bist!\n\nBevor du Zugang zum gesamten Server bekommst, stellen wir dir ein paar kurze Fragen. Das hält unsere Community sicher und einladend für alle.\n\n**Dauert nur etwa 2 Minuten.**',
+      },
+      DISCLAIMER: {
+        EMBED_TITLE: '🔐 Deine Privatsphäre liegt uns am Herzen',
+        FIELD_ANSWERS_TITLE: '📋 Deine Antworten',
+        FIELD_ANSWERS_VALUE:
+          'Werden nicht in unserer Datenbank gespeichert. Nur dem Moderationsteam zugänglich und nach 12 Monaten automatisch gelöscht.',
+        FIELD_MESSAGES_TITLE: '🔍 Nachrichtenüberwachung',
+        FIELD_MESSAGES_VALUE:
+          'Während deines Aufenthalts können wir Nachrichten – manuell oder automatisch – auf Belästigung, Diskriminierung oder andere Regelverstöße prüfen.',
+        FIELD_MODERATION_TITLE: '⚠️ Moderationsaufzeichnungen',
+        FIELD_MODERATION_VALUE:
+          'Verwarnungen, Bans und Meldungen werden in unserer Datenbank gespeichert. Du kannst jederzeit die Löschung beantragen, aber beachte: Datenlöschungsanfragen führen zu einem **permanenten Ban** vom Server.',
+        FIELD_TIMELINE_TITLE: '⏱️ Bearbeitungszeit',
+        FIELD_TIMELINE_VALUE: 'Die Prüfung kann **mehrere Tage** dauern. Wir schätzen deine Geduld.',
+      },
+      FINAL: {
+        EMBED_TITLE: 'Danke dir~',
+        EMBED_DESCRIPTION:
+          'Deine Antworten wurden eingereicht und werden vom Moderationsteam geprüft. Dieser Prozess kann **mehrere Tage** dauern – vielen Dank für deine Geduld!',
+      },
+      DENIED: {
+        EMBED_TITLE: 'Es tut uns leid!',
+        EMBED_DESCRIPTION: 'Mehrere Moderator*innen haben deiner Teilnahme im Moment widersprochen. Der Grund steht unten.',
+      },
+      CANCELLED: {
+        EMBED_TITLE: 'Verifizierung abgebrochen',
+        EMBED_DESCRIPTION: 'Deine Verifizierung wurde abgebrochen. Du kannst erneut beginnen, indem du `/verify` im Server verwendest.',
+      },
+      ACCEPTED: {
+        EMBED_TITLE: 'Geschafft!',
+        EMBED_DESCRIPTION: 'Die letzte Hürde ist genommen – willkommen auf dem offiziellen Volt-Europa-Discord! Schön, dass du hier bist!',
+      },
+      RESTART: {
+        COMMAND_DESCRIPTION: 'Starte oder starte deine Server-Verifizierung neu.',
+        REVERIFY_COMMAND_DESCRIPTION: 'Reiche deine Verifizierung erneut beim Moderationsteam ein.',
+        SUCCESS: '✅ Deine Verifizierung startet – prüfe deine DMs!',
+        ALREADY_ACTIVE: '⚠️ Für dein Konto läuft bereits eine Verifizierung.',
+        ALREADY_VERIFIED: '✅ Du bist bereits verifiziert und hast vollen Zugang zum Server.',
+      },
+      QUESTIONS: {
+        QUESTION_ICEBREAKER: {
+          TITLE: 'Wenn du dich gerade irgendwo in Europa hinbeamen könntest – wohin ginge die Reise?',
+          DESCRIPTION: 'Hmm... ich glaub, ich würd zu den Kravica-Wasserfällen düsen! Und du?',
+        },
+        QUESTION_HOME_COUNTRY: {
+          TITLE: 'Wo nennst du dein Zuhause?',
+          DESCRIPTION:
+            'Wähle dein Land oder deine Region. Europäische Mitglieder: bitte wähle dein konkretes Land. Nicht in der Liste? Dann wähle „Other European country". Außerhalb Europas: wähle deinen Kontinent.',
+        },
+        QUESTION_HOME_CONTINENT: {
+          TITLE: 'Auf welchem Kontinent lebst du?',
+          DESCRIPTION:
+            'Das ist das absolute Minimum. Wenn du aus persönlichen Gründen deinen Standort nicht teilen möchtest, melde dich bitte bei <@260460895761727491>.',
+        },
+        QUESTION_LANGUAGES_EU: {
+          TITLE: 'Welche europäischen Sprachen sprichst du?',
+          DESCRIPTION: 'Wähle alle europäischen Sprachen aus, die du beherrschst. Englisch ist als Standard voreingestellt – ergänze gerne weitere!',
+        },
+        QUESTION_LANGUAGES_OTHER: {
+          TITLE: 'Noch weitere Sprachen?',
+          DESCRIPTION: 'Wähle weitere Welt- oder Plansprachen aus, die du sprichst (Arabisch, Japanisch, Esperanto usw.).',
+        },
+        QUESTION_PRONOUNS: { TITLE: 'Welche Pronomen verwendest du?', DESCRIPTION: 'So können wir dich korrekt ansprechen – danke fürs Ausfüllen!' },
+        QUESTION_DISCOVERY: { TITLE: 'Wie bist du auf den Volt-Discord gestoßen?', DESCRIPTION: 'Wir sind neugierig: Wie hast du uns gefunden?' },
+        QUESTION_IS_MEMBER: {
+          TITLE: 'Bist du Mitglied oder Freiwillige*r bei Volt Europa?',
+          DESCRIPTION:
+            'Wähle Ja, wenn du registriertes Mitglied oder aktive*r Freiwillige*r einer Volt-Partei bist. Wenn ja, fragen wir dich im nächsten Schritt nach deinem Haiilo-Profillink.',
+        },
+        QUESTION_HAIILO: {
+          TITLE: 'Bitte teile deinen Haiilo-Profillink',
+          DESCRIPTION: 'Öffne dein Volt-Haiilo-Profil und kopiere die URL. Erwartetes Format: `https://volt.haiilo.app/profile/dein-name`',
+          VALIDATION_ERROR: '❌ Bitte gib eine gültige Haiilo-Profil-URL an (https://volt.haiilo.app/profile/dein-name).',
+        },
+        QUESTION_CHAPTER_COUNTRY: {
+          TITLE: 'Welchem nationalen Volt-Chapter bist du angehörig?',
+          DESCRIPTION: 'Wähle das europäische Land, dessen Volt-Partei du als Mitglied angehörst.',
+        },
+        QUESTION_RULE_ACCEPTANCE: {
+          TITLE: '📜 Serverregeln',
+          DESCRIPTION:
+            'Bitte lies **alle Seiten** der Regeln durch, bevor du zustimmen kannst. Der Zustimmungs-Button erscheint erst auf der letzten Seite. Mit deiner Zustimmung bestätigst du, alle Regeln gelesen und verstanden zu haben.',
+        },
+      },
+    },
+    ERROR: {
+      EMBED_TITLE: 'Ein unerwarteter Fehler ist aufgetreten!',
+      EMBED_DESCRIPTION: 'Ein Fehler ist beim Ausführen des Befehls aufgetreten, dieser Vorfall wird gemeldet.',
+      EMBED_RECOVERABLE: 'Automatische Wiederherstellung',
+      EMBED_MESSAGE: 'Fehlermeldung',
+      EMBED_STACK: 'Fehlerprotokoll',
+    },
+    STATUS: {
+      STATE: 'Startstatus',
+      SERVICE_LATENCY: 'Dienstlatenz',
+      SERVICE_LAUNCH_TIME: 'Startzeitpunkt',
+      SERVICE_UPTIME: 'Dienstverfügbarkeit',
+      API_LATENCY: 'API-Latenz',
+      DATABASE: 'Datenbankverbindung',
+      SHARDS: 'Shard-Anzahl',
+      LOADED_COMMANDS: 'Geladene Befehle',
+    },
+    EVENT_READY: {
+      EMBED_TITLE: 'Wattson – Stets zu Diensten',
+      EMBED_DESCRIPTION: 'Der ehrenwerte Detektiv Watson ist nun online und bereit, seinen Dienst anzutreten.',
+    },
+  },
+  GENERAL: {
+    WATTSON_IN_SERVICE: 'Wattson, im Dienst für Europa',
+    COMMAND_INVALID_IN_DMS: 'Dieser Befehl muss auf einem Server ausgeführt werden.',
+    COMMAND_INVALID_PERMISSIONS: 'Dir fehlen die nötigen Berechtigungen für diesen Befehl.',
+  },
   UTIL: {
-    PING: {
-      RESPONSE_TITLE: 'Wattson - Konstabler Pong',
-      RESPONSE_DESCRIPTION:
-        'Ah! Ein gar seltsames Signal - ich wage zu behaupten, dass die Latenz kaum mehr als ein flüchtiges Fähnchen im Winde ist...',
-      RESPONSE_FIELD_SERVICE_LATENCY: 'Dienstlatenz',
-      RESPONSE_FIELD_SERVICE_UPTIME: 'Dienstverfügbarkeit',
-      RESPONSE_FIELD_API_LATENCY: 'API-Latenz',
+    EVENT_WELCOME: { EMBED_TITLE: 'Willkommen!', EMBED_DESCRIPTION: 'Willkommen <@{name:string}>!' },
+    COMMAND_RULES: {
+      EMBED_HEADER_DESCRIPTION_1: 'Wir begrüßen Menschen aller Perspektiven, solange sie die Regeln befolgen und konstruktiv kommunizieren.',
+      EMBED_HEADER_DESCRIPTION_2:
+        'Wir können Inhalte, die wir als unangemessen erachten, jederzeit entfernen, da dieser Server keine neutrale Plattform ist.',
+    },
+    COMMAND_PING: {
+      EMBED_TITLE: 'Wattson – Konstabler Pong',
+      EMBED_DESCRIPTION: 'Ah! Ein gar seltsames Signal – ich wage zu behaupten, dass die Latenz kaum mehr als ein flüchtiges Flüstern ist...',
+    },
+  },
+  MODERATION: {
+    REPORT: {
+      EMBED_TITLE: 'Nachricht gemeldet',
+      EMBED_OFFENDER: 'Verstoß von',
+      EMBED_REPORTER: 'Gemeldet von',
+      EMBED_CHANNEL: 'Kanal',
+      EMBED_REPORTED_MESSAGE: 'Link zur Nachricht',
+    },
+    COMMAND_REPORT: {
+      EMBED_TITLE: 'Danke, dass du einen Regelbruch gemeldet hast!',
+      EMBED_DESCRIPTION:
+        'Dieser Vorfall wurde protokolliert und ein Moderator benachrichtigt. Wir werden diesen Fall zu gegebener Zeit bearbeiten. Bitte melden Sie uns jede weitere Nachricht, die uns helfen kann, eine angemessene Entscheidung zu treffen.',
+      EMBED_REPORTED_MESSAGE: 'Gemeldete Nachricht',
+      EMBED_REPORTED_USER: 'Gemeldeter Nutzer',
+    },
+    PURGE: {
+      CONFIRM_TITLE: '⚠️ Datenlöschung bestätigen',
+      CONFIRM_DESCRIPTION:
+        'Alle Verwarnungen, Bans und Meldungen für <@{userId:string}> werden dauerhaft gelöscht. Der Nutzer erhält einen permanenten Ban. **Dieser Vorgang kann nicht rückgängig gemacht werden.**',
+      CONFIRM_BUTTON: 'Löschung bestätigen',
+      CANCEL_BUTTON: 'Abbrechen',
+      SUCCESS: 'Datenlöschung für <@{userId:string}> abgeschlossen. Alle Einträge gelöscht, Nutzer permanent gebannt.',
+      BAN_FAILED: 'Einträge für <@{userId:string}> gelöscht, Discord-Ban jedoch fehlgeschlagen. Bitte den Nutzer manuell bannen.',
+      CANCELLED: 'Löschung abgebrochen.',
+    },
+    GDPR_REQUEST: {
+      CONFIRM_TITLE: '🔐 Datenlöschung beantragen (DSGVO/GDPR)',
+      CONFIRM_DESCRIPTION:
+        'Mit diesem Antrag werden deine personenbezogenen Daten dauerhaft aus unseren Aufzeichnungen gelöscht. Ein Moderator muss den Antrag erst genehmigen, bevor er ausgeführt wird.',
+      WILL_DELETE_TITLE: '✅ Wird dauerhaft gelöscht',
+      WILL_DELETE_VALUE:
+        '• Verwarnungen gegen dich\n• Bans und Ban-Verlauf\n• Meldungen, an denen du beteiligt warst\n• Gerichtsfallakten\n• Slur-Verstöße\n• Nutzernamen-Verlauf\n• Starboard-Metadaten\n• Einträge in unserem Server-Auditlog',
+      CANNOT_DELETE_TITLE: '❌ Kann nicht gelöscht werden',
+      CANNOT_DELETE_VALUE:
+        '• **Deine Discord-Nachrichten** auf diesem Server — Discord verwaltet den Nachrichtenverlauf\n• **Starboard-Inhalte**, die bereits auf externen Plattformen veröffentlicht wurden (Bluesky, Instagram, Haiilo) — veröffentlichte Beiträge können nicht zurückgezogen werden\n• **Discords eigene Aufzeichnungen** — plattformseitige Auditlogs, Nachrichtendaten usw.',
+      BAN_WARNING: '⚠️ **Dies führt zu einem permanenten Ban vom Server.** Du kannst nach der Genehmigung nicht mehr beitreten.',
+      CONFIRM_BUTTON: 'Antrag stellen',
+      CANCEL_BUTTON: 'Abbrechen',
+      SUBMITTED:
+        'Dein Datenlöschungsantrag wurde eingereicht und wartet auf die Genehmigung durch einen Moderator. Du wirst per DM über die Entscheidung informiert.',
+      CANCELLED: 'Datenlöschungsantrag abgebrochen.',
+      DM_EXECUTED_TITLE: 'Dein Datenlöschungsantrag wurde bearbeitet',
+      DM_EXECUTED_DESCRIPTION:
+        'Ein Moderator hat deinen Datenlöschungsantrag genehmigt. Alle zutreffenden personenbezogenen Daten wurden dauerhaft aus unseren Serveraufzeichnungen gelöscht.',
+      DM_DELETED_TITLE: '✅ Aus unseren Aufzeichnungen gelöscht',
+      DM_DELETED_VALUE:
+        'Verwarnungen, Bans, Meldungen, Gerichtsfälle, Slur-Verstöße, Nutzernamen-Verlauf, Auditlog-Einträge und Starboard-Metadaten.',
+      DM_NOT_DELETED_TITLE: '❌ Außerhalb unserer Kontrolle – nicht gelöscht',
+      DM_NOT_DELETED_VALUE:
+        'Deine Nachrichten auf dem Server, Starboard-Inhalte, die bereits auf externen Plattformen veröffentlicht wurden (Bluesky, Instagram, Haiilo), sowie Discords eigene Plattformdaten.',
+      DM_BAN_NOTICE: 'Im Rahmen dieses Prozesses wurdest du dauerhaft vom Server gebannt.',
+      DM_DENIED_TITLE: 'Datenlöschungsantrag abgelehnt',
+      DM_DENIED_DESCRIPTION: 'Das Moderationsteam hat deinen Datenlöschungsantrag geprüft und abgelehnt. Es wurden keine Daten verändert.',
     },
   },
 } satisfies BaseTranslation;
