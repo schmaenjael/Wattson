@@ -11,9 +11,12 @@ import {
   listStalePendingExpired,
   recordAuditEvent,
   setModmailStalePending,
+  setModmailSummary,
   setReminderSent,
 } from '~/database';
-import { buildKeepOpenRow } from '~/core/components/Modmail';
+import { buildKeepOpenRow, buildModmailSummaryEmbed } from '~/core/components/Modmail';
+import { fetchModmailSummary } from '~/core/providers/modmail/summarizer';
+import { dispatchCloseAction } from '~/core/providers/modmail/closeActions';
 
 const POLL_INTERVAL_MS = 60 * 60 * 1000;
 
@@ -67,19 +70,19 @@ export const startModmailSweeper = (client: Client): ReturnType<typeof setInterv
             .setTimestamp();
           const keepOpenRow = buildKeepOpenRow(modmail.id);
 
-          let threadMsgId = '';
+          let threadMsgId: string | null = null;
           const thread = await guild.channels.fetch(modmail.threadId).catch(() => null);
           if (thread?.isThread()) {
             const msg = await thread.send({ embeds: [staleEmbed], components: [keepOpenRow] }).catch(() => null);
-            threadMsgId = msg?.id ?? '';
+            threadMsgId = msg?.id ?? null;
           }
 
-          let dmMsgId = '';
+          let dmMsgId: string | null = null;
           const user = await client.users.fetch(modmail.userId).catch(() => null);
           if (user) {
             const dmChannel = await user.createDM().catch(() => null);
             const msg = await dmChannel?.send({ embeds: [staleEmbed], components: [keepOpenRow] }).catch(() => null);
-            dmMsgId = msg?.id ?? '';
+            dmMsgId = msg?.id ?? null;
           }
 
           await setModmailStalePending(modmail.id, threadMsgId, dmMsgId);
@@ -104,11 +107,19 @@ export const startModmailSweeper = (client: Client): ReturnType<typeof setInterv
 
           const thread = await guild.channels.fetch(modmail.threadId).catch(() => null);
           if (thread?.isThread()) {
+            const summary = await fetchModmailSummary(client, modmail.threadId);
+            if (summary) {
+              await setModmailSummary(modmail.id, summary);
+            }
+
             if (modmail.staleMessageId) {
               const msg = await thread.messages.fetch(modmail.staleMessageId).catch(() => null);
               await msg?.edit({ components: [] }).catch(() => null);
             }
             await thread.send({ embeds: [closedEmbed] }).catch(() => null);
+            if (summary) {
+              await thread.send({ embeds: [buildModmailSummaryEmbed(summary, modmail.id)] }).catch(() => null);
+            }
             try {
               await thread.setArchived(true);
             } catch {
@@ -126,6 +137,7 @@ export const startModmailSweeper = (client: Client): ReturnType<typeof setInterv
             await dmChannel?.send({ embeds: [closedEmbed] }).catch(() => null);
           }
 
+          await dispatchCloseAction(client, modmail);
           logger.info({ modmailId: modmail.id }, 'Auto-closed stale modmail.');
         } catch (err) {
           logger.error(Object(err), `Failed to auto-close stale modmail #${modmail.id}.`);
