@@ -1,12 +1,11 @@
-import { Colors, EmbedBuilder, Events, Message, TextChannel } from 'discord.js';
+import { ChannelType, Colors, EmbedBuilder, Events, Message, TextChannel } from 'discord.js';
 
-import { AuditEventType, getSettings, recordAuditEvent, upsertUser } from '~/database';
+import { AuditEventType, findLockedChannel, getSettings, insertMute, lockChannel, recordAuditEvent, unlockChannel, upsertUser } from '~/database';
 import { AppFeature } from '~/settings';
 import { Event } from '~/core/models';
 import { Logger } from '~/utilities';
-import { getHarmDetector, type HarmCategory, type HarmDetectionResult } from '~/core/providers/harm';
-import { getBlocklistChecker } from '~/core/providers/blocklist';
-import { getProfanityChecker } from '~/core/providers/profanity';
+import { clearUserChannelWindow, recordAndCheck } from '~/core/providers/antispam';
+import { clearChannelSlowmodeState, recordAndCheckSlowmode, SLOWMODE_TIERS, type SlowmodeAction } from '~/core/providers/autoslowmode';
 import {
   getStickyForChannel,
   incrementStickyCounter,
@@ -14,61 +13,9 @@ import {
   updateCachedLastMessageId,
   type StickyMessage,
 } from '~/core/providers/sticky';
+import { runAutomod } from '~/core/providers/automod/run';
 import { enqueueMessage } from '~/core/scheduler/messageQueue';
 import type { Client } from '~/core/models';
-
-const MAX_EXCERPT = 512;
-
-const CATEGORY_LABELS: Record<HarmCategory, string> = {
-  racism: 'Racism',
-  discrimination: 'Discrimination',
-  sexism: 'Sexism',
-  harassment: 'Harassment',
-};
-
-const CONFIDENCE_EMOJI: Record<string, string> = { low: '🟡', medium: '🟠', high: '🔴' };
-
-const postHarmAlert = async (
-  result: HarmDetectionResult,
-  authorId: string,
-  channelId: string,
-  messageId: string,
-  content: string,
-  guild: NonNullable<TextChannel['guild']>,
-  alertChannelId: string
-): Promise<void> => {
-  const alertChannel = (await guild.channels.fetch(alertChannelId).catch(() => null)) as TextChannel | null;
-  if (!alertChannel) return;
-
-  const categoryLines = result.detectedCategories.map((cat) => {
-    const { confidence } = result.categories[cat];
-    return `${CONFIDENCE_EMOJI[confidence] ?? '🟡'} **${CATEGORY_LABELS[cat]}** (${confidence} confidence)`;
-  });
-
-  const embed = new EmbedBuilder()
-    .setColor(Colors.Red)
-    .setTitle('⚠️ Harm Detected')
-    .setDescription(`Message by <@${authorId}> in <#${channelId}>`)
-    .addFields(
-      { name: 'Categories', value: categoryLines.join('\n').slice(0, 1024) },
-      { name: 'Excerpt', value: `\`\`\`\n${content.slice(0, 400)}\n\`\`\`` }
-    )
-    .setFooter({ text: `Message ID: ${messageId}` })
-    .setTimestamp();
-
-  await alertChannel.send({ embeds: [embed] }).catch(() => null);
-};
-
-const runLlmCheck = async (content: string, settings: Awaited<ReturnType<typeof getSettings>>): Promise<HarmDetectionResult | null> => {
-  if (!settings.featureHarmDetectionEnabled) return null;
-  const detector = getHarmDetector();
-  if (!detector) return null;
-  try {
-    return await detector.detect(content);
-  } catch {
-    return null;
-  }
-};
 
 const logToSurveillance = async (guild: NonNullable<TextChannel['guild']>, channelId: string | null | undefined, text: string): Promise<void> => {
   if (!channelId) return;
@@ -100,6 +47,92 @@ const handleStickyRepost = async (sticky: StickyMessage, channel: TextChannel, l
   await updateCachedLastMessageId(sticky.channelId, posted.id);
 };
 
+const applyAutoSlowmodeAction = async (
+  action: SlowmodeAction,
+  channel: TextChannel,
+  guild: Message<true>['guild'],
+  client: Client,
+  settings: Awaited<ReturnType<typeof getSettings>>
+): Promise<void> => {
+  if (!action) return;
+
+  if (action.type === 'step_up') {
+    if (action.level === 1) {
+      const previousSlowmode = channel.rateLimitPerUser ?? 0;
+      await upsertUser({ id: client.user!.id, username: client.user!.username });
+      await channel.setRateLimitPerUser(action.slowmodeSeconds).catch(() => null);
+      await lockChannel({
+        channelId: channel.id,
+        moderatorId: client.user!.id,
+        reason: 'Auto-slowmode: message rate threshold exceeded',
+        previousSlowmode,
+      });
+      await channel
+        .send({
+          embeds: [
+            new EmbedBuilder()
+              .setColor(Colors.Yellow)
+              .setTitle('🐌 Auto-slowmode Activated')
+              .setDescription(`High message volume detected. Slowmode set to **${action.slowmodeSeconds}s**.`)
+              .setTimestamp(),
+          ],
+        })
+        .catch(() => null);
+    } else {
+      await channel.setRateLimitPerUser(action.slowmodeSeconds).catch(() => null);
+    }
+    await logToSurveillance(
+      guild,
+      settings.surveillanceLogChannelId,
+      `🐌 **auto-slowmode** ↑ level ${action.level}/${SLOWMODE_TIERS.length} → ${action.slowmodeSeconds}s in <#${channel.id}>`
+    );
+    await recordAuditEvent({
+      eventType: AuditEventType.ChannelLocked,
+      payload: { channelId: channel.id, slowmode: action.slowmodeSeconds, level: action.level, source: 'auto' },
+    });
+    return;
+  }
+
+  if (action.type === 'step_down') {
+    await channel.setRateLimitPerUser(action.slowmodeSeconds).catch(() => null);
+    await logToSurveillance(
+      guild,
+      settings.surveillanceLogChannelId,
+      `🐌 **auto-slowmode** ↓ level ${action.level}/${SLOWMODE_TIERS.length} → ${action.slowmodeSeconds}s in <#${channel.id}>`
+    );
+    await recordAuditEvent({
+      eventType: AuditEventType.ChannelLocked,
+      payload: { channelId: channel.id, slowmode: action.slowmodeSeconds, level: action.level, source: 'auto' },
+    });
+    return;
+  }
+
+  if (action.type === 'restore') {
+    const lock = await findLockedChannel(channel.id);
+    const previousSlowmode = lock?.previousSlowmode ?? 0;
+    await channel.setRateLimitPerUser(previousSlowmode).catch(() => null);
+    await unlockChannel(channel.id);
+    clearChannelSlowmodeState(channel.id);
+    await channel
+      .send({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(Colors.Green)
+            .setTitle('✅ Auto-slowmode Removed')
+            .setDescription(`Message volume normalized. Slowmode restored to **${previousSlowmode}s**.`)
+            .setTimestamp(),
+        ],
+      })
+      .catch(() => null);
+    await logToSurveillance(
+      guild,
+      settings.surveillanceLogChannelId,
+      `✅ **auto-slowmode** removed from <#${channel.id}> — restored to ${previousSlowmode}s`
+    );
+    await recordAuditEvent({ eventType: AuditEventType.ChannelUnlocked, payload: { channelId: channel.id, previousSlowmode, source: 'auto' } });
+  }
+};
+
 const processMessage = async (client: Client, message: Message<true>): Promise<void> => {
   const settings = await getSettings();
   const logger = Logger.getInstance(AppFeature.Surveillance);
@@ -114,134 +147,59 @@ const processMessage = async (client: Client, message: Message<true>): Promise<v
     }
   }
 
-  // ── Step 1: Link filter (O(1) Set lookup) ──────────────────────────────────
-  if (settings.featureLinkFilterEnabled) {
-    const checker = await getBlocklistChecker();
-    if (checker) {
-      const blocked = checker.findBlockedDomain(message.content);
-      if (blocked) {
-        await message.delete().catch(() => null);
+  // ── Step 1: Auto-slowmode (channel-wide rate) ─────────────────────────────
+  if (settings.featureAutoSlowmodeEnabled && message.channel.type === ChannelType.GuildText) {
+    const action = recordAndCheckSlowmode(message.channelId, settings.autoSlowmodeThreshold, settings.autoSlowmodeWindowMs);
+    if (action) {
+      const existingLock = await findLockedChannel(message.channelId);
+      const isManualLock = existingLock !== null && existingLock.moderatorId !== client.user?.id;
+      if (!isManualLock) {
+        await applyAutoSlowmodeAction(action, message.channel as TextChannel, message.guild, client, settings);
+      }
+    }
+  }
+
+  // ── Step 2: Anti-spam rate limit ───────────────────────────────────────────
+  if (settings.featureAntiSpamEnabled && settings.roleMutedId) {
+    const triggered = recordAndCheck(message.author.id, message.channelId, settings.antiSpamMaxMessages, settings.antiSpamWindowMs);
+    if (triggered) {
+      clearUserChannelWindow(message.author.id, message.channelId);
+      const member = await message.guild.members.fetch(message.author.id).catch(() => null);
+      if (member && !member.roles.cache.has(settings.roleMutedId!)) {
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
         await upsertUser({ id: message.author.id, username: message.author.username });
-        await recordAuditEvent({
-          eventType: AuditEventType.LinkFilterTriggered,
+        await upsertUser({ id: client.user!.id, username: client.user!.username });
+        await member.roles.add(settings.roleMutedId!, '[anti-spam] message flood detected').catch(() => null);
+        const mute = await insertMute({
           targetUserId: message.author.id,
-          payload: { domain: blocked, messageId: message.id, channelId: message.channelId },
+          moderatorId: client.user!.id,
+          reason: 'Anti-spam: message flood detected',
+          expiresAt,
+        });
+        await recordAuditEvent({
+          eventType: AuditEventType.AntiSpamTriggered,
+          targetUserId: message.author.id,
+          payload: {
+            muteId: mute.id,
+            channelId: message.channelId,
+            maxMessages: settings.antiSpamMaxMessages,
+            windowMs: settings.antiSpamWindowMs,
+            expiresAt: expiresAt.toISOString(),
+          },
         });
         await logToSurveillance(
           message.guild,
           settings.surveillanceLogChannelId,
-          `🚫 **link filter** on <@${message.author.id}> in <#${message.channelId}>\n> blocked domain: \`${blocked}\``
+          `🚫 **anti-spam** <@${message.author.id}> muted (mute #${mute.id}) in <#${message.channelId}> — >${settings.antiSpamMaxMessages} msg/${settings.antiSpamWindowMs}ms · expires <t:${Math.floor(expiresAt.getTime() / 1000)}:R>`
         );
-        return;
+        logger.info({ userId: message.author.id, channelId: message.channelId, muteId: mute.id }, 'Anti-spam triggered: user muted.');
       }
+      return;
     }
   }
 
-  // ── Step 2: Profanity filter (file-based regex, unified cache) ─────────────
-  if (settings.featureBadWordsEnabled) {
-    const checker = await getProfanityChecker();
-    if (checker) {
-      const match = checker.check(message.content);
-
-      if (match) {
-        // Severity 1 → always skip, no log, no LLM
-        if (match.severity === 1) return;
-
-        await upsertUser({ id: message.author.id, username: message.author.username });
-
-        const isImmediate = match.severity >= settings.badWordDeleteThreshold;
-        const excerpt = message.content.slice(0, MAX_EXCERPT);
-
-        await recordAuditEvent({
-          eventType: AuditEventType.AutomodTriggered,
-          targetUserId: message.author.id,
-          payload: {
-            source: 'profanity',
-            word: match.word,
-            severity: match.severity,
-            threshold: settings.badWordDeleteThreshold,
-            immediate: isImmediate,
-            messageId: message.id,
-            channelId: message.channelId,
-          },
-        });
-
-        if (isImmediate) {
-          // Severity ≥ threshold → delete immediately, no LLM
-          await message.delete().catch(() => null);
-          logger.info({ word: match.word, severity: match.severity, userId: message.author.id }, 'Profanity: immediate delete.');
-          await logToSurveillance(
-            message.guild,
-            settings.surveillanceLogChannelId,
-            `🚫 **profanity** sev${match.severity} \`${match.word}\` — deleted · <@${message.author.id}> in <#${message.channelId}>\n\`\`\`\n${excerpt.slice(0, 400)}\n\`\`\``
-          );
-          return;
-        }
-
-        // Severity 2–(threshold-1) → ask LLM for context
-        logger.debug({ word: match.word, severity: match.severity }, 'Profanity: LLM context check.');
-        const result = await runLlmCheck(message.content, settings);
-
-        if (result?.anyDetected) {
-          await message.delete().catch(() => null);
-          logger.info({ word: match.word, categories: result.detectedCategories }, 'Profanity: LLM confirmed harm, deleted.');
-          await logToSurveillance(
-            message.guild,
-            settings.surveillanceLogChannelId,
-            `🚫 **profanity+llm** sev${match.severity} \`${match.word}\` — LLM confirmed · <@${message.author.id}> in <#${message.channelId}>\n\`\`\`\n${excerpt.slice(0, 400)}\n\`\`\``
-          );
-          if (settings.harmAlertChannelId) {
-            await postHarmAlert(
-              result,
-              message.author.id,
-              message.channelId,
-              message.id,
-              message.content,
-              message.guild,
-              settings.harmAlertChannelId
-            );
-          }
-        } else {
-          logger.debug({ word: match.word }, 'Profanity: LLM cleared — flagged only.');
-          await logToSurveillance(
-            message.guild,
-            settings.surveillanceLogChannelId,
-            `📋 **profanity flagged** sev${match.severity} \`${match.word}\` — LLM cleared · <@${message.author.id}> in <#${message.channelId}>`
-          );
-        }
-
-        return;
-      }
-    }
-  }
-
-  // ── Step 3: General LLM harm detection (no profanity match) ───────────────
-  if (!settings.featureHarmDetectionEnabled) return;
-
-  const detector = getHarmDetector();
-  if (!detector) return;
-
-  let result: HarmDetectionResult;
-  try {
-    result = await detector.detect(message.content);
-  } catch (err) {
-    logger.error(Object(err), 'Harm detection threw unexpectedly.');
-    return;
-  }
-
-  if (!result.anyDetected) return;
-
-  if (!settings.harmAlertChannelId) {
-    logger.warn('Harm detected but harmAlertChannelId not configured — skipping alert.');
-    return;
-  }
-
-  await postHarmAlert(result, message.author.id, message.channelId, message.id, message.content, message.guild, settings.harmAlertChannelId);
-  await recordAuditEvent({
-    eventType: AuditEventType.AutomodTriggered,
-    targetUserId: message.author.id,
-    payload: { source: 'harm_detection', detectedCategories: result.detectedCategories, messageId: message.id, channelId: message.channelId },
-  });
+  // ── Steps 3-5: Link filter, profanity, LLM harm detection ────────────────
+  await runAutomod(message, settings);
 };
 
 export default new Event({

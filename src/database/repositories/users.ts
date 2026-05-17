@@ -6,7 +6,6 @@ import { users } from '../schema/users';
 
 export type UserRecord = InferSelectModel<typeof users>;
 
-/** Upsert a Discord user into the users table. Called whenever we first touch a user. */
 export const upsertUser = async (user: Pick<User, 'id' | 'username'>): Promise<UserRecord> => {
   const db = getDb();
   const [row] = await db
@@ -21,11 +20,6 @@ export const findUserById = async (id: Snowflake): Promise<UserRecord | undefine
   const db = getDb();
   const [row] = await db.select().from(users).where(eq(users.id, id)).limit(1);
   return row;
-};
-
-export const markUserLeft = async (id: Snowflake, at: Date = new Date()): Promise<void> => {
-  const db = getDb();
-  await db.update(users).set({ leftAt: at }).where(eq(users.id, id));
 };
 
 export const saveUserMembershipData = async (id: Snowflake, haiiloLink: string, chapterCountry: string | null): Promise<void> => {

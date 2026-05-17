@@ -60,9 +60,6 @@ export const grantAccess = async (member: GuildMember, answers: FlowAnswers): Pr
   if (settings.roleCommunityId) {
     await member.roles.add(settings.roleCommunityId, 'Verification passed').catch(() => null);
   }
-  if (settings.roleObscrId && member.roles.cache.has(settings.roleObscrId)) {
-    await member.roles.remove(settings.roleObscrId, 'Verification passed').catch(() => null);
-  }
 
   const countryValues = toStringArray(answers['home_country']);
   const pronounValues = toStringArray(answers['pronouns']);
@@ -84,8 +81,8 @@ export const assignVolterRoles = async (
   answers: FlowAnswers,
   settings: Awaited<ReturnType<typeof getSettings>>
 ): Promise<void> => {
-  if (settings.roleVolterId) {
-    await member.roles.add(settings.roleVolterId, 'Volt member verified').catch(() => null);
+  if (settings.roleMemberId) {
+    await member.roles.add(settings.roleMemberId, 'Volt member verified').catch(() => null);
   }
   const chapterCountry = typeof answers['chapter_country'] === 'string' ? answers['chapter_country'] : '';
   if (chapterCountry) {

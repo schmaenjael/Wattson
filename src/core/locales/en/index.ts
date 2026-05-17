@@ -45,6 +45,14 @@ const en = {
         ALREADY_ACTIVE: '⚠️ A verification is already in progress for your account.',
         ALREADY_VERIFIED: '✅ You are already verified and have full server access.',
       },
+      VOLTER: {
+        SUCCESS: '✅ Starting your Volter verification — check your DMs!',
+        ALREADY_ACTIVE: '⚠️ A verification is already in progress for your account.',
+        ALREADY_VOLTER: '✅ You already have Volt member status on this server.',
+        NOT_VERIFIED: '⚠️ You are not yet verified. Please use `/verify start` first.',
+        SUBMITTED_TITLE: '🟣 Volter Request Submitted',
+        SUBMITTED: 'Your Haiilo profile has been submitted for review. A moderator will verify your Volt membership shortly.',
+      },
       QUESTIONS: {
         QUESTION_ICEBREAKER: {
           TITLE: 'If you could teleport anywhere in Europe right now, where would you go?',
@@ -117,6 +125,9 @@ const en = {
     WATTSON_IN_SERVICE: 'Wattson, in service for Europe',
     COMMAND_INVALID_IN_DMS: 'This command may not be executed in DMs. Please perform this task on any server.',
     COMMAND_INVALID_PERMISSIONS: 'You do not have the required permissions to use this command.',
+    COMMAND_DM_ONLY: 'This command is only available in direct messages.',
+    COMMAND_GUILD_UNAVAILABLE: 'The server is temporarily unavailable. Please try again in a moment.',
+    COMMAND_NOT_A_MEMBER: 'You must be a member of the server to use this command.',
   },
   UTIL: {
     EVENT_WELCOME: { EMBED_TITLE: 'Welcome', EMBED_DESCRIPTION: 'Welcome <@{name:string}>!' },
@@ -183,6 +194,53 @@ const en = {
       DM_BAN_NOTICE: 'As part of this process, you have been permanently banned from the server.',
       DM_DENIED_TITLE: 'Data Deletion Request Denied',
       DM_DENIED_DESCRIPTION: 'The moderation team has reviewed your data deletion request and denied it. No data was modified.',
+    },
+  },
+  EVENT: {
+    COMMAND_CREATE: {
+      SUCCESS: '✅ Event **{name:string}** created with ID `{id:number}`. Scheduled for {time:string}.',
+      ERROR_INVALID_DATE: '❌ Invalid date or time format. Use `YYYY-MM-DD` for date and `HH:MM` for time.',
+      ERROR_PAST_DATE: '❌ The event date must be in the future.',
+    },
+    COMMAND_RECREATE: {
+      SUCCESS: '✅ Event recreated as `{id:number}`. Scheduled for {time:string}.',
+      ERROR_NOT_FOUND: '❌ No event found with ID `{id:number}`.',
+      ERROR_NOT_OWNER: '❌ You can only recreate events you created.',
+    },
+    COMMAND_REPEAT: {
+      SET: '✅ Recurring schedule set for event `{id:number}`: `{cron:string}`.',
+      CLEARED: '✅ Recurring schedule cleared for event `{id:number}`.',
+      ERROR_INVALID_CRON: '❌ Invalid cron expression. Example: `0 18 * * 5` for every Friday at 18:00.',
+    },
+    COMMAND_DASHBOARD: { TITLE: 'Your Events', EMPTY: 'You have no events in the last 30 days or upcoming.' },
+    COMMAND_LIST: { TITLE: 'Upcoming Events', EMPTY: 'There are no upcoming events.', SIGNED_UP: '✅ Signed up for {count:number} event(s).' },
+    COMMAND_REGISTER: {
+      SUCCESS: '✅ You are now registered for **{name:string}** ({time:string}).',
+      ALREADY_REGISTERED: '⚠️ You are already registered for this event.',
+      ERROR_NOT_FOUND: '❌ No event found with ID `{id:number}`.',
+      ERROR_PAST_OR_CANCELLED: '❌ This event has already passed or been cancelled.',
+    },
+    COMMAND_UNREGISTER: {
+      SUCCESS: '✅ You have been removed from **{name:string}**.',
+      NOT_REGISTERED: '⚠️ You are not registered for this event.',
+      ERROR_NOT_FOUND: '❌ No event found with ID `{id:number}`.',
+    },
+    COMMAND_CANCEL: {
+      SUCCESS: '✅ Event `{id:number}` cancelled. {count:number} registrant(s) notified.',
+      ERROR_NOT_FOUND: '❌ No event found with ID `{id:number}`.',
+      ERROR_NOT_OWNER: '❌ You can only cancel events you created.',
+      DM_NOTIFY: '**{name:string}** (scheduled for {time:string}) has been cancelled.',
+    },
+    COMMAND_ATTENDEES: { TITLE: 'Attendees for {name:string}', EMPTY: 'No one has registered for this event yet.' },
+    ANNOUNCEMENT: {
+      EMBED_TITLE: '📅 Event Starting Soon',
+      EMBED_DESCRIPTION: '**{name:string}** begins {time:string}.',
+      NO_REGISTRANTS: 'No registered attendees.',
+    },
+    WEEKLY_DIGEST: {
+      EMBED_TITLE: '📅 Events This Week',
+      EMBED_DESCRIPTION: 'Here are the upcoming events for the next 7 days.',
+      NO_EVENTS: 'No events scheduled for the next 7 days.',
     },
   },
 } satisfies BaseTranslation;

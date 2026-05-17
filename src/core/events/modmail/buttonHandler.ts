@@ -1,8 +1,8 @@
-import { Colors, EmbedBuilder, Events, MessageFlags } from 'discord.js';
+import { Colors, EmbedBuilder, Events, MessageFlags, PermissionFlagsBits } from 'discord.js';
 
 import { Event } from '~/core/models';
 import { AppFeature } from '~/settings';
-import { ModmailStatus, findModmailById, resetModmailFromStale } from '~/database';
+import { ModmailStatus, findModmailById, getSettings, resetModmailFromStale } from '~/database';
 import { buildKeepOpenDisabledRow } from '~/core/components/Modmail';
 
 const PREFIX = 'modmail_keep_open:';
@@ -24,6 +24,23 @@ export default new Event({
     if (!modmail || modmail.status !== ModmailStatus.StalePending) {
       await interaction.editReply({ content: 'This modmail is no longer in stale state.' });
       return;
+    }
+
+    const isDm = !interaction.guildId;
+    if (isDm) {
+      if (interaction.user.id !== modmail.userId) {
+        await interaction.editReply({ content: 'This is not your modmail.' });
+        return;
+      }
+    } else {
+      const settings = await getSettings();
+      const member = await interaction.guild?.members.fetch(interaction.user.id).catch(() => null);
+      const isMod =
+        member?.permissions.has(PermissionFlagsBits.ManageGuild) || (settings.roleModerationId && member?.roles.cache.has(settings.roleModerationId));
+      if (!isMod) {
+        await interaction.editReply({ content: 'Only moderators can keep modmails open from the thread.' });
+        return;
+      }
     }
 
     await resetModmailFromStale(modmailId);

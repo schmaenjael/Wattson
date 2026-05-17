@@ -66,6 +66,8 @@ export type AfterwareFunctionCommand<T extends ApplicationCommandType> = (
 interface Interaction {
   feature: AppFeature;
   requiredPermissions?: Permission[];
+  allowDM?: boolean;
+  dmOnly?: boolean;
 }
 
 export interface EventOptions<T extends keyof ClientEvents> extends Interaction {

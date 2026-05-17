@@ -16,7 +16,7 @@ import { AuditEventType, getSettings, recordAuditEvent } from '~/database';
 export default new Command<ApplicationCommandType.ChatInput>({
   feature: AppFeature.GdprDeletion,
   type: ApplicationCommandType.ChatInput,
-  requiredPermissions: [Permission.Moderation],
+  requiredPermissions: [Permission.Moderation, Permission.Administration],
   middleware: [],
   data: new SlashCommandBuilder()
     .setName('gdpr-delete')

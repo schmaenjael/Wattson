@@ -7,14 +7,15 @@ declare global {
     CLIENT_ID: Snowflake;
     APPLICATION_ID: Snowflake;
     GUILD_ID: Snowflake;
+    ADMIN_USER_ID: Snowflake;
 
-    POSTGRES_USER: string;
-    POSTGRES_PASSWORD: string;
     POSTGRES_DB: string;
     POSTGRES_HOST: string;
     POSTGRES_PORT?: string;
     BOT_USERNAME: string;
     BOT_PASSWORD: string;
+
+    HATE_SPEECH_DETECTOR_ENDPOINT?: string;
 
     OLLAMA_ENDPOINT?: string;
     OLLAMA_MODEL?: string;

@@ -11,7 +11,7 @@ const STICKY_COLOR = { info: '#82D0F4', warning: '#FDC220' } as const;
 export default new Command<ApplicationCommandType.ChatInput>({
   feature: AppFeature.Sticky,
   type: ApplicationCommandType.ChatInput,
-  requiredPermissions: [Permission.Moderation],
+  requiredPermissions: [Permission.Moderation, Permission.Administration],
   middleware: [],
   data: new SlashCommandBuilder()
     .setName('sticky')

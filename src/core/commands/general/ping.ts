@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, ApplicationCommandType, MessageFlags } from 'discord.js';
 
 import { appFeatureMap, AppFeature } from '~/settings';
-import { Command } from '~/core/models';
+import { Command, Permission } from '~/core/models';
 
 import { PingEmbed } from '~/core/components';
 
@@ -9,7 +9,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
   feature: AppFeature.Ping,
   type: ApplicationCommandType.ChatInput,
   middleware: [],
-  requiredPermissions: [],
+  requiredPermissions: [Permission.Community],
   data: new SlashCommandBuilder().setName('ping').setDescription('Replies with Pong!'),
   async executeCommand(command, client, interaction) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });

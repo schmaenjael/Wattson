@@ -2,19 +2,33 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  ChannelType,
   EmbedBuilder,
   Events,
   MessageFlags,
   ModalBuilder,
   PermissionFlagsBits,
+  type PublicThreadChannel,
   TextInputBuilder,
   TextInputStyle,
   TextChannel,
+  ThreadAutoArchiveDuration,
 } from 'discord.js';
 
 import { Event } from '~/core/models';
 import { AppFeature, appFeatureMap } from '~/settings';
-import { AuditEventType, getSettings, recordAuditEvent } from '~/database';
+import {
+  AuditEventType,
+  findOpenModmailByUserId,
+  getSettings,
+  ModmailCategory,
+  ModmailStatus,
+  openModmail,
+  recordAuditEvent,
+  upsertUser,
+} from '~/database';
+import { CloseActionType, type VerificationFollowUpPayload } from '~/core/providers/modmail/closeActions';
+import { buildModmailOpenThreadEmbed, buildVerificationFollowUpUserDmEmbed } from '~/core/components/Modmail';
 import { L } from '~/core/locales';
 import type { FlowAnswers } from '~/core/providers/verification/flow';
 import { ANSWER_DISPLAY_NAMES, assignVolterRoles, grantAccess, postWelcomeEmbed } from '~/core/providers/verification/actions';
@@ -37,9 +51,9 @@ const answersFromEmbed = (embed: { fields: { name: string; value: string }[] }):
     const key = REVERSE_DISPLAY_NAMES[field.name] ?? field.name;
     if (MULTI_SELECT_KEYS.has(key)) {
       const items = field.value.split(', ').filter(Boolean);
-      result[key] = CODE_KEYS.has(key) ? items.map(extractCode) : items;
+      result[key] = CODE_KEYS.has(key) ? items.map((c) => extractCode(c).toLowerCase()) : items;
     } else {
-      result[key] = CODE_KEYS.has(key) ? extractCode(field.value) : field.value;
+      result[key] = CODE_KEYS.has(key) ? extractCode(field.value).toLowerCase() : field.value;
     }
   }
   return result;
@@ -123,32 +137,16 @@ export default new Event({
     const memberId = parts[2];
     if (!action || !memberId) return;
 
-    const settings = await getSettings();
-    const actor = await interaction.guild?.members.fetch(interaction.user.id);
-    const isModerator =
-      actor?.permissions.has(PermissionFlagsBits.ManageGuild) ||
-      (settings.roleModerationId ? actor?.roles.cache.has(settings.roleModerationId) : false) ||
-      (settings.roleAdministrationId ? actor?.roles.cache.has(settings.roleAdministrationId) : false);
-
-    if (!isModerator) {
-      await interaction.reply({ content: 'Only moderators can act on verification requests.', flags: MessageFlags.Ephemeral });
-      return;
-    }
-
+    // Compute synchronously — no async before first interaction response.
     const embed = interaction.message.embeds[0];
     const isDecided = embed?.title?.startsWith('✅') || embed?.title?.startsWith('❌');
 
-    if ((action === 'approve' || action === 'reject') && isDecided) {
-      await interaction.reply({ content: 'This verification has already been decided.', flags: MessageFlags.Ephemeral });
-      return;
-    }
-
-    if (action === 'volter' && embed?.footer?.text.includes('Volter')) {
-      await interaction.reply({ content: 'Volter roles have already been assigned.', flags: MessageFlags.Ephemeral });
-      return;
-    }
-
+    // reject must respond with showModal as the sole initial response.
     if (action === 'reject') {
+      if (isDecided) {
+        await interaction.reply({ content: 'This verification has already been decided.', flags: MessageFlags.Ephemeral });
+        return;
+      }
       const modal = new ModalBuilder()
         .setCustomId(`verify:reject_reason:${memberId}:${interaction.channelId}:${interaction.message.id}`)
         .setTitle('Rejection Reason')
@@ -167,7 +165,120 @@ export default new Event({
       return;
     }
 
+    // ask_question must deferReply before any async work.
+    if (action === 'ask_question') {
+      if (isDecided) {
+        await interaction.reply({ content: 'This verification has already been decided.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+      const aqSettings = await getSettings();
+      const aqActor = await interaction.guild?.members.fetch(interaction.user.id);
+      const aqIsModerator =
+        aqActor?.permissions.has(PermissionFlagsBits.ManageGuild) ||
+        (aqSettings.roleModerationId ? aqActor?.roles.cache.has(aqSettings.roleModerationId) : false) ||
+        (aqSettings.roleAdministrationId ? aqActor?.roles.cache.has(aqSettings.roleAdministrationId) : false);
+      if (!aqIsModerator) {
+        await interaction.editReply({ content: 'Only moderators can act on verification requests.' });
+        return;
+      }
+
+      const existing = await findOpenModmailByUserId(memberId);
+      if (existing) {
+        await interaction.editReply({ content: `<@${memberId}> already has an open modmail thread <#${existing.threadId}>. Close it first.` });
+        return;
+      }
+
+      const modmailSettings = await getSettings();
+      if (!modmailSettings.modmailChannelId) {
+        await interaction.editReply({ content: 'Modmail channel not configured. Set it with `/config channel`.' });
+        return;
+      }
+
+      const applicant = await interaction.guild?.members.fetch(memberId).catch(() => null);
+      if (!applicant) {
+        await interaction.editReply({ content: `<@${memberId}> is no longer in the server.` });
+        return;
+      }
+
+      const modmailChannel = (await interaction.guild?.channels.fetch(modmailSettings.modmailChannelId).catch(() => null)) as TextChannel | null;
+      if (!modmailChannel) {
+        await interaction.editReply({ content: 'Modmail channel not found.' });
+        return;
+      }
+
+      const thread = (await modmailChannel.threads.create({
+        name: `📬 Modmail — ${applicant.user.username}`,
+        autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
+        type: ChannelType.PublicThread,
+        reason: `Verification follow-up for ${applicant.user.username} (${applicant.id})`,
+      })) as PublicThreadChannel;
+
+      await upsertUser({ id: applicant.id, username: applicant.user.username });
+
+      const closePayload: VerificationFollowUpPayload = { memberId, channelId: interaction.channelId, messageId: interaction.message.id };
+
+      const modmail = await openModmail({
+        userId: applicant.id,
+        threadId: thread.id,
+        category: ModmailCategory.VerificationFollowUp,
+        reason: 'Verification follow-up — opened by moderation team',
+        status: ModmailStatus.Open,
+        closeAction: { type: CloseActionType.VerificationFollowUp, payload: closePayload as unknown as Record<string, unknown> },
+      });
+
+      await thread.setName(`📬 Modmail #${modmail.id} — ${applicant.user.username}`).catch(() => null);
+
+      const pingContent = modmailSettings.roleModmailHandlerId ? `<@&${modmailSettings.roleModmailHandlerId}>` : undefined;
+      await thread.send({ content: pingContent, embeds: [buildModmailOpenThreadEmbed(modmail, applicant.user)] });
+
+      const dmChannel = await applicant.createDM().catch(() => null);
+      await dmChannel?.send({ embeds: [buildVerificationFollowUpUserDmEmbed(modmail)] }).catch(() => null);
+
+      await recordAuditEvent({
+        eventType: AuditEventType.ModmailOpened,
+        actorUserId: interaction.user.id,
+        targetUserId: applicant.id,
+        payload: { modmailId: modmail.id, category: ModmailCategory.VerificationFollowUp, threadId: thread.id },
+      });
+
+      const updatedEmbed = EmbedBuilder.from(embed).addFields({
+        name: '📬 Verification Follow-up',
+        value: `Modmail #${modmail.id} opened by <@${interaction.user.id}> · <#${thread.id}>`,
+        inline: false,
+      });
+      await interaction.message.edit({ embeds: [updatedEmbed], components: interaction.message.components });
+
+      await interaction.editReply({ content: `✅ Verification follow-up modmail #${modmail.id} opened with <@${memberId}>.` });
+      return;
+    }
+
+    // Defer immediately — getSettings + members.fetch must not block the 3 s Discord window.
     await interaction.deferUpdate();
+
+    const settings = await getSettings();
+    const actor = await interaction.guild?.members.fetch(interaction.user.id).catch(() => null);
+    const isModerator =
+      actor?.permissions.has(PermissionFlagsBits.ManageGuild) ||
+      (settings.roleModerationId ? actor?.roles.cache.has(settings.roleModerationId) : false) ||
+      (settings.roleAdministrationId ? actor?.roles.cache.has(settings.roleAdministrationId) : false);
+
+    if (!isModerator) {
+      await interaction.followUp({ content: 'Only moderators can act on verification requests.', flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    if (action === 'approve' && isDecided) {
+      await interaction.followUp({ content: 'This verification has already been decided.', flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    if (action === 'volter' && embed?.footer?.text?.includes('Volter + chapter role assigned')) {
+      await interaction.followUp({ content: 'Volter roles have already been assigned.', flags: MessageFlags.Ephemeral });
+      return;
+    }
 
     const member = await interaction.guild?.members.fetch(memberId).catch(() => null);
     const locale = interaction.guild?.preferredLocale ?? 'en-US';
@@ -187,8 +298,8 @@ export default new Event({
       updatedEmbed.setTitle(`✅ Approved by ${interaction.user.tag}`);
 
       const isMemberApplicant = getAnswerField(embed, 'is_member') === 'yes' && getAnswerField(embed, 'chapter_country').length > 0;
-      const volterAlreadyAssigned = !!embed?.footer?.text.includes('Volter');
-      const showVolterButton = isMemberApplicant && !!settings.roleVolterId && !volterAlreadyAssigned;
+      const volterAlreadyAssigned = embed?.footer?.text?.includes('Volter + chapter role assigned') ?? false;
+      const showVolterButton = isMemberApplicant && !!settings.roleMemberId && !volterAlreadyAssigned;
 
       const components = showVolterButton
         ? [
@@ -220,7 +331,8 @@ export default new Event({
 
       updatedEmbed.setFooter({ text: `🟣 Volter + chapter role assigned by ${interaction.user.tag}` });
 
-      if (isDecided) {
+      const isVolterOnlyRequest = embed?.footer?.text?.includes('Volter membership request') ?? false;
+      if (isDecided || isVolterOnlyRequest) {
         await interaction.message.edit({ embeds: [updatedEmbed], components: [] });
       } else {
         const approvalRow = new ActionRowBuilder<ButtonBuilder>().addComponents(

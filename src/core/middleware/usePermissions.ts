@@ -11,6 +11,7 @@ const ROLE_COLUMN_BY_PERMISSION: Record<Permission, keyof Settings> = {
   [Permission.Unregistered]: 'roleUnregisteredId',
   [Permission.Community]: 'roleCommunityId',
   [Permission.Member]: 'roleMemberId',
+  [Permission.EventManager]: 'roleEventManagerId',
   [Permission.Moderation]: 'roleModerationId',
   [Permission.Administration]: 'roleAdministrationId',
 };
@@ -18,6 +19,18 @@ const ROLE_COLUMN_BY_PERMISSION: Record<Permission, keyof Settings> = {
 const replyNoPerm = async (interaction: Interaction) => {
   if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
     await interaction.reply({ content: L[interaction.locale].GENERAL.COMMAND_INVALID_PERMISSIONS(), flags: MessageFlags.Ephemeral });
+  }
+};
+
+const replyDmOnly = async (interaction: Interaction) => {
+  if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
+    await interaction.reply({ content: L[interaction.locale].GENERAL.COMMAND_DM_ONLY(), flags: MessageFlags.Ephemeral });
+  }
+};
+
+const replyWrongContext = async (interaction: Interaction) => {
+  if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
+    await interaction.reply({ content: L[interaction.locale].GENERAL.COMMAND_INVALID_IN_DMS(), flags: MessageFlags.Ephemeral });
   }
 };
 
@@ -29,25 +42,35 @@ const replyNoPerm = async (interaction: Interaction) => {
 export const usePermissions: MiddlewareFunction<typeof Events.InteractionCreate> = async (_event, client: Client, interaction: Interaction) => {
   if (!interaction.isChatInputCommand() && !interaction.isContextMenuCommand()) return { status: ProcessExitCode.OK };
 
-  if (!interaction.inGuild()) {
-    await replyNoPerm(interaction);
-    return { status: ProcessExitCode.NOPERM };
-  }
+  if (interaction.user.id === process.env.ADMIN_USER_ID) return { status: ProcessExitCode.OK };
 
   const command = client.getCommands().get(interaction.commandName);
   const required = command?.options.requiredPermissions ?? [];
+
+  if (!interaction.inGuild()) {
+    if (command?.options.allowDM || command?.options.dmOnly) return { status: ProcessExitCode.OK };
+    await replyWrongContext(interaction);
+    return { status: ProcessExitCode.WRONG_CONTEXT };
+  }
+
+  if (command?.options.dmOnly) {
+    await replyDmOnly(interaction);
+    return { status: ProcessExitCode.WRONG_CONTEXT };
+  }
+
   if (required.length === 0) return { status: ProcessExitCode.OK };
 
-  const member = await interaction.guild?.members.fetch(interaction.user.id);
+  const [member, settings] = await Promise.all([interaction.guild?.members.fetch(interaction.user.id), getSettings()]);
   if (!member) {
     await replyNoPerm(interaction);
     return { status: ProcessExitCode.NOPERM };
   }
 
-  // ManageGuild is a bootstrap fallback when roles aren't yet configured in settings
-  if (member.permissions.has(PermissionFlagsBits.ManageGuild)) return { status: ProcessExitCode.OK };
+  // Bootstrap fallback: allow ManageGuild only when the admin role hasn't been configured yet
+  if (!settings.roleAdministrationId && member.permissions.has(PermissionFlagsBits.ManageGuild)) {
+    return { status: ProcessExitCode.OK };
+  }
 
-  const settings = await getSettings();
   const memberRoleIds = new Set(member.roles.cache.keys());
 
   const missing = required.filter((permission) => {

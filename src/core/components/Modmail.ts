@@ -10,6 +10,7 @@ export const CATEGORY_COLORS: Record<ModmailCategory, `#${string}`> = {
   [ModmailCategory.InformationRequest]: '#57F287',
   [ModmailCategory.VoltMembership]: '#9B59B6',
   [ModmailCategory.ModComplaint]: '#FEE75C',
+  [ModmailCategory.VerificationFollowUp]: '#502379',
 };
 
 export const CATEGORY_LABELS: Record<ModmailCategory, string> = {
@@ -19,6 +20,7 @@ export const CATEGORY_LABELS: Record<ModmailCategory, string> = {
   [ModmailCategory.InformationRequest]: 'ℹ️ Information Request',
   [ModmailCategory.VoltMembership]: '⚡ Volt Membership',
   [ModmailCategory.ModComplaint]: '⚠️ Mod Complaint',
+  [ModmailCategory.VerificationFollowUp]: '🔍 Verification Follow-up',
 };
 
 const STATUS_LABELS: Record<ModmailStatus, string> = {
@@ -64,6 +66,21 @@ export const buildUserDmGuideEmbed = (modmail: Modmail): EmbedBuilder =>
     .setFooter({ text: 'Replies will arrive here in your DMs.' })
     .setTimestamp();
 
+export const buildVerificationFollowUpUserDmEmbed = (modmail: Modmail): EmbedBuilder =>
+  new EmbedBuilder()
+    .setColor(CATEGORY_COLORS[ModmailCategory.VerificationFollowUp])
+    .setTitle(`📬 Modmail #${modmail.id} — Verification Question`)
+    .setDescription(
+      'The moderation team has opened a conversation about your server verification application.\n\n' +
+        '**How to respond:**\n' +
+        '`/modmail message` — Send a message to the moderators\n' +
+        '`/modmail attach` — Attach an image or file\n' +
+        '`/modmail close` — Close this conversation\n\n' +
+        '⚠️ All communication must happen via these commands. Do not contact moderators directly about your application.'
+    )
+    .setFooter({ text: 'After this conversation closes, the team will make a final decision on your application.' })
+    .setTimestamp();
+
 export const buildModmailClosedByUserEmbed = (user: User): EmbedBuilder =>
   new EmbedBuilder().setColor(Colors.Red).setTitle('🔒 Modmail Closed').setDescription(`Closed by the user <@${user.id}>.`).setTimestamp();
 
@@ -107,6 +124,14 @@ export const buildModmailShowEmbed = (modmail: Modmail, user: User | null): Embe
 
   return embed.setTimestamp();
 };
+
+export const buildModmailSummaryEmbed = (summary: string, modmailId: number): EmbedBuilder =>
+  new EmbedBuilder()
+    .setColor(Colors.Blurple)
+    .setTitle(`📋 Modmail #${modmailId} — Conversation Summary`)
+    .setDescription(summary)
+    .setFooter({ text: 'AI-generated summary — may not be fully accurate.' })
+    .setTimestamp();
 
 export const buildKeepOpenRow = (modmailId: number): ActionRowBuilder<ButtonBuilder> =>
   new ActionRowBuilder<ButtonBuilder>().addComponents(

@@ -6,6 +6,21 @@ import { bans } from '../schema/bans';
 import { reports } from '../schema/reports';
 import { warnings } from '../schema/warnings';
 import { AuditEventType, ReportStatus } from '../schema/enums';
+import { memberHistory } from '../schema/memberHistory';
+import { getTopInviteCodes, type InviteCodeStat } from './memberHistory';
+
+export type { InviteCodeStat };
+
+export interface InviteStats {
+  topCodes: InviteCodeStat[];
+  totalTrackedJoins: number;
+}
+
+export const getInviteStats = async (limit = 5): Promise<InviteStats> => {
+  const db = getDb();
+  const [[{ total }], topCodes] = await Promise.all([db.select({ total: count() }).from(memberHistory), getTopInviteCodes(limit)]);
+  return { topCodes, totalTrackedJoins: Number(total) };
+};
 
 export interface JoinStats {
   joins: number;

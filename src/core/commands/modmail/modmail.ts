@@ -30,19 +30,23 @@ import {
   getSettings,
   openModmail,
   recordAuditEvent,
+  setModmailSummary,
   touchModmailActivity,
   upsertUser,
 } from '~/database';
 import {
-  CATEGORY_LABELS,
   buildKeepOpenDisabledRow,
   buildModmailClosedByModEmbed,
   buildModmailClosedByUserEmbed,
   buildModmailClosedDmEmbed,
   buildModmailOpenThreadEmbed,
   buildModmailShowEmbed,
+  buildModmailSummaryEmbed,
   buildUserDmGuideEmbed,
 } from '~/core/components/Modmail';
+import { fetchModmailSummary } from '~/core/providers/modmail/summarizer';
+import { dispatchCloseAction } from '~/core/providers/modmail/closeActions';
+import { L } from '~/core/locales';
 
 export const MODMAIL_MSG_MODAL_PREFIX = 'modmail_msg:';
 
@@ -61,6 +65,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
   global: true,
   middleware: [],
   requiredPermissions: [],
+  allowDM: true,
   data: new SlashCommandBuilder()
     .setName('modmail')
     .setDescription('Open, manage, and close modmail threads with the moderation team.')
@@ -130,14 +135,14 @@ export default new Command<ApplicationCommandType.ChatInput>({
 
       const guild = client.guilds.cache.get(process.env.GUILD_ID);
       if (!guild) {
-        await interaction.reply({ content: 'Could not reach the server. Please try again.', flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: L[interaction.locale].GENERAL.COMMAND_GUILD_UNAVAILABLE(), flags: MessageFlags.Ephemeral });
         return;
       }
 
       // Verify the user is a guild member
       const member = await guild.members.fetch(interaction.user.id).catch(() => null);
       if (!member) {
-        await interaction.reply({ content: 'You must be a member of the server to open a modmail.', flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: L[guild.preferredLocale].GENERAL.COMMAND_NOT_A_MEMBER(), flags: MessageFlags.Ephemeral });
         return;
       }
 
@@ -334,7 +339,23 @@ export default new Command<ApplicationCommandType.ChatInput>({
         const guild = client.guilds.cache.get(process.env.GUILD_ID);
         const thread = await guild?.channels.fetch(modmail.threadId).catch(() => null);
         if (thread?.isThread()) {
+          const summary = await fetchModmailSummary(client, modmail.threadId);
+          if (summary) {
+            await setModmailSummary(modmail.id, summary);
+          }
+
           await thread.send({ embeds: [buildModmailClosedByUserEmbed(interaction.user)] });
+
+          if (summary) {
+            await thread.send({ embeds: [buildModmailSummaryEmbed(summary, modmail.id)] });
+          }
+
+          // Disable stale button if one was sent
+          if (modmail.staleMessageId) {
+            const msg = await thread.messages.fetch(modmail.staleMessageId).catch(() => null);
+            await msg?.edit({ components: [buildKeepOpenDisabledRow(modmail.id)] }).catch(() => null);
+          }
+
           try {
             await thread.setArchived(true);
           } catch {
@@ -342,13 +363,8 @@ export default new Command<ApplicationCommandType.ChatInput>({
           }
         }
 
-        // Disable stale button if one was sent
-        if (modmail.staleMessageId && thread?.isThread()) {
-          const msg = await thread.messages.fetch(modmail.staleMessageId).catch(() => null);
-          await msg?.edit({ components: [buildKeepOpenDisabledRow(modmail.id)] }).catch(() => null);
-        }
-
         await interaction.editReply({ content: '✅ Your modmail has been closed.' });
+        await dispatchCloseAction(client, modmail);
         return;
       }
 
@@ -375,11 +391,22 @@ export default new Command<ApplicationCommandType.ChatInput>({
       });
 
       if (interaction.channel?.isThread()) {
+        const summary = await fetchModmailSummary(client, modmail.threadId);
+        if (summary) {
+          await setModmailSummary(modmail.id, summary);
+        }
+
         await interaction.channel.send({ embeds: [buildModmailClosedByModEmbed(interaction.user)] });
+
+        if (summary) {
+          await interaction.channel.send({ embeds: [buildModmailSummaryEmbed(summary, modmail.id)] });
+        }
+
         if (modmail.staleMessageId) {
           const msg = await interaction.channel.messages.fetch(modmail.staleMessageId).catch(() => null);
           await msg?.edit({ components: [buildKeepOpenDisabledRow(modmail.id)] }).catch(() => null);
         }
+
         try {
           await interaction.channel.setArchived(true);
         } catch {
@@ -394,13 +421,14 @@ export default new Command<ApplicationCommandType.ChatInput>({
       }
 
       await interaction.editReply({ content: '✅ Modmail closed.' });
+      await dispatchCloseAction(client, modmail);
       return;
     }
 
     // ── show ──────────────────────────────────────────────────────────────────
     if (sub === 'show') {
       if (isDm) {
-        await interaction.reply({ content: 'This command can only be used in the server.', flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: L[interaction.locale].GENERAL.COMMAND_INVALID_IN_DMS(), flags: MessageFlags.Ephemeral });
         return;
       }
       if (!(await checkModRole(interaction))) {
@@ -421,6 +449,3 @@ export default new Command<ApplicationCommandType.ChatInput>({
     }
   },
 });
-
-// Re-export for use in modal/button handlers
-export { CATEGORY_LABELS };

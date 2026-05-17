@@ -1,15 +1,37 @@
-node_modules
+# Dependency and cache directories
+node_modules/
+**/.cache/
+**/build/
+**/.next/
 
-**/.cache
-**/build
-**/.next
-
+# Databases
 **/*.db
 
+# Database migrations / source SQL
 **/_*.sql
-/scripts/migrations
+/scripts/migrations/
 
+# Environment and sensitive configuration files
 .env
+.env.*
 bot.config.ts
 
+# Linter caches
 .eslintcache
+
+# Coding Agent & AI Tool Directories/Files
+.claude/
+.cursor/
+.windsurf/
+.copilot/
+.cline/
+.roocode/
+.aide/
+.cursorrules
+.windsufrules
+AIDER_*
+**/ai-chat-history/
+**/.ai-analytics/
+
+# RAG Knowledge base
+config/knowledge/*.txt

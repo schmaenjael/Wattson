@@ -15,7 +15,7 @@ import {
   TextChannel,
 } from 'discord.js';
 
-import { Command } from '~/core/models';
+import { Command, Permission } from '~/core/models';
 import { AppFeature, appFeatureMap, ProcessExitCode } from '~/settings';
 import { AuditEventType, getSettings, getVoltersForChapter, recordAuditEvent } from '~/database';
 import { Logger } from '~/utilities';
@@ -32,7 +32,7 @@ const csvEscape = (s: string): string => {
 export default new Command<ApplicationCommandType.ChatInput>({
   feature: AppFeature.VolterExport,
   type: ApplicationCommandType.ChatInput,
-  requiredPermissions: [],
+  requiredPermissions: [Permission.Administration],
   middleware: [],
   data: new SlashCommandBuilder()
     .setName('export-volters')
