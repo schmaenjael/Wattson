@@ -1,6 +1,8 @@
 # Wattson — Claude Rules
 
 ALWAYS: Execute bun run script:lint and bun run script:format after every prompt!
+ALWAYS: Execute bun run build after every prompt to check for TSC errors!
+ALWAYS: Remove unnecessary DB columns or tables. Ensure the schemas stay lean and clean.
 NEVER: Execute bun run db:\* commands. Always leave it to the operator.
 
 ## Stack
