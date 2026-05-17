@@ -36,6 +36,16 @@ export const resolveReport = async (id: number, resolvedBy: string, status: Repo
   return row;
 };
 
+export const listReportsAgainstUser = async (userId: string): Promise<Report[]> => {
+  const db = getDb();
+  return db.select().from(reports).where(eq(reports.reportedUserId, userId)).orderBy(desc(reports.createdAt));
+};
+
+export const listReportsFiledByUser = async (userId: string): Promise<Report[]> => {
+  const db = getDb();
+  return db.select().from(reports).where(eq(reports.reporterId, userId)).orderBy(desc(reports.createdAt));
+};
+
 export const countReportsForUser = async (reportedUserId: string): Promise<number> => {
   const db = getDb();
   const [{ c }] = await db.select({ c: count() }).from(reports).where(eq(reports.reportedUserId, reportedUserId));

@@ -3,6 +3,7 @@ import { and, eq, inArray, type InferInsertModel, type InferSelectModel } from '
 import { getDb } from '../client';
 import { roleMappings } from '../schema/roleMappings';
 import { RoleMappingType } from '../schema/enums';
+import { invalidateSettingsCache } from '../settings';
 
 export type RoleMapping = InferSelectModel<typeof roleMappings>;
 export type RoleMappingInsert = Omit<InferInsertModel<typeof roleMappings>, 'id'>;
@@ -14,6 +15,7 @@ export const upsertRoleMapping = async (data: RoleMappingInsert): Promise<RoleMa
     .values(data)
     .onConflictDoUpdate({ target: [roleMappings.type, roleMappings.value], set: { roleId: data.roleId } })
     .returning();
+  invalidateSettingsCache();
   return row;
 };
 
@@ -23,6 +25,7 @@ export const deleteRoleMapping = async (type: RoleMappingType, value: string): P
     .delete(roleMappings)
     .where(and(eq(roleMappings.type, type), eq(roleMappings.value, value)))
     .returning();
+  invalidateSettingsCache();
   return deleted.length > 0;
 };
 

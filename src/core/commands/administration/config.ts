@@ -1,9 +1,19 @@
 import { ApplicationCommandType, ChannelType, EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
 
-import { Command } from '~/core/models';
-import { useAdmin } from '~/core/middleware';
+import { Command, Permission } from '~/core/models';
 import { AppFeature, appFeatureMap, ProcessExitCode } from '~/settings';
-import { getSettings, updateSettings, type Settings } from '~/database';
+import {
+  getSettings,
+  updateSettings,
+  upsertRoleMapping,
+  deleteRoleMapping,
+  listRoleMappings,
+  getVerificationCountryOptions,
+  getEuropeanLanguageOptions,
+  getWorldLanguageOptions,
+  type Settings,
+  RoleMappingType,
+} from '~/database';
 import { handlePaginatedEmbeds } from '~/core/components';
 
 type ChannelKey =
@@ -18,7 +28,9 @@ type ChannelKey =
   | 'courtParentChannelId'
   | 'starboardChannelId'
   | 'harmAlertChannelId'
-  | 'modmailChannelId';
+  | 'modmailChannelId'
+  | 'sayLogChannelId'
+  | 'eventAnnouncementChannelId';
 
 const CHANNEL_CHOICES: { name: string; value: ChannelKey }[] = [
   { name: 'System notifications', value: 'notificationChannelId' },
@@ -33,29 +45,8 @@ const CHANNEL_CHOICES: { name: string; value: ChannelKey }[] = [
   { name: 'Starboard', value: 'starboardChannelId' },
   { name: 'Harm detection alerts', value: 'harmAlertChannelId' },
   { name: 'Modmail (mod-only thread parent)', value: 'modmailChannelId' },
-];
-
-type RoleKey =
-  | 'roleUnregisteredId'
-  | 'roleCommunityId'
-  | 'roleMemberId'
-  | 'roleModerationId'
-  | 'roleAdministrationId'
-  | 'roleMutedId'
-  | 'roleObscrId'
-  | 'roleVolterId'
-  | 'roleModmailHandlerId';
-
-const ROLE_CHOICES: { name: string; value: RoleKey }[] = [
-  { name: 'Unregistered', value: 'roleUnregisteredId' },
-  { name: 'Community', value: 'roleCommunityId' },
-  { name: 'Member', value: 'roleMemberId' },
-  { name: 'Moderation', value: 'roleModerationId' },
-  { name: 'Administration', value: 'roleAdministrationId' },
-  { name: 'Muted', value: 'roleMutedId' },
-  { name: 'OBSCR (verification marker)', value: 'roleObscrId' },
-  { name: 'Volter (verified Volt member)', value: 'roleVolterId' },
-  { name: 'Modmail handler (pinged on new modmails)', value: 'roleModmailHandlerId' },
+  { name: 'Say command log', value: 'sayLogChannelId' },
+  { name: 'Event announcements', value: 'eventAnnouncementChannelId' },
 ];
 
 type FeatureKey =
@@ -67,7 +58,10 @@ type FeatureKey =
   | 'featureSurveillanceEnabled'
   | 'featureVerificationRequiresApproval'
   | 'featureHarmDetectionEnabled'
-  | 'featureLinkFilterEnabled';
+  | 'featureLinkFilterEnabled'
+  | 'featureAntiSpamEnabled'
+  | 'featureAntiHoistEnabled'
+  | 'featureWarnAutoMuteEnabled';
 
 const FEATURE_CHOICES: { name: string; value: FeatureKey }[] = [
   { name: 'Welcome', value: 'featureWelcomeEnabled' },
@@ -79,6 +73,14 @@ const FEATURE_CHOICES: { name: string; value: FeatureKey }[] = [
   { name: 'Verification requires approval', value: 'featureVerificationRequiresApproval' },
   { name: 'Harm detection (LLM)', value: 'featureHarmDetectionEnabled' },
   { name: 'Link filter (blocklist)', value: 'featureLinkFilterEnabled' },
+  { name: 'Anti-spam (per-user rate limiting)', value: 'featureAntiSpamEnabled' },
+  { name: 'Anti-hoist (strip hoisting prefixes from nicknames)', value: 'featureAntiHoistEnabled' },
+  { name: 'Warn auto-mute (mute on warning threshold)', value: 'featureWarnAutoMuteEnabled' },
+];
+
+type StringKey = 'reactDefaultEmojis';
+const STRING_CHOICES: { name: string; value: StringKey }[] = [
+  { name: 'Default react emojis (comma or space separated)', value: 'reactDefaultEmojis' },
 ];
 
 type ThresholdKey =
@@ -86,13 +88,19 @@ type ThresholdKey =
   | 'starboardExternalThreshold'
   | 'warnAutoEscalateCount'
   | 'warnAutoEscalateWindowDays'
-  | 'badWordDeleteThreshold';
+  | 'badWordDeleteThreshold'
+  | 'antiSpamMaxMessages'
+  | 'antiSpamWindowMs'
+  | 'warnAutoMuteBaseMinutes';
 const THRESHOLD_CHOICES: { name: string; value: ThresholdKey }[] = [
   { name: 'Starboard threshold (stars)', value: 'starboardThreshold' },
   { name: 'Starboard external-post threshold (stars)', value: 'starboardExternalThreshold' },
   { name: 'Warn auto-escalate count', value: 'warnAutoEscalateCount' },
   { name: 'Warn auto-escalate window (days)', value: 'warnAutoEscalateWindowDays' },
   { name: 'Bad-word delete threshold (severity ≥ N → immediate delete)', value: 'badWordDeleteThreshold' },
+  { name: 'Anti-spam: max messages per window', value: 'antiSpamMaxMessages' },
+  { name: 'Anti-spam: window size (ms)', value: 'antiSpamWindowMs' },
+  { name: 'Warn auto-mute: base duration (minutes)', value: 'warnAutoMuteBaseMinutes' },
 ];
 
 const ALL_FEATURE_KEYS: FeatureKey[] = [
@@ -105,7 +113,40 @@ const ALL_FEATURE_KEYS: FeatureKey[] = [
   'featureVerificationRequiresApproval',
   'featureHarmDetectionEnabled',
   'featureLinkFilterEnabled',
+  'featureAntiSpamEnabled',
+  'featureAntiHoistEnabled',
+  'featureWarnAutoMuteEnabled',
 ];
+
+const PERMISSION_CHOICES = [
+  { name: 'Unregistered', value: 'unregistered' },
+  { name: 'Community', value: 'community' },
+  { name: 'Member', value: 'member' },
+  { name: 'Event Manager', value: 'eventmanager' },
+  { name: 'Moderation', value: 'moderation' },
+  { name: 'Administration', value: 'administration' },
+] as const;
+
+const UTILITY_CHOICES = [
+  { name: 'Muted', value: 'muted' },
+  { name: 'Modmail handler', value: 'modmail_handler' },
+] as const;
+
+const PRONOUN_CHOICES = [
+  { name: 'she/her', value: 'she' },
+  { name: 'he/him', value: 'he' },
+  { name: 'they/them', value: 'they' },
+  { name: 'any', value: 'any' },
+  { name: 'ask me', value: 'ask' },
+] as const;
+
+const ROLE_TYPE_CHOICES = [
+  { name: 'Country', value: RoleMappingType.Country },
+  { name: 'Language', value: RoleMappingType.Language },
+  { name: 'Pronouns', value: RoleMappingType.Pronouns },
+  { name: 'Permission', value: RoleMappingType.Permission },
+  { name: 'Utility', value: RoleMappingType.Utility },
+] as const;
 
 const ch = (id: string | null | undefined) => (id ? `<#${id}>` : '—');
 const ro = (id: string | null | undefined) => (id ? `<@&${id}>` : '—');
@@ -129,10 +170,7 @@ const FEATURES: FeatureDef[] = [
     label: 'Bad Words Filter',
     description: 'Scans messages against a file-based profanity list and deletes or escalates to LLM based on severity.',
     enabled: (s) => s.featureBadWordsEnabled,
-    warnings: (s) =>
-      s.featureBadWordsEnabled && !process.env.PROFANITY_LIST_PATH
-        ? ['`PROFANITY_LIST_PATH` env var not set — no profanity list loaded, filter is a no-op']
-        : [],
+    warnings: () => [],
   },
   {
     label: 'Starboard',
@@ -178,10 +216,26 @@ const FEATURES: FeatureDef[] = [
     label: 'Link Filter (Blocklist)',
     description: 'Deletes messages containing domains from Pi-hole-format blocklists loaded at startup.',
     enabled: (s) => s.featureLinkFilterEnabled,
-    warnings: (s) =>
-      s.featureLinkFilterEnabled && !process.env.BLOCKLIST_PATHS
-        ? ['`BLOCKLIST_PATHS` env var not set — no blocklist loaded, filter is a no-op']
-        : [],
+    warnings: () => [],
+  },
+  {
+    label: 'Anti-Spam',
+    description: 'Mutes users who exceed the message rate limit in a single channel within the configured window.',
+    enabled: (s) => s.featureAntiSpamEnabled,
+    warnings: (s) => (!s.roleMutedId ? ['`roleMutedId` not set — auto-mute cannot be applied'] : []),
+  },
+  {
+    label: 'Anti-Hoist',
+    description: 'Strips leading special characters from nicknames and issues an automated warning to the user.',
+    enabled: (s) => s.featureAntiHoistEnabled,
+    warnings: () => [],
+  },
+  {
+    label: 'Warn Auto-mute',
+    description:
+      'Automatically mutes users when their non-expired active warning count crosses thresholds. Duration scales with active warning count.',
+    enabled: (s) => s.featureWarnAutoMuteEnabled,
+    warnings: (s) => (!s.roleMutedId ? ['`roleMutedId` not set — auto-mute cannot be applied'] : []),
   },
 ];
 
@@ -194,7 +248,7 @@ const buildConfigPages = (s: Settings): EmbedBuilder[] => {
     .setColor(color)
     .setTitle('Wattson Config — Features (1/4)')
     .setDescription('Feature toggles, documentation, and health warnings for enabled features.')
-    .addFields({ name: 'Status', value: FEATURES.map((f) => `${bool(f.enabled(s))} **${f.label}**\n-# ${f.description}`).join('\n') });
+    .addFields({ name: 'Status', value: FEATURES.map((f) => `${bool(f.enabled(s))} **${f.label}**`).join('\n') });
 
   if (activeWarnings.length > 0) {
     featuresPage.addFields({ name: '⚠️ Configuration Warnings', value: activeWarnings.map((w) => `> ${w}`).join('\n') });
@@ -227,6 +281,8 @@ const buildConfigPages = (s: Settings): EmbedBuilder[] => {
           `**Starboard:** ${ch(s.starboardChannelId)}`,
           `**Harm detection alerts:** ${ch(s.harmAlertChannelId)}`,
           `**Modmail (mod-only):** ${ch(s.modmailChannelId)}`,
+          `**Say log:** ${ch(s.sayLogChannelId)}`,
+          `**Event announcements:** ${ch(s.eventAnnouncementChannelId)}`,
         ].join('\n'),
       }
     )
@@ -244,6 +300,7 @@ const buildConfigPages = (s: Settings): EmbedBuilder[] => {
           `**Unregistered:** ${ro(s.roleUnregisteredId)}\n-# New members before completing verification — very limited access`,
           `**Community:** ${ro(s.roleCommunityId)}\n-# Verified members without Volt membership`,
           `**Member:** ${ro(s.roleMemberId)}\n-# Active Volt Europa members`,
+          `**Event Manager:** ${ro(s.roleEventManagerId)}\n-# Grants access to create and manage server events`,
           `**Moderation:** ${ro(s.roleModerationId)}\n-# Grants access to warn, ban, court, reports, and stats commands`,
           `**Administration:** ${ro(s.roleAdministrationId)}\n-# Grants full bot configuration access via /config`,
         ].join('\n'),
@@ -252,7 +309,6 @@ const buildConfigPages = (s: Settings): EmbedBuilder[] => {
         name: 'Utility Roles',
         value: [
           `**Muted:** ${ro(s.roleMutedId)}\n-# Applied to muted members; overrides channel send permissions`,
-          `**OBSCR:** ${ro(s.roleObscrId)}\n-# Internal marker assigned during the verification flow`,
           `**Modmail handler:** ${ro(s.roleModmailHandlerId)}\n-# Pinged when a new modmail is opened`,
         ].join('\n'),
       }
@@ -268,6 +324,7 @@ const buildConfigPages = (s: Settings): EmbedBuilder[] => {
         name: 'Moderation Thresholds',
         value: [
           `**Warn auto-escalate:** ${s.warnAutoEscalateCount} active warnings within ${s.warnAutoEscalateWindowDays} days triggers escalation`,
+          `**Warn auto-mute:** ${bool(s.featureWarnAutoMuteEnabled)} · base ${s.warnAutoMuteBaseMinutes}m · 1 warn = grace, 2 warns = base/4, N≥3 warns = base×2^(N−3), cap 14d`,
         ].join('\n'),
       },
       {
@@ -283,7 +340,7 @@ const buildConfigPages = (s: Settings): EmbedBuilder[] => {
         value: [
           `**Status:** ${bool(s.featureBadWordsEnabled)}`,
           `**Delete threshold:** severity ≥ ${s.badWordDeleteThreshold} → immediate delete (no LLM)`,
-          `**List path:** \`${process.env.PROFANITY_LIST_PATH ?? '(not set)'}\`\n-# Set PROFANITY_LIST_PATH env var; severity 1 always skipped, 2–(N-1) → LLM check`,
+          `**Word list dir:** \`config/bad-words/\` (all .txt files)\n-# Severity 1 always skipped, 2–(N-1) → LLM check`,
         ].join('\n'),
       },
       {
@@ -297,11 +354,23 @@ const buildConfigPages = (s: Settings): EmbedBuilder[] => {
         name: 'Link Filter',
         value: [
           `**Status:** ${bool(s.featureLinkFilterEnabled)}`,
-          `**Blocklist paths:** \`${process.env.BLOCKLIST_PATHS ?? '(not set)'}\`\n-# Set BLOCKLIST_PATHS env var (comma-separated file paths)`,
+          `**Blocklist dir:** \`config/blocklists/\` (all .txt files)\n-# Drop Pi-hole-format .txt files into the directory; changes require restart`,
         ].join('\n'),
+      },
+      {
+        name: 'Anti-Spam',
+        value: [
+          `**Status:** ${bool(s.featureAntiSpamEnabled)}`,
+          `**Max messages:** ${s.antiSpamMaxMessages} per window`,
+          `**Window:** ${s.antiSpamWindowMs}ms\n-# Auto-mute (10 min) applied when threshold exceeded; requires \`roleMutedId\` set`,
+        ].join('\n'),
+      },
+      {
+        name: 'React',
+        value: `**Default emojis:** \`${s.reactDefaultEmojis}\`\n-# Overridable per \`/react\` invocation · use \`/config string\` to change`,
       }
     )
-    .setFooter({ text: 'Page 4 of 4 · use /config threshold to adjust values' })
+    .setFooter({ text: 'Page 4 of 4 · use /config threshold or /config string to adjust values' })
     .setTimestamp();
 
   return [featuresPage, channelsPage, rolesPage, thresholdsPage];
@@ -310,9 +379,8 @@ const buildConfigPages = (s: Settings): EmbedBuilder[] => {
 export default new Command<ApplicationCommandType.ChatInput>({
   feature: AppFeature.System,
   type: ApplicationCommandType.ChatInput,
-  // Bootstrap-safe: useAdmin accepts either Administration role OR Discord ManageGuild.
-  // Intentionally NOT gated by usePermissions so the first admin can configure roles.
-  middleware: [useAdmin],
+  requiredPermissions: [Permission.Administration],
+  middleware: [],
   data: new SlashCommandBuilder()
     .setName('config')
     .setDescription('Configure Wattson runtime settings.')
@@ -336,18 +404,88 @@ export default new Command<ApplicationCommandType.ChatInput>({
             .setRequired(false)
         )
     )
-    .addSubcommand((s) =>
-      s
+    .addSubcommandGroup((group) =>
+      group
         .setName('role')
-        .setDescription('Set a role mapping for a permission level.')
-        .addStringOption((o) =>
-          o
-            .setName('key')
-            .setDescription('Which role to set')
-            .setRequired(true)
-            .addChoices(...ROLE_CHOICES)
+        .setDescription('Configure role mappings (permission levels, community groups, and answer roles).')
+        .addSubcommand((s) =>
+          s
+            .setName('permission')
+            .setDescription('Set a role for a permission level (unregistered, community, member, moderation, administration).')
+            .addStringOption((o) =>
+              o
+                .setName('key')
+                .setDescription('Permission level')
+                .setRequired(true)
+                .addChoices(...PERMISSION_CHOICES)
+            )
+            .addRoleOption((o) => o.setName('role').setDescription('The role (leave blank to unset)').setRequired(false))
         )
-        .addRoleOption((o) => o.setName('role').setDescription('The role (leave blank to unset)').setRequired(false))
+        .addSubcommand((s) =>
+          s
+            .setName('utility')
+            .setDescription('Set a utility role (muted, modmail handler).')
+            .addStringOption((o) =>
+              o
+                .setName('key')
+                .setDescription('Utility role')
+                .setRequired(true)
+                .addChoices(...UTILITY_CHOICES)
+            )
+            .addRoleOption((o) => o.setName('role').setDescription('The role (leave blank to unset)').setRequired(false))
+        )
+        .addSubcommand((s) =>
+          s
+            .setName('country')
+            .setDescription('Map a country/region code to a Discord role.')
+            .addStringOption((o) => o.setName('code').setDescription('Country or region code (e.g. de, fr)').setRequired(true).setAutocomplete(true))
+            .addRoleOption((o) => o.setName('role').setDescription('The Discord role to assign').setRequired(true))
+        )
+        .addSubcommand((s) =>
+          s
+            .setName('language')
+            .setDescription('Map a language code to a Discord role.')
+            .addStringOption((o) => o.setName('code').setDescription('Language code (e.g. en, fr, de)').setRequired(true).setAutocomplete(true))
+            .addRoleOption((o) => o.setName('role').setDescription('The Discord role to assign').setRequired(true))
+        )
+        .addSubcommand((s) =>
+          s
+            .setName('pronouns')
+            .setDescription('Map a pronoun choice to a Discord role.')
+            .addStringOption((o) =>
+              o
+                .setName('value')
+                .setDescription('Pronoun choice')
+                .setRequired(true)
+                .addChoices(...PRONOUN_CHOICES)
+            )
+            .addRoleOption((o) => o.setName('role').setDescription('The Discord role to assign').setRequired(true))
+        )
+        .addSubcommand((s) =>
+          s
+            .setName('remove')
+            .setDescription('Remove a role mapping.')
+            .addStringOption((o) =>
+              o
+                .setName('type')
+                .setDescription('Mapping category')
+                .setRequired(true)
+                .addChoices(...ROLE_TYPE_CHOICES)
+            )
+            .addStringOption((o) => o.setName('value').setDescription('Mapping value to remove').setRequired(true).setAutocomplete(true))
+        )
+        .addSubcommand((s) =>
+          s
+            .setName('list')
+            .setDescription('List configured role mappings.')
+            .addStringOption((o) =>
+              o
+                .setName('type')
+                .setDescription('Filter by category (optional)')
+                .setRequired(false)
+                .addChoices(...ROLE_TYPE_CHOICES)
+            )
+        )
     )
     .addSubcommand((s) =>
       s
@@ -389,15 +527,189 @@ export default new Command<ApplicationCommandType.ChatInput>({
     )
     .addSubcommand((s) =>
       s
+        .setName('string')
+        .setDescription('Set a string config value.')
+        .addStringOption((o) =>
+          o
+            .setName('key')
+            .setDescription('Which setting')
+            .setRequired(true)
+            .addChoices(...STRING_CHOICES)
+        )
+        .addStringOption((o) => o.setName('value').setDescription('New value').setRequired(true).setMaxLength(512))
+    )
+    .addSubcommand((s) =>
+      s
         .setName('enable-all')
         .setDescription('Enable or disable every feature flag at once.')
         .addBooleanOption((o) => o.setName('enabled').setDescription('Enable or disable all features').setRequired(true))
     ),
 
+  async autocomplete(_client, interaction) {
+    const sub = interaction.options.getSubcommand(false);
+    const focused = interaction.options.getFocused(true);
+    const query = focused.value.toLowerCase();
+
+    if (sub === 'country') {
+      const options = await getVerificationCountryOptions();
+      const filtered = options
+        .filter((o) => o.label.toLowerCase().includes(query) || o.value.toLowerCase().includes(query))
+        .slice(0, 25)
+        .map((o) => ({ name: `${o.label} (${o.value})`, value: o.value }));
+      await interaction.respond(filtered);
+      return;
+    }
+
+    if (sub === 'language') {
+      const [eu, world] = await Promise.all([getEuropeanLanguageOptions(), getWorldLanguageOptions()]);
+      const all = [...eu, ...world];
+      const filtered = all
+        .filter((o) => o.label.toLowerCase().includes(query) || o.value.toLowerCase().includes(query))
+        .slice(0, 25)
+        .map((o) => ({ name: `${o.label} (${o.value})`, value: o.value }));
+      await interaction.respond(filtered);
+      return;
+    }
+
+    if (sub === 'remove') {
+      const type = interaction.options.getString('type') as RoleMappingType | null;
+      if (!type) {
+        await interaction.respond([]);
+        return;
+      }
+      const rows = await listRoleMappings(type);
+      const filtered = rows
+        .filter((r) => r.value.includes(query))
+        .slice(0, 25)
+        .map((r) => ({ name: r.value, value: r.value }));
+      await interaction.respond(filtered);
+      return;
+    }
+
+    await interaction.respond([]);
+  },
+
   async executeCommand(command, client, interaction, middlewareData) {
     if (middlewareData.some((m) => m.status !== ProcessExitCode.OK)) return;
 
+    const group = interaction.options.getSubcommandGroup(false);
     const sub = interaction.options.getSubcommand(true);
+
+    if (group === 'role') {
+      if (sub === 'permission') {
+        const key = interaction.options.getString('key', true);
+        const role = interaction.options.getRole('role', false);
+        if (role) {
+          await upsertRoleMapping({ type: RoleMappingType.Permission, value: key, roleId: role.id });
+          await interaction.reply({ content: `Set **permission:${key}** → ${role}.`, flags: MessageFlags.Ephemeral });
+        } else {
+          const deleted = await deleteRoleMapping(RoleMappingType.Permission, key);
+          await interaction.reply({
+            content: deleted ? `Cleared **permission:${key}**.` : `No mapping for **permission:${key}**.`,
+            flags: MessageFlags.Ephemeral,
+          });
+        }
+        return;
+      }
+
+      if (sub === 'utility') {
+        const key = interaction.options.getString('key', true);
+        const role = interaction.options.getRole('role', false);
+        if (role) {
+          await upsertRoleMapping({ type: RoleMappingType.Utility, value: key, roleId: role.id });
+          await interaction.reply({ content: `Set **utility:${key}** → ${role}.`, flags: MessageFlags.Ephemeral });
+        } else {
+          const deleted = await deleteRoleMapping(RoleMappingType.Utility, key);
+          await interaction.reply({
+            content: deleted ? `Cleared **utility:${key}**.` : `No mapping for **utility:${key}**.`,
+            flags: MessageFlags.Ephemeral,
+          });
+        }
+        return;
+      }
+
+      if (sub === 'country') {
+        const code = interaction.options.getString('code', true).toLowerCase().trim();
+        const role = interaction.options.getRole('role', true);
+        const options = await getVerificationCountryOptions();
+        const valid = options.some((o) => o.value.toLowerCase() === code);
+        if (!valid) {
+          await interaction.reply({
+            content: `\`${code}\` is not a valid country/region code. Use the autocomplete to pick a valid value.`,
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+        await upsertRoleMapping({ type: RoleMappingType.Country, value: code, roleId: role.id });
+        await interaction.reply({ content: `Mapped **country:${code}** → ${role}.`, flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      if (sub === 'language') {
+        const code = interaction.options.getString('code', true).toLowerCase().trim();
+        const role = interaction.options.getRole('role', true);
+        const [eu, world] = await Promise.all([getEuropeanLanguageOptions(), getWorldLanguageOptions()]);
+        const valid = [...eu, ...world].some((o) => o.value.toLowerCase() === code);
+        if (!valid) {
+          await interaction.reply({
+            content: `\`${code}\` is not a valid language code. Use the autocomplete to pick a valid value.`,
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+        await upsertRoleMapping({ type: RoleMappingType.Language, value: code, roleId: role.id });
+        await interaction.reply({ content: `Mapped **language:${code}** → ${role}.`, flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      if (sub === 'pronouns') {
+        const value = interaction.options.getString('value', true);
+        const role = interaction.options.getRole('role', true);
+        await upsertRoleMapping({ type: RoleMappingType.Pronouns, value, roleId: role.id });
+        await interaction.reply({ content: `Mapped **pronouns:${value}** → ${role}.`, flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      if (sub === 'remove') {
+        const type = interaction.options.getString('type', true) as RoleMappingType;
+        const value = interaction.options.getString('value', true).toLowerCase().trim();
+        const deleted = await deleteRoleMapping(type, value);
+        await interaction.reply({
+          content: deleted ? `Removed mapping **${type}:${value}**.` : `No mapping found for **${type}:${value}**.`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (sub === 'list') {
+        const typeFilter = interaction.options.getString('type') as RoleMappingType | null;
+        const rows = await listRoleMappings(typeFilter ?? undefined);
+        const color = appFeatureMap[command.options.feature].color;
+        const embed = new EmbedBuilder().setColor(color).setTitle('Role Mappings').setTimestamp();
+
+        if (rows.length === 0) {
+          embed.setDescription('*No mappings configured.*');
+        } else {
+          const grouped = new Map<RoleMappingType, typeof rows>();
+          for (const row of rows) {
+            const bucket = grouped.get(row.type) ?? [];
+            bucket.push(row);
+            grouped.set(row.type, bucket);
+          }
+          for (const [type, entries] of grouped) {
+            embed.addFields({
+              name: type.charAt(0).toUpperCase() + type.slice(1),
+              value: entries.map((e) => `\`${e.value}\` → <@&${e.roleId}>`).join('\n'),
+            });
+          }
+        }
+
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      return;
+    }
 
     if (sub === 'show') {
       const settings = await getSettings();
@@ -408,23 +720,15 @@ export default new Command<ApplicationCommandType.ChatInput>({
     if (sub === 'channel') {
       const key = interaction.options.getString('key', true) as ChannelKey;
       const channel = interaction.options.getChannel('channel', false);
-      await updateSettings({ [key]: channel?.id ?? null } as Partial<Settings>);
+      await updateSettings({ [key]: channel?.id ?? null });
       await interaction.reply({ content: channel ? `Set **${key}** to <#${channel.id}>.` : `Cleared **${key}**.`, flags: MessageFlags.Ephemeral });
-      return;
-    }
-
-    if (sub === 'role') {
-      const key = interaction.options.getString('key', true) as RoleKey;
-      const role = interaction.options.getRole('role', false);
-      await updateSettings({ [key]: role?.id ?? null } as Partial<Settings>);
-      await interaction.reply({ content: role ? `Set **${key}** to <@&${role.id}>.` : `Cleared **${key}**.`, flags: MessageFlags.Ephemeral });
       return;
     }
 
     if (sub === 'feature') {
       const key = interaction.options.getString('key', true) as FeatureKey;
       const enabled = interaction.options.getBoolean('enabled', true);
-      await updateSettings({ [key]: enabled } as Partial<Settings>);
+      await updateSettings({ [key]: enabled });
       await interaction.reply({ content: `Set **${key}** to \`${enabled}\`.`, flags: MessageFlags.Ephemeral });
       return;
     }
@@ -432,7 +736,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
     if (sub === 'threshold') {
       const key = interaction.options.getString('key', true) as ThresholdKey;
       const value = interaction.options.getInteger('value', true);
-      await updateSettings({ [key]: value } as Partial<Settings>);
+      await updateSettings({ [key]: value });
       await interaction.reply({ content: `Set **${key}** to \`${value}\`.`, flags: MessageFlags.Ephemeral });
       return;
     }
@@ -444,9 +748,17 @@ export default new Command<ApplicationCommandType.ChatInput>({
       return;
     }
 
+    if (sub === 'string') {
+      const key = interaction.options.getString('key', true) as StringKey;
+      const value = interaction.options.getString('value', true);
+      await updateSettings({ [key]: value });
+      await interaction.reply({ content: `Set **${key}** to \`${value}\`.`, flags: MessageFlags.Ephemeral });
+      return;
+    }
+
     if (sub === 'enable-all') {
       const enabled = interaction.options.getBoolean('enabled', true);
-      const patch = Object.fromEntries(ALL_FEATURE_KEYS.map((k) => [k, enabled])) as Partial<Settings>;
+      const patch = Object.fromEntries(ALL_FEATURE_KEYS.map((k) => [k, enabled]));
       await updateSettings(patch);
       await interaction.reply({ content: `All features ${enabled ? 'enabled' : 'disabled'}.`, flags: MessageFlags.Ephemeral });
       return;

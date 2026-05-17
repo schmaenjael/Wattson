@@ -9,7 +9,7 @@
   ],
   "license": "ISC",
   "scripts": {
-    "start": "bun run ./build/src/index.js",
+    "start": "bun run ./src/index.ts",
     "build": "tsc --build",
     "dev": "concurrently \"bun:dev:*\"",
     "dev:tsc": "bun --watch  \"./src/index.ts\" | pino-pretty",
@@ -18,6 +18,7 @@
     "script:lint": "eslint --cache",
     "script:format": "prettier --write --log-level warn .",
     "script:register-commands": "bun --env-file=.env ./scripts/register-commands.ts | pino-pretty",
+    "script:validate-blocklists": "bun ./scripts/validate-blocklists.ts",
     "script:typesafe-i18n": "typesafe-i18n --no-watch",
     "db:generate": "bun drizzle-kit generate",
     "db:migrate": "bun drizzle-kit migrate"
@@ -31,6 +32,7 @@
     "@types/pg": "^8.20.0",
     "chart.js": "^4.5.1",
     "chartjs-node-canvas": "^5.0.0",
+    "cron-parser": "^5.5.0",
     "discord.js": "^14.26.4",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",

@@ -46,7 +46,10 @@ export const closeModmail = async (id: number): Promise<void> => {
 
 export const touchModmailActivity = async (id: number): Promise<void> => {
   const db = getDb();
-  await db.update(modmails).set({ lastActivityAt: new Date(), reminderSentAt: null }).where(eq(modmails.id, id));
+  await db
+    .update(modmails)
+    .set({ lastActivityAt: new Date(), reminderSentAt: null, status: ModmailStatus.Open, staleNotifiedAt: null })
+    .where(eq(modmails.id, id));
 };
 
 export const listModmailsPendingReminder = async (): Promise<Modmail[]> => {
@@ -72,7 +75,7 @@ export const listModmailsPendingStale = async (): Promise<Modmail[]> => {
     .where(and(eq(modmails.status, ModmailStatus.Open), lt(modmails.createdAt, thirtyDaysAgo), isNull(modmails.staleNotifiedAt)));
 };
 
-export const setModmailStalePending = async (id: number, staleMessageId: string, staleDmMessageId: string): Promise<void> => {
+export const setModmailStalePending = async (id: number, staleMessageId: string | null, staleDmMessageId: string | null): Promise<void> => {
   const db = getDb();
   await db
     .update(modmails)
@@ -97,4 +100,9 @@ export const resetModmailFromStale = async (id: number): Promise<void> => {
     .update(modmails)
     .set({ status: ModmailStatus.Open, staleNotifiedAt: null, staleMessageId: null, staleDmMessageId: null, lastActivityAt: new Date() })
     .where(eq(modmails.id, id));
+};
+
+export const setModmailSummary = async (id: number, summary: string): Promise<void> => {
+  const db = getDb();
+  await db.update(modmails).set({ summary }).where(eq(modmails.id, id));
 };

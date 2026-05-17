@@ -5,11 +5,12 @@ import { Event } from '~/core/models';
 import { Logger } from '~/utilities';
 import { BotException } from '~/core/models/Exceptions';
 import { ErrorEmbed } from '~/core/components/Error';
+import { usePermissions } from '~/core/middleware';
 
 export default new Event({
   type: Events.InteractionCreate,
   feature: AppFeature.System,
-  middleware: [],
+  middleware: [usePermissions],
   async executeCommand(event, client, interaction) {
     if (!interaction.isChatInputCommand() && !interaction.isContextMenuCommand()) return;
 

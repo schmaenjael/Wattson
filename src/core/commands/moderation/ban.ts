@@ -4,12 +4,12 @@ import { BotException, Command, Permission } from '~/core/models';
 import { logModAction } from '~/core/middleware';
 import { AppFeature, appFeatureMap, ProcessExitCode } from '~/settings';
 import { AuditEventType, getSettings, insertBan, upsertUser } from '~/database';
-import { parseDuration } from '~/utilities';
+import { validateModerationTarget, resolveExpiresAt } from '~/utilities';
 
 export default new Command<ApplicationCommandType.ChatInput>({
   feature: AppFeature.Ban,
   type: ApplicationCommandType.ChatInput,
-  requiredPermissions: [Permission.Moderation],
+  requiredPermissions: [Permission.Moderation, Permission.Administration],
   middleware: [],
   afterware: [logModAction],
   data: new SlashCommandBuilder()
@@ -37,23 +37,16 @@ export default new Command<ApplicationCommandType.ChatInput>({
     const appealable = interaction.options.getBoolean('appealable', false) ?? false;
     const deleteSeconds = interaction.options.getInteger('delete_messages_seconds', false) ?? 0;
 
-    if (target.id === interaction.user.id) {
-      await interaction.reply({ content: 'You cannot ban yourself.', flags: MessageFlags.Ephemeral });
-      return;
-    }
-    if (target.bot) {
-      await interaction.reply({ content: 'Refusing to ban a bot via this command.', flags: MessageFlags.Ephemeral });
+    const targetError = validateModerationTarget(target, interaction.user, 'ban');
+    if (targetError) {
+      await interaction.reply({ content: targetError, flags: MessageFlags.Ephemeral });
       return;
     }
 
-    let expiresAt: Date | null = null;
-    if (durationStr) {
-      const ms = parseDuration(durationStr);
-      if (!ms) {
-        await interaction.reply({ content: `Invalid duration: \`${durationStr}\`. Use e.g. 30m, 2h, 7d, 1w.`, flags: MessageFlags.Ephemeral });
-        return;
-      }
-      expiresAt = new Date(Date.now() + ms);
+    const expiresAt = resolveExpiresAt(durationStr);
+    if (expiresAt === 'invalid') {
+      await interaction.reply({ content: `Invalid duration: \`${durationStr}\`. Use e.g. 30m, 2h, 7d, 1w.`, flags: MessageFlags.Ephemeral });
+      return;
     }
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });

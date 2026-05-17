@@ -5,26 +5,20 @@ import { AppFeature } from '~/settings';
 import { Logger } from '~/utilities';
 
 import type { HarmDetectionConfig } from './types';
-import { OllamaHarmDetector } from './ollama';
+import { HateSpeechDetector } from './hsd';
 
 export * from './types';
-export { OllamaHarmDetector };
+export { HateSpeechDetector };
 
 const CONFIG_PATH = join(process.cwd(), 'config', 'harm-detection.json');
-const DEFAULT_ENDPOINT = 'http://ollama:11434';
+const DEFAULT_ENDPOINT = 'http://hate-speech-detector:8000';
 
-let cached: OllamaHarmDetector | null = null;
+let cached: HateSpeechDetector | null = null;
 
-export const getHarmDetector = (): OllamaHarmDetector | null => {
+export const getHarmDetector = (): HateSpeechDetector | null => {
   if (cached) return cached;
 
-  const model = process.env.OLLAMA_MODEL;
-  if (!model) {
-    Logger.getInstance(AppFeature.Surveillance).warn('OLLAMA_MODEL env var not set — harm detection disabled.');
-    return null;
-  }
-
-  const endpoint = process.env.OLLAMA_ENDPOINT ?? DEFAULT_ENDPOINT;
+  const endpoint = process.env.HATE_SPEECH_DETECTOR_ENDPOINT ?? DEFAULT_ENDPOINT;
 
   let config: HarmDetectionConfig;
   try {
@@ -34,7 +28,7 @@ export const getHarmDetector = (): OllamaHarmDetector | null => {
     return null;
   }
 
-  cached = new OllamaHarmDetector(endpoint, model, config);
+  cached = new HateSpeechDetector(endpoint, config);
   return cached;
 };
 

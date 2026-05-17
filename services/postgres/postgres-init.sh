@@ -2,7 +2,7 @@
 set -e
 
 echo "==> Setting up users and permissions..."
-envsubst < /tmp/scripts/init-db.template.sql | psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB"
+envsubst < /tmp/scripts/postgres-init.template.sql | psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB"
 
 echo "==> Applying schema migrations..."
 for f in /tmp/scripts/migrations/*.sql; do
@@ -11,7 +11,7 @@ for f in /tmp/scripts/migrations/*.sql; do
 done
 
 echo "==> Running seed files..."
-for f in /tmp/scripts/db/*.sql; do
+for f in /tmp/scripts/seed/*.sql; do
   echo "    → $f"
   psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -f "$f"
 done

@@ -46,6 +46,14 @@ const de = {
         ALREADY_ACTIVE: '⚠️ Für dein Konto läuft bereits eine Verifizierung.',
         ALREADY_VERIFIED: '✅ Du bist bereits verifiziert und hast vollen Zugang zum Server.',
       },
+      VOLTER: {
+        SUCCESS: '✅ Deine Volter-Verifizierung startet – prüfe deine DMs!',
+        ALREADY_ACTIVE: '⚠️ Für dein Konto läuft bereits eine Verifizierung.',
+        ALREADY_VOLTER: '✅ Du hast bereits den Volt-Mitglieds-Status auf diesem Server.',
+        NOT_VERIFIED: '⚠️ Du bist noch nicht verifiziert. Bitte nutze zuerst `/verify start`.',
+        SUBMITTED_TITLE: '🟣 Volter-Antrag eingereicht',
+        SUBMITTED: 'Dein Haiilo-Profil wurde zur Prüfung eingereicht. Ein Moderator wird deine Volt-Mitgliedschaft in Kürze bestätigen.',
+      },
       QUESTIONS: {
         QUESTION_ICEBREAKER: {
           TITLE: 'Wenn du dich gerade irgendwo in Europa hinbeamen könntest – wohin ginge die Reise?',
@@ -118,6 +126,9 @@ const de = {
     WATTSON_IN_SERVICE: 'Wattson, im Dienst für Europa',
     COMMAND_INVALID_IN_DMS: 'Dieser Befehl muss auf einem Server ausgeführt werden.',
     COMMAND_INVALID_PERMISSIONS: 'Dir fehlen die nötigen Berechtigungen für diesen Befehl.',
+    COMMAND_DM_ONLY: 'Dieser Befehl ist nur in Direktnachrichten verfügbar.',
+    COMMAND_GUILD_UNAVAILABLE: 'Der Server ist vorübergehend nicht erreichbar. Bitte versuche es gleich noch einmal.',
+    COMMAND_NOT_A_MEMBER: 'Du musst Mitglied des Servers sein, um diesen Befehl zu verwenden.',
   },
   UTIL: {
     EVENT_WELCOME: { EMBED_TITLE: 'Willkommen!', EMBED_DESCRIPTION: 'Willkommen <@{name:string}>!' },
@@ -184,6 +195,57 @@ const de = {
       DM_BAN_NOTICE: 'Im Rahmen dieses Prozesses wurdest du dauerhaft vom Server gebannt.',
       DM_DENIED_TITLE: 'Datenlöschungsantrag abgelehnt',
       DM_DENIED_DESCRIPTION: 'Das Moderationsteam hat deinen Datenlöschungsantrag geprüft und abgelehnt. Es wurden keine Daten verändert.',
+    },
+  },
+  EVENT: {
+    COMMAND_CREATE: {
+      SUCCESS: '✅ Veranstaltung **{name:string}** mit ID `{id:number}` erstellt. Geplant für {time:string}.',
+      ERROR_INVALID_DATE: '❌ Ungültiges Datums- oder Zeitformat. Verwende `JJJJ-MM-TT` für das Datum und `HH:MM` für die Zeit.',
+      ERROR_PAST_DATE: '❌ Das Datum der Veranstaltung muss in der Zukunft liegen.',
+    },
+    COMMAND_RECREATE: {
+      SUCCESS: '✅ Veranstaltung neu erstellt als `{id:number}`. Geplant für {time:string}.',
+      ERROR_NOT_FOUND: '❌ Keine Veranstaltung mit ID `{id:number}` gefunden.',
+      ERROR_NOT_OWNER: '❌ Du kannst nur Veranstaltungen neu erstellen, die du selbst angelegt hast.',
+    },
+    COMMAND_REPEAT: {
+      SET: '✅ Wiederholungsplan für Veranstaltung `{id:number}` gesetzt: `{cron:string}`.',
+      CLEARED: '✅ Wiederholungsplan für Veranstaltung `{id:number}` entfernt.',
+      ERROR_INVALID_CRON: '❌ Ungültiger Cron-Ausdruck. Beispiel: `0 18 * * 5` für jeden Freitag um 18:00 Uhr.',
+    },
+    COMMAND_DASHBOARD: { TITLE: 'Deine Veranstaltungen', EMPTY: 'Du hast keine Veranstaltungen in den letzten 30 Tagen oder in der Zukunft.' },
+    COMMAND_LIST: {
+      TITLE: 'Bevorstehende Veranstaltungen',
+      EMPTY: 'Es sind keine bevorstehenden Veranstaltungen geplant.',
+      SIGNED_UP: '✅ Du hast dich für {count:number} Veranstaltung(en) angemeldet.',
+    },
+    COMMAND_REGISTER: {
+      SUCCESS: '✅ Du bist jetzt für **{name:string}** ({time:string}) angemeldet.',
+      ALREADY_REGISTERED: '⚠️ Du bist bereits für diese Veranstaltung angemeldet.',
+      ERROR_NOT_FOUND: '❌ Keine Veranstaltung mit ID `{id:number}` gefunden.',
+      ERROR_PAST_OR_CANCELLED: '❌ Diese Veranstaltung ist bereits abgelaufen oder wurde abgesagt.',
+    },
+    COMMAND_UNREGISTER: {
+      SUCCESS: '✅ Du wurdest von **{name:string}** abgemeldet.',
+      NOT_REGISTERED: '⚠️ Du bist nicht für diese Veranstaltung angemeldet.',
+      ERROR_NOT_FOUND: '❌ Keine Veranstaltung mit ID `{id:number}` gefunden.',
+    },
+    COMMAND_CANCEL: {
+      SUCCESS: '✅ Veranstaltung `{id:number}` abgesagt. {count:number} Angemeldete(r) wurde(n) benachrichtigt.',
+      ERROR_NOT_FOUND: '❌ Keine Veranstaltung mit ID `{id:number}` gefunden.',
+      ERROR_NOT_OWNER: '❌ Du kannst nur Veranstaltungen absagen, die du selbst angelegt hast.',
+      DM_NOTIFY: '**{name:string}** (geplant für {time:string}) wurde abgesagt.',
+    },
+    COMMAND_ATTENDEES: { TITLE: 'Angemeldete für {name:string}', EMPTY: 'Noch niemand hat sich für diese Veranstaltung angemeldet.' },
+    ANNOUNCEMENT: {
+      EMBED_TITLE: '📅 Veranstaltung beginnt bald',
+      EMBED_DESCRIPTION: '**{name:string}** beginnt {time:string}.',
+      NO_REGISTRANTS: 'Keine angemeldeten Teilnehmer.',
+    },
+    WEEKLY_DIGEST: {
+      EMBED_TITLE: '📅 Veranstaltungen diese Woche',
+      EMBED_DESCRIPTION: 'Hier sind die bevorstehenden Veranstaltungen der nächsten 7 Tage.',
+      NO_EVENTS: 'Keine Veranstaltungen für die nächsten 7 Tage geplant.',
     },
   },
 } satisfies BaseTranslation;

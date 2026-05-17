@@ -1,16 +1,25 @@
-import { EmbedBuilder, Events, TextChannel } from 'discord.js';
+import { APIEmbedField, EmbedBuilder, Events, TextChannel } from 'discord.js';
 
 import { AppFeature, appFeatureMap, assets } from '~/settings';
-import { getSettings } from '~/database';
+import { getSettings, type Settings } from '~/database';
 import { Event, Permission } from '~/core/models';
 import { Logger } from '~/utilities';
 import { L } from '~/core/locales';
 import { startBanSweeper } from '~/core/scheduler/banSweeper';
 import { startMuteSweeper } from '~/core/scheduler/muteSweeper';
 import { startModmailSweeper } from '~/core/scheduler/modmailSweeper';
+import { startEventSweeper } from '~/core/scheduler/eventSweeper';
 import { warmupHarmDetector } from '~/core/providers/harm';
+import { initInviteCache } from '~/core/loaders/inviteCache';
 
-import { BigColumnPadding, SmallRowPadding } from '~/core/components/padding';
+const PERMISSION_ROLE_COLUMN: Record<Permission, keyof Settings> = {
+  [Permission.Unregistered]: 'roleUnregisteredId',
+  [Permission.Community]: 'roleCommunityId',
+  [Permission.Member]: 'roleMemberId',
+  [Permission.EventManager]: 'roleEventManagerId',
+  [Permission.Moderation]: 'roleModerationId',
+  [Permission.Administration]: 'roleAdministrationId',
+};
 
 export default new Event({
   type: Events.ClientReady,
@@ -41,6 +50,11 @@ export default new Event({
     startBanSweeper(client);
     startMuteSweeper(client);
     startModmailSweeper(client);
+    startEventSweeper(client);
+
+    if (settings.featureInviteTrackingEnabled) {
+      await initInviteCache(guild);
+    }
 
     if (settings.featureHarmDetectionEnabled) {
       warmupHarmDetector().catch(() => null);
@@ -54,41 +68,105 @@ export default new Event({
     }
     const channel = (await guild.channels.fetch(settings.notificationChannelId)) as TextChannel;
 
+    const on = (v: boolean) => (v ? '🟢' : '⚫');
+    const ch = (id: string | null | undefined) => (id ? `<#${id}>` : 'not set');
+
+    const ollamaModel = process.env.OLLAMA_MODEL;
+    const ollamaEndpoint = process.env.OLLAMA_ENDPOINT;
+    const ragEndpoint = process.env.RAG_ENDPOINT;
+
+    const serviceLines = [
+      '🟢 Sweepers · ban / mute / modmail',
+      `${on(!!ollamaModel)} Ollama · ${ollamaModel ?? 'not configured'}${ollamaEndpoint ? ` @ ${ollamaEndpoint}` : ''}`,
+      `${on(!!ragEndpoint)} RAG · ${ragEndpoint ?? 'not configured'}`,
+      `${on(settings.featureInviteTrackingEnabled)} Invite cache · ${settings.featureInviteTrackingEnabled ? 'active' : 'disabled'}`,
+    ];
+
+    const featureLines = [
+      `${on(settings.featureWelcomeEnabled)} Welcome${settings.featureWelcomeEnabled ? ` · ${ch(settings.welcomeChannelId)}` : ''}`,
+      `${on(settings.featureSurveillanceEnabled)} Surveillance${settings.featureSurveillanceEnabled ? ` · ${ch(settings.surveillanceLogChannelId)}` : ''}`,
+      `${on(settings.featureStarboardEnabled)} Starboard${settings.featureStarboardEnabled ? ` · ${ch(settings.starboardChannelId)} · ≥${settings.starboardThreshold}⭐` : ''}`,
+      `${on(settings.featureCourtEnabled)} Court${settings.featureCourtEnabled ? ` · ${ch(settings.courtParentChannelId)}` : ''}`,
+      `${on(settings.featureHarmDetectionEnabled)} Harm detection${settings.featureHarmDetectionEnabled ? ` · ${ollamaModel ?? '?'} · ${ch(settings.harmAlertChannelId)}` : ''}`,
+      `${on(settings.featureBadWordsEnabled)} Bad words${settings.featureBadWordsEnabled ? ` · delete ≥ sev ${settings.badWordDeleteThreshold}` : ''}`,
+      `${on(settings.featureAntiSpamEnabled)} Anti-spam${settings.featureAntiSpamEnabled ? ` · ${settings.antiSpamMaxMessages} msg / ${settings.antiSpamWindowMs}ms` : ''}`,
+      `${on(settings.featureAntiHoistEnabled)} Anti-hoist`,
+      `${on(settings.featureLinkFilterEnabled)} Link filter`,
+      `${on(settings.featureWarnAutoMuteEnabled)} Warn auto-mute${settings.featureWarnAutoMuteEnabled ? ` · base ${settings.warnAutoMuteBaseMinutes}m` : ''}`,
+      `${on(settings.featureVerificationRequiresApproval)} Verification approval${settings.featureVerificationRequiresApproval ? ` · ${ch(settings.approvalChannelId)}` : ''}`,
+    ];
+
+    const locale = guild.preferredLocale;
+
     await channel.send({
       embeds: [
         new EmbedBuilder()
           .setColor(appFeatureMap[event.options.feature].color)
-          .setTitle(L[guild.preferredLocale].SYSTEM.EVENT_READY.EMBED_TITLE())
-          .setDescription(`> *${L[guild.preferredLocale].SYSTEM.EVENT_READY.EMBED_DESCRIPTION()}*`)
+          .setTitle(L[locale].SYSTEM.EVENT_READY.EMBED_TITLE())
+          .setDescription(`> *${L[locale].SYSTEM.EVENT_READY.EMBED_DESCRIPTION()}*`)
           .addFields(
-            SmallRowPadding,
-            { name: `✅ ${L[guild.preferredLocale].SYSTEM.STATUS.STATE()}`, value: 'All services initialized successfully.', inline: true },
-            { name: `🗄️ ${L[guild.preferredLocale].SYSTEM.STATUS.DATABASE()}`, value: 'Connected', inline: true },
-            BigColumnPadding,
-            { name: `🔁 ${L[guild.preferredLocale].SYSTEM.STATUS.SHARDS()}`, value: `${readyClient.shard?.count ?? 1}`, inline: true },
-            {
-              name: `📆 ${L[guild.preferredLocale].SYSTEM.STATUS.SERVICE_LAUNCH_TIME()}`,
-              value: `<t:${Math.floor(Date.now() / 1000)}:F>`,
-              inline: true,
-            },
-            BigColumnPadding,
-            {
-              name: `📂 ${L[guild.preferredLocale].SYSTEM.STATUS.LOADED_COMMANDS()}`,
-              value: `${client
-                .getCommands()
-                .map(({ options }) => `• ${options.data.name}`)
-                .join('\n')}`,
-              inline: true,
-            },
-            { name: `👩‍💻 ${L[guild.preferredLocale].SYSTEM.STATUS.SERVICE_LATENCY()}`, value: `${Math.abs(readyClient.ws.ping)}ms`, inline: true },
-            { name: '\u200B', value: '\u200B', inline: true },
-            SmallRowPadding
+            { name: `✅ ${L[locale].SYSTEM.STATUS.STATE()}`, value: 'Online', inline: true },
+            { name: `\u{1F5C4}️ ${L[locale].SYSTEM.STATUS.DATABASE()}`, value: 'Connected', inline: true },
+            { name: `\u{1F469}‍\u{1F4BB} ${L[locale].SYSTEM.STATUS.SERVICE_LATENCY()}`, value: `${Math.abs(readyClient.ws.ping)}ms`, inline: true },
+            { name: `\u{1F501} ${L[locale].SYSTEM.STATUS.SHARDS()}`, value: `${readyClient.shard?.count ?? 1}`, inline: true },
+            { name: `\u{1F4C6} ${L[locale].SYSTEM.STATUS.SERVICE_LAUNCH_TIME()}`, value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true },
+            { name: `\u{1F4C2} ${L[locale].SYSTEM.STATUS.LOADED_COMMANDS()}`, value: `${client.getCommands().size}`, inline: true },
+            { name: '⚙️ Services', value: serviceLines.join('\n') },
+            { name: '🧩 Features', value: featureLines.join('\n') }
           )
           .setThumbnail(assets.wattson['256x256'].url)
-          .setFooter({ text: L[guild.preferredLocale].GENERAL.WATTSON_IN_SERVICE(), iconURL: assets.volt['256x256'].url })
+          .setFooter({ text: L[locale].GENERAL.WATTSON_IN_SERVICE(), iconURL: assets.volt['256x256'].url })
           .setTimestamp(),
       ],
       files: [assets.volt['256x256'].file, assets.wattson['256x256'].file],
+    });
+
+    const sortedCommands = [...client.getCommands().values()].sort((a, b) => a.options.data.name.localeCompare(b.options.data.name));
+    const protectedRows: string[] = [];
+    const openRows: string[] = [];
+
+    for (const cmd of sortedCommands) {
+      const label = `\`/${cmd.options.data.name}\``;
+      const perms = cmd.options.requiredPermissions ?? [];
+      if (cmd.options.dmOnly) {
+        openRows.push(`${label} · DM only`);
+      } else if (perms.length === 0) {
+        openRows.push(`${label} · everyone`);
+      } else {
+        const roleLabels = perms.map((p) => {
+          const roleId = settings[PERMISSION_ROLE_COLUMN[p]] as string | null;
+          return roleId ? `<@&${roleId}>` : p;
+        });
+        protectedRows.push(`${label} · ${roleLabels.join(', ')}`);
+      }
+    }
+
+    const toFields = (name: string, rows: string[]): APIEmbedField[] => {
+      if (rows.length === 0) return [{ name, value: '-' }];
+      const chunks: string[] = [];
+      let current = '';
+      for (const row of rows) {
+        const appended = current ? `${current}\n${row}` : row;
+        if (appended.length > 1024) {
+          chunks.push(current);
+          current = row;
+        } else {
+          current = appended;
+        }
+      }
+      if (current) chunks.push(current);
+      return chunks.map((value, i) => ({ name: i === 0 ? name : '​', value }));
+    };
+
+    await channel.send({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(appFeatureMap[event.options.feature].color)
+          .setTitle(`\u{1F4C2} Loaded Commands (${client.getCommands().size})`)
+          .addFields(...toFields('\u{1F512} Protected Commands', protectedRows), ...toFields('\u{1F310} Public & DM-only Commands', openRows))
+          .setFooter({ text: L[locale].GENERAL.WATTSON_IN_SERVICE(), iconURL: assets.volt['256x256'].url })
+          .setTimestamp(),
+      ],
     });
   },
 });

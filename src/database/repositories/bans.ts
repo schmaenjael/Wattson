@@ -1,7 +1,8 @@
-import { and, count, desc, eq, isNotNull, lte, type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
+import { and, count, desc, eq, isNotNull, isNull, lte, type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
 
 import { getDb } from '../client';
 import { bans } from '../schema/bans';
+import { AppealOutcome } from '../schema/enums';
 
 export type Ban = InferSelectModel<typeof bans>;
 export type NewBan = Omit<InferInsertModel<typeof bans>, 'id' | 'createdAt' | 'active' | 'appealedAt' | 'appealOutcome'>;
@@ -36,6 +37,11 @@ export const listExpiredActiveBans = async (now: Date = new Date()): Promise<Ban
     .where(and(eq(bans.active, true), isNotNull(bans.expiresAt), lte(bans.expiresAt, now)));
 };
 
+export const listAllBansForUser = async (targetUserId: string): Promise<Ban[]> => {
+  const db = getDb();
+  return db.select().from(bans).where(eq(bans.targetUserId, targetUserId)).orderBy(desc(bans.createdAt));
+};
+
 export const listActiveBansForUser = async (targetUserId: string): Promise<Ban[]> => {
   const db = getDb();
   return db
@@ -65,4 +71,24 @@ export const deleteBansForUser = async (targetUserId: string): Promise<number> =
   const db = getDb();
   const result = await db.delete(bans).where(eq(bans.targetUserId, targetUserId)).returning();
   return result.length;
+};
+
+export const findAppealableBan = async (targetUserId: string): Promise<Ban | null> => {
+  const db = getDb();
+  const [row] = await db
+    .select()
+    .from(bans)
+    .where(and(eq(bans.targetUserId, targetUserId), eq(bans.active, true), eq(bans.appealable, true), isNull(bans.appealedAt)))
+    .limit(1);
+  return row ?? null;
+};
+
+export const setAppealFiled = async (id: number): Promise<void> => {
+  const db = getDb();
+  await db.update(bans).set({ appealedAt: new Date() }).where(eq(bans.id, id));
+};
+
+export const setAppealOutcome = async (id: number, outcome: AppealOutcome): Promise<void> => {
+  const db = getDb();
+  await db.update(bans).set({ appealOutcome: outcome }).where(eq(bans.id, id));
 };
