@@ -1,7 +1,6 @@
 import { ApplicationCommandType, EmbedBuilder, MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
 
 import { Command, Permission } from '~/core/models';
-import { useAdmin } from '~/core/middleware';
 import { AppFeature, appFeatureMap, ProcessExitCode } from '~/settings';
 import { getSettings, type Settings } from '~/database';
 
@@ -9,6 +8,7 @@ const PERMISSION_TIERS = [
   Permission.Unregistered,
   Permission.Community,
   Permission.Member,
+  Permission.EventManager,
   Permission.Moderation,
   Permission.Administration,
 ] as const;
@@ -17,6 +17,7 @@ const ROLE_COLUMN: Record<Permission, keyof Settings> = {
   [Permission.Unregistered]: 'roleUnregisteredId',
   [Permission.Community]: 'roleCommunityId',
   [Permission.Member]: 'roleMemberId',
+  [Permission.EventManager]: 'roleEventManagerId',
   [Permission.Moderation]: 'roleModerationId',
   [Permission.Administration]: 'roleAdministrationId',
 };
@@ -53,25 +54,22 @@ export default new Command<ApplicationCommandType.ChatInput>({
       }
     }
 
-    const isAdmin = hasManageGuild || userTiers.has(Permission.Administration);
+    const isAdmin = hasManageGuild || interaction.user.id === process.env.ADMIN_USER_ID || userTiers.has(Permission.Administration);
     const isMod = isAdmin || userTiers.has(Permission.Moderation);
     const isMember = isMod || userTiers.has(Permission.Member);
     const isCommunity = isMember || userTiers.has(Permission.Community);
 
     const canAccess = (cmd: Command<ApplicationCommandType>): boolean => {
       const required = cmd.options.requiredPermissions ?? [];
-      const isAdminCmd = (cmd.options.middleware ?? []).some((fn) => (fn as unknown) === (useAdmin as unknown));
 
-      if (isAdminCmd || required.includes(Permission.Administration)) return isAdmin;
+      if (required.includes(Permission.Administration)) return isAdmin;
       if (required.includes(Permission.Moderation)) return isMod;
       if (required.includes(Permission.Member)) return isMember;
       if (required.includes(Permission.Community)) return isCommunity;
       return true;
     };
 
-    const isAdminCmd = (cmd: Command<ApplicationCommandType>): boolean =>
-      (cmd.options.middleware ?? []).some((fn) => (fn as unknown) === (useAdmin as unknown)) ||
-      (cmd.options.requiredPermissions ?? []).includes(Permission.Administration);
+    const isAdminCmd = (cmd: Command<ApplicationCommandType>): boolean => (cmd.options.requiredPermissions ?? []).includes(Permission.Administration);
 
     const isModCmd = (cmd: Command<ApplicationCommandType>): boolean =>
       !isAdminCmd(cmd) && (cmd.options.requiredPermissions ?? []).includes(Permission.Moderation);

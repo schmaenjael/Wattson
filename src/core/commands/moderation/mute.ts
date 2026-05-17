@@ -1,15 +1,17 @@
 import { ApplicationCommandType, EmbedBuilder, MessageFlags, SlashCommandBuilder, TextChannel } from 'discord.js';
 
 import { BotException, Command, Permission } from '~/core/models';
+import { logModAction } from '~/core/middleware';
 import { AppFeature, appFeatureMap, ProcessExitCode } from '~/settings';
-import { AuditEventType, getSettings, insertMute, recordAuditEvent, upsertUser } from '~/database';
-import { parseDuration } from '~/utilities';
+import { AuditEventType, getSettings, insertMute, upsertUser } from '~/database';
+import { validateModerationTarget, resolveExpiresAt } from '~/utilities';
 
 export default new Command<ApplicationCommandType.ChatInput>({
-  feature: AppFeature.Warn,
+  feature: AppFeature.Mute,
   type: ApplicationCommandType.ChatInput,
-  requiredPermissions: [Permission.Moderation],
+  requiredPermissions: [Permission.Moderation, Permission.Administration],
   middleware: [],
+  afterware: [logModAction],
   data: new SlashCommandBuilder()
     .setName('mute')
     .setDescription('Assign the muted role to a user.')
@@ -24,23 +26,16 @@ export default new Command<ApplicationCommandType.ChatInput>({
     const reason = interaction.options.getString('reason', true);
     const durationStr = interaction.options.getString('duration', false);
 
-    if (target.id === interaction.user.id) {
-      await interaction.reply({ content: 'You cannot mute yourself.', flags: MessageFlags.Ephemeral });
-      return;
-    }
-    if (target.bot) {
-      await interaction.reply({ content: 'Refusing to mute a bot.', flags: MessageFlags.Ephemeral });
+    const targetError = validateModerationTarget(target, interaction.user, 'mute');
+    if (targetError) {
+      await interaction.reply({ content: targetError, flags: MessageFlags.Ephemeral });
       return;
     }
 
-    let expiresAt: Date | null = null;
-    if (durationStr) {
-      const ms = parseDuration(durationStr);
-      if (!ms) {
-        await interaction.reply({ content: `Invalid duration: \`${durationStr}\`. Use e.g. 30m, 2h, 7d, 1w.`, flags: MessageFlags.Ephemeral });
-        return;
-      }
-      expiresAt = new Date(Date.now() + ms);
+    const expiresAt = resolveExpiresAt(durationStr);
+    if (expiresAt === 'invalid') {
+      await interaction.reply({ content: `Invalid duration: \`${durationStr}\`. Use e.g. 30m, 2h, 7d, 1w.`, flags: MessageFlags.Ephemeral });
+      return;
     }
 
     const settings = await getSettings();
@@ -76,13 +71,6 @@ export default new Command<ApplicationCommandType.ChatInput>({
 
     const mute = await insertMute({ targetUserId: target.id, moderatorId: interaction.user.id, reason, expiresAt });
 
-    await recordAuditEvent({
-      eventType: AuditEventType.MuteIssued,
-      actorUserId: interaction.user.id,
-      targetUserId: target.id,
-      payload: { muteId: mute.id, reason, expiresAt: expiresAt?.toISOString() ?? null },
-    });
-
     if (settings.warningsLogChannelId) {
       const logChannel = (await interaction.guild!.channels.fetch(settings.warningsLogChannelId)) as TextChannel | null;
       await logChannel
@@ -106,5 +94,12 @@ export default new Command<ApplicationCommandType.ChatInput>({
     await interaction.editReply({
       content: `Muted <@${target.id}>. Mute **#${mute.id}** recorded${expiresAt ? `; expires <t:${Math.floor(expiresAt.getTime() / 1000)}:R>` : ' (indefinite)'}.`,
     });
+
+    return {
+      eventType: AuditEventType.MuteIssued,
+      actorUserId: interaction.user.id,
+      targetUserId: target.id,
+      payload: { muteId: mute.id, reason, expiresAt: expiresAt?.toISOString() ?? null },
+    };
   },
 });

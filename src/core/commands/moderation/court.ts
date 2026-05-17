@@ -51,7 +51,7 @@ const caseSummary = (c: CourtCase) =>
 export default new Command<ApplicationCommandType.ChatInput>({
   feature: AppFeature.System,
   type: ApplicationCommandType.ChatInput,
-  requiredPermissions: [Permission.Moderation],
+  requiredPermissions: [Permission.Moderation, Permission.Administration],
   middleware: [],
   data: new SlashCommandBuilder()
     .setName('court')

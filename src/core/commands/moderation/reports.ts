@@ -1,10 +1,8 @@
 import { ApplicationCommandType, EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
 
 import { Command, Permission, BotException } from '~/core/models';
-import { AppFeature, appFeatureMap, ProcessExitCode } from '~/settings';
+import { AppFeature, appFeatureMap, MOD_LIST_PAGE_SIZE, ProcessExitCode } from '~/settings';
 import { AuditEventType, findReportById, listReports, recordAuditEvent, ReportStatus, resolveReport, type Report } from '~/database';
-
-const PAGE_SIZE = 10;
 
 const reportSummary = (r: Report) =>
   `**#${r.id}** · <t:${Math.floor(r.createdAt.getTime() / 1000)}:R> · ${statusBadge(r.status)} · reporter <@${r.reporterId}> → target <@${r.reportedUserId}>\n${r.messageLink}`;
@@ -45,7 +43,7 @@ const renderDetailEmbed = (r: Report) =>
 export default new Command<ApplicationCommandType.ChatInput>({
   feature: AppFeature.Report,
   type: ApplicationCommandType.ChatInput,
-  requiredPermissions: [Permission.Moderation],
+  requiredPermissions: [Permission.Moderation, Permission.Administration],
   middleware: [],
   data: new SlashCommandBuilder()
     .setName('reports')
@@ -93,7 +91,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
     if (sub === 'list') {
       const statusFilter = interaction.options.getString('status', false) as ReportStatus | null;
       const rows = await listReports(statusFilter ?? undefined);
-      const top = rows.slice(0, PAGE_SIZE);
+      const top = rows.slice(0, MOD_LIST_PAGE_SIZE);
       await interaction.reply({ embeds: [renderListEmbed(top, statusFilter ?? undefined)], flags: MessageFlags.Ephemeral });
       return;
     }

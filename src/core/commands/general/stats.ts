@@ -2,7 +2,15 @@ import { ApplicationCommandType, AttachmentBuilder, EmbedBuilder, MessageFlags, 
 
 import { Command, Permission } from '~/core/models';
 import { AppFeature, appFeatureMap, ProcessExitCode } from '~/settings';
-import { getActivityStats, getDailyJoins, getJoinStats, getModerationStats, getMonthlyModeration, getMonthlyVerifications } from '~/database';
+import {
+  getActivityStats,
+  getDailyJoins,
+  getInviteStats,
+  getJoinStats,
+  getModerationStats,
+  getMonthlyModeration,
+  getMonthlyVerifications,
+} from '~/database';
 import { renderModerationChart, renderVerificationsChart } from '~/core/providers/charts';
 
 const DEFAULT_DAYS = 30;
@@ -23,7 +31,7 @@ const monthsOption = (o: SlashCommandIntegerOption) =>
 export default new Command<ApplicationCommandType.ChatInput>({
   feature: AppFeature.Stats,
   type: ApplicationCommandType.ChatInput,
-  requiredPermissions: [Permission.Moderation],
+  requiredPermissions: [Permission.Moderation, Permission.Administration],
   middleware: [],
   data: new SlashCommandBuilder()
     .setName('stats')
@@ -46,6 +54,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
         .setDescription('Activity stats (automod, messages, verifications).')
         .addIntegerOption((o) => o.setName('days').setDescription('Window in days (default 30)').setRequired(false).setMinValue(1).setMaxValue(365))
     )
+    .addSubcommand((s) => s.setName('invites').setDescription('Top invite codes by joins with retention stats.'))
     .addSubcommandGroup((g) =>
       g
         .setName('chart')
@@ -147,6 +156,27 @@ export default new Command<ApplicationCommandType.ChatInput>({
           { name: 'Warnings', value: String(s.warnings), inline: true },
           { name: 'Bans', value: String(s.bans), inline: true },
           { name: 'Reports', value: `${s.reports.total} total · ${s.reports.open} open`, inline: true }
+        )
+        .setTimestamp();
+      await interaction.editReply({ embeds: [embed] });
+      return;
+    }
+
+    if (sub === 'invites') {
+      const s = await getInviteStats(5);
+      const fields = s.topCodes.map((c) => {
+        const retention = c.totalJoins > 0 ? Math.round((c.activeMembers / c.totalJoins) * 100) : 0;
+        const inviter = c.inviterId ? `<@${c.inviterId}>` : 'Unknown';
+        const label = c.code === 'VANITY' ? 'Vanity URL' : c.code === 'UNKNOWN' ? 'Untracked' : `\`${c.code}\``;
+        return { name: label, value: `${inviter} · ${c.totalJoins} joins · ${c.activeMembers} active · ${retention}% retention`, inline: false };
+      });
+      const embed = new EmbedBuilder()
+        .setColor(color)
+        .setTitle('Top Invite Codes')
+        .addFields(
+          { name: 'Total tracked joins', value: String(s.totalTrackedJoins), inline: true },
+          { name: '​', value: '​', inline: false },
+          ...(fields.length > 0 ? fields : [{ name: 'No data', value: 'No joins tracked yet.', inline: false }])
         )
         .setTimestamp();
       await interaction.editReply({ embeds: [embed] });
