@@ -130,6 +130,32 @@ type RootTranslation = {
 				 */
 				ALREADY_VERIFIED: string
 			}
+			VOLTER: {
+				/**
+				 * ✅​ ​S​t​a​r​t​i​n​g​ ​y​o​u​r​ ​V​o​l​t​e​r​ ​v​e​r​i​f​i​c​a​t​i​o​n​ ​—​ ​c​h​e​c​k​ ​y​o​u​r​ ​D​M​s​!
+				 */
+				SUCCESS: string
+				/**
+				 * ⚠​️​ ​A​ ​v​e​r​i​f​i​c​a​t​i​o​n​ ​i​s​ ​a​l​r​e​a​d​y​ ​i​n​ ​p​r​o​g​r​e​s​s​ ​f​o​r​ ​y​o​u​r​ ​a​c​c​o​u​n​t​.
+				 */
+				ALREADY_ACTIVE: string
+				/**
+				 * ✅​ ​Y​o​u​ ​a​l​r​e​a​d​y​ ​h​a​v​e​ ​V​o​l​t​ ​m​e​m​b​e​r​ ​s​t​a​t​u​s​ ​o​n​ ​t​h​i​s​ ​s​e​r​v​e​r​.
+				 */
+				ALREADY_VOLTER: string
+				/**
+				 * ⚠​️​ ​Y​o​u​ ​a​r​e​ ​n​o​t​ ​y​e​t​ ​v​e​r​i​f​i​e​d​.​ ​P​l​e​a​s​e​ ​u​s​e​ ​`​/​v​e​r​i​f​y​ ​s​t​a​r​t​`​ ​f​i​r​s​t​.
+				 */
+				NOT_VERIFIED: string
+				/**
+				 * �​�​ ​V​o​l​t​e​r​ ​R​e​q​u​e​s​t​ ​S​u​b​m​i​t​t​e​d
+				 */
+				SUBMITTED_TITLE: string
+				/**
+				 * Y​o​u​r​ ​H​a​i​i​l​o​ ​p​r​o​f​i​l​e​ ​h​a​s​ ​b​e​e​n​ ​s​u​b​m​i​t​t​e​d​ ​f​o​r​ ​r​e​v​i​e​w​.​ ​A​ ​m​o​d​e​r​a​t​o​r​ ​w​i​l​l​ ​v​e​r​i​f​y​ ​y​o​u​r​ ​V​o​l​t​ ​m​e​m​b​e​r​s​h​i​p​ ​s​h​o​r​t​l​y​.
+				 */
+				SUBMITTED: string
+			}
 			QUESTIONS: {
 				QUESTION_ICEBREAKER: {
 					/**
@@ -327,6 +353,18 @@ type RootTranslation = {
 		 * Y​o​u​ ​d​o​ ​n​o​t​ ​h​a​v​e​ ​t​h​e​ ​r​e​q​u​i​r​e​d​ ​p​e​r​m​i​s​s​i​o​n​s​ ​t​o​ ​u​s​e​ ​t​h​i​s​ ​c​o​m​m​a​n​d​.
 		 */
 		COMMAND_INVALID_PERMISSIONS: string
+		/**
+		 * T​h​i​s​ ​c​o​m​m​a​n​d​ ​i​s​ ​o​n​l​y​ ​a​v​a​i​l​a​b​l​e​ ​i​n​ ​d​i​r​e​c​t​ ​m​e​s​s​a​g​e​s​.
+		 */
+		COMMAND_DM_ONLY: string
+		/**
+		 * T​h​e​ ​s​e​r​v​e​r​ ​i​s​ ​t​e​m​p​o​r​a​r​i​l​y​ ​u​n​a​v​a​i​l​a​b​l​e​.​ ​P​l​e​a​s​e​ ​t​r​y​ ​a​g​a​i​n​ ​i​n​ ​a​ ​m​o​m​e​n​t​.
+		 */
+		COMMAND_GUILD_UNAVAILABLE: string
+		/**
+		 * Y​o​u​ ​m​u​s​t​ ​b​e​ ​a​ ​m​e​m​b​e​r​ ​o​f​ ​t​h​e​ ​s​e​r​v​e​r​ ​t​o​ ​u​s​e​ ​t​h​i​s​ ​c​o​m​m​a​n​d​.
+		 */
+		COMMAND_NOT_A_MEMBER: string
 	}
 	UTIL: {
 		EVENT_WELCOME: {
@@ -527,6 +565,185 @@ type RootTranslation = {
 			DM_DENIED_DESCRIPTION: string
 		}
 	}
+	EVENT: {
+		COMMAND_CREATE: {
+			/**
+			 * ✅​ ​E​v​e​n​t​ ​*​*​{​n​a​m​e​}​*​*​ ​c​r​e​a​t​e​d​ ​w​i​t​h​ ​I​D​ ​`​{​i​d​}​`​.​ ​S​c​h​e​d​u​l​e​d​ ​f​o​r​ ​{​t​i​m​e​}​.
+			 * @param {number} id
+			 * @param {string} name
+			 * @param {string} time
+			 */
+			SUCCESS: RequiredParams<'id' | 'name' | 'time'>
+			/**
+			 * ❌​ ​I​n​v​a​l​i​d​ ​d​a​t​e​ ​o​r​ ​t​i​m​e​ ​f​o​r​m​a​t​.​ ​U​s​e​ ​`​Y​Y​Y​Y​-​M​M​-​D​D​`​ ​f​o​r​ ​d​a​t​e​ ​a​n​d​ ​`​H​H​:​M​M​`​ ​f​o​r​ ​t​i​m​e​.
+			 */
+			ERROR_INVALID_DATE: string
+			/**
+			 * ❌​ ​T​h​e​ ​e​v​e​n​t​ ​d​a​t​e​ ​m​u​s​t​ ​b​e​ ​i​n​ ​t​h​e​ ​f​u​t​u​r​e​.
+			 */
+			ERROR_PAST_DATE: string
+		}
+		COMMAND_RECREATE: {
+			/**
+			 * ✅​ ​E​v​e​n​t​ ​r​e​c​r​e​a​t​e​d​ ​a​s​ ​`​{​i​d​}​`​.​ ​S​c​h​e​d​u​l​e​d​ ​f​o​r​ ​{​t​i​m​e​}​.
+			 * @param {number} id
+			 * @param {string} time
+			 */
+			SUCCESS: RequiredParams<'id' | 'time'>
+			/**
+			 * ❌​ ​N​o​ ​e​v​e​n​t​ ​f​o​u​n​d​ ​w​i​t​h​ ​I​D​ ​`​{​i​d​}​`​.
+			 * @param {number} id
+			 */
+			ERROR_NOT_FOUND: RequiredParams<'id'>
+			/**
+			 * ❌​ ​Y​o​u​ ​c​a​n​ ​o​n​l​y​ ​r​e​c​r​e​a​t​e​ ​e​v​e​n​t​s​ ​y​o​u​ ​c​r​e​a​t​e​d​.
+			 */
+			ERROR_NOT_OWNER: string
+		}
+		COMMAND_REPEAT: {
+			/**
+			 * ✅​ ​R​e​c​u​r​r​i​n​g​ ​s​c​h​e​d​u​l​e​ ​s​e​t​ ​f​o​r​ ​e​v​e​n​t​ ​`​{​i​d​}​`​:​ ​`​{​c​r​o​n​}​`​.
+			 * @param {string} cron
+			 * @param {number} id
+			 */
+			SET: RequiredParams<'cron' | 'id'>
+			/**
+			 * ✅​ ​R​e​c​u​r​r​i​n​g​ ​s​c​h​e​d​u​l​e​ ​c​l​e​a​r​e​d​ ​f​o​r​ ​e​v​e​n​t​ ​`​{​i​d​}​`​.
+			 * @param {number} id
+			 */
+			CLEARED: RequiredParams<'id'>
+			/**
+			 * ❌​ ​I​n​v​a​l​i​d​ ​c​r​o​n​ ​e​x​p​r​e​s​s​i​o​n​.​ ​E​x​a​m​p​l​e​:​ ​`​0​ ​1​8​ ​*​ ​*​ ​5​`​ ​f​o​r​ ​e​v​e​r​y​ ​F​r​i​d​a​y​ ​a​t​ ​1​8​:​0​0​.
+			 */
+			ERROR_INVALID_CRON: string
+		}
+		COMMAND_DASHBOARD: {
+			/**
+			 * Y​o​u​r​ ​E​v​e​n​t​s
+			 */
+			TITLE: string
+			/**
+			 * Y​o​u​ ​h​a​v​e​ ​n​o​ ​e​v​e​n​t​s​ ​i​n​ ​t​h​e​ ​l​a​s​t​ ​3​0​ ​d​a​y​s​ ​o​r​ ​u​p​c​o​m​i​n​g​.
+			 */
+			EMPTY: string
+		}
+		COMMAND_LIST: {
+			/**
+			 * U​p​c​o​m​i​n​g​ ​E​v​e​n​t​s
+			 */
+			TITLE: string
+			/**
+			 * T​h​e​r​e​ ​a​r​e​ ​n​o​ ​u​p​c​o​m​i​n​g​ ​e​v​e​n​t​s​.
+			 */
+			EMPTY: string
+			/**
+			 * ✅​ ​S​i​g​n​e​d​ ​u​p​ ​f​o​r​ ​{​c​o​u​n​t​}​ ​e​v​e​n​t​(​s​)​.
+			 * @param {number} count
+			 */
+			SIGNED_UP: RequiredParams<'count'>
+		}
+		COMMAND_REGISTER: {
+			/**
+			 * ✅​ ​Y​o​u​ ​a​r​e​ ​n​o​w​ ​r​e​g​i​s​t​e​r​e​d​ ​f​o​r​ ​*​*​{​n​a​m​e​}​*​*​ ​(​{​t​i​m​e​}​)​.
+			 * @param {string} name
+			 * @param {string} time
+			 */
+			SUCCESS: RequiredParams<'name' | 'time'>
+			/**
+			 * ⚠​️​ ​Y​o​u​ ​a​r​e​ ​a​l​r​e​a​d​y​ ​r​e​g​i​s​t​e​r​e​d​ ​f​o​r​ ​t​h​i​s​ ​e​v​e​n​t​.
+			 */
+			ALREADY_REGISTERED: string
+			/**
+			 * ❌​ ​N​o​ ​e​v​e​n​t​ ​f​o​u​n​d​ ​w​i​t​h​ ​I​D​ ​`​{​i​d​}​`​.
+			 * @param {number} id
+			 */
+			ERROR_NOT_FOUND: RequiredParams<'id'>
+			/**
+			 * ❌​ ​T​h​i​s​ ​e​v​e​n​t​ ​h​a​s​ ​a​l​r​e​a​d​y​ ​p​a​s​s​e​d​ ​o​r​ ​b​e​e​n​ ​c​a​n​c​e​l​l​e​d​.
+			 */
+			ERROR_PAST_OR_CANCELLED: string
+		}
+		COMMAND_UNREGISTER: {
+			/**
+			 * ✅​ ​Y​o​u​ ​h​a​v​e​ ​b​e​e​n​ ​r​e​m​o​v​e​d​ ​f​r​o​m​ ​*​*​{​n​a​m​e​}​*​*​.
+			 * @param {string} name
+			 */
+			SUCCESS: RequiredParams<'name'>
+			/**
+			 * ⚠​️​ ​Y​o​u​ ​a​r​e​ ​n​o​t​ ​r​e​g​i​s​t​e​r​e​d​ ​f​o​r​ ​t​h​i​s​ ​e​v​e​n​t​.
+			 */
+			NOT_REGISTERED: string
+			/**
+			 * ❌​ ​N​o​ ​e​v​e​n​t​ ​f​o​u​n​d​ ​w​i​t​h​ ​I​D​ ​`​{​i​d​}​`​.
+			 * @param {number} id
+			 */
+			ERROR_NOT_FOUND: RequiredParams<'id'>
+		}
+		COMMAND_CANCEL: {
+			/**
+			 * ✅​ ​E​v​e​n​t​ ​`​{​i​d​}​`​ ​c​a​n​c​e​l​l​e​d​.​ ​{​c​o​u​n​t​}​ ​r​e​g​i​s​t​r​a​n​t​(​s​)​ ​n​o​t​i​f​i​e​d​.
+			 * @param {number} count
+			 * @param {number} id
+			 */
+			SUCCESS: RequiredParams<'count' | 'id'>
+			/**
+			 * ❌​ ​N​o​ ​e​v​e​n​t​ ​f​o​u​n​d​ ​w​i​t​h​ ​I​D​ ​`​{​i​d​}​`​.
+			 * @param {number} id
+			 */
+			ERROR_NOT_FOUND: RequiredParams<'id'>
+			/**
+			 * ❌​ ​Y​o​u​ ​c​a​n​ ​o​n​l​y​ ​c​a​n​c​e​l​ ​e​v​e​n​t​s​ ​y​o​u​ ​c​r​e​a​t​e​d​.
+			 */
+			ERROR_NOT_OWNER: string
+			/**
+			 * *​*​{​n​a​m​e​}​*​*​ ​(​s​c​h​e​d​u​l​e​d​ ​f​o​r​ ​{​t​i​m​e​}​)​ ​h​a​s​ ​b​e​e​n​ ​c​a​n​c​e​l​l​e​d​.
+			 * @param {string} name
+			 * @param {string} time
+			 */
+			DM_NOTIFY: RequiredParams<'name' | 'time'>
+		}
+		COMMAND_ATTENDEES: {
+			/**
+			 * A​t​t​e​n​d​e​e​s​ ​f​o​r​ ​{​n​a​m​e​}
+			 * @param {string} name
+			 */
+			TITLE: RequiredParams<'name'>
+			/**
+			 * N​o​ ​o​n​e​ ​h​a​s​ ​r​e​g​i​s​t​e​r​e​d​ ​f​o​r​ ​t​h​i​s​ ​e​v​e​n​t​ ​y​e​t​.
+			 */
+			EMPTY: string
+		}
+		ANNOUNCEMENT: {
+			/**
+			 * �​�​ ​E​v​e​n​t​ ​S​t​a​r​t​i​n​g​ ​S​o​o​n
+			 */
+			EMBED_TITLE: string
+			/**
+			 * *​*​{​n​a​m​e​}​*​*​ ​b​e​g​i​n​s​ ​{​t​i​m​e​}​.
+			 * @param {string} name
+			 * @param {string} time
+			 */
+			EMBED_DESCRIPTION: RequiredParams<'name' | 'time'>
+			/**
+			 * N​o​ ​r​e​g​i​s​t​e​r​e​d​ ​a​t​t​e​n​d​e​e​s​.
+			 */
+			NO_REGISTRANTS: string
+		}
+		WEEKLY_DIGEST: {
+			/**
+			 * �​�​ ​E​v​e​n​t​s​ ​T​h​i​s​ ​W​e​e​k
+			 */
+			EMBED_TITLE: string
+			/**
+			 * H​e​r​e​ ​a​r​e​ ​t​h​e​ ​u​p​c​o​m​i​n​g​ ​e​v​e​n​t​s​ ​f​o​r​ ​t​h​e​ ​n​e​x​t​ ​7​ ​d​a​y​s​.
+			 */
+			EMBED_DESCRIPTION: string
+			/**
+			 * N​o​ ​e​v​e​n​t​s​ ​s​c​h​e​d​u​l​e​d​ ​f​o​r​ ​t​h​e​ ​n​e​x​t​ ​7​ ​d​a​y​s​.
+			 */
+			NO_EVENTS: string
+		}
+	}
 }
 
 export type TranslationFunctions = {
@@ -645,6 +862,32 @@ export type TranslationFunctions = {
 				 * ✅ You are already verified and have full server access.
 				 */
 				ALREADY_VERIFIED: () => LocalizedString
+			}
+			VOLTER: {
+				/**
+				 * ✅ Starting your Volter verification — check your DMs!
+				 */
+				SUCCESS: () => LocalizedString
+				/**
+				 * ⚠️ A verification is already in progress for your account.
+				 */
+				ALREADY_ACTIVE: () => LocalizedString
+				/**
+				 * ✅ You already have Volt member status on this server.
+				 */
+				ALREADY_VOLTER: () => LocalizedString
+				/**
+				 * ⚠️ You are not yet verified. Please use `/verify start` first.
+				 */
+				NOT_VERIFIED: () => LocalizedString
+				/**
+				 * 🟣 Volter Request Submitted
+				 */
+				SUBMITTED_TITLE: () => LocalizedString
+				/**
+				 * Your Haiilo profile has been submitted for review. A moderator will verify your Volt membership shortly.
+				 */
+				SUBMITTED: () => LocalizedString
 			}
 			QUESTIONS: {
 				QUESTION_ICEBREAKER: {
@@ -843,6 +1086,18 @@ export type TranslationFunctions = {
 		 * You do not have the required permissions to use this command.
 		 */
 		COMMAND_INVALID_PERMISSIONS: () => LocalizedString
+		/**
+		 * This command is only available in direct messages.
+		 */
+		COMMAND_DM_ONLY: () => LocalizedString
+		/**
+		 * The server is temporarily unavailable. Please try again in a moment.
+		 */
+		COMMAND_GUILD_UNAVAILABLE: () => LocalizedString
+		/**
+		 * You must be a member of the server to use this command.
+		 */
+		COMMAND_NOT_A_MEMBER: () => LocalizedString
 	}
 	UTIL: {
 		EVENT_WELCOME: {
@@ -1037,6 +1292,162 @@ export type TranslationFunctions = {
 			 * The moderation team has reviewed your data deletion request and denied it. No data was modified.
 			 */
 			DM_DENIED_DESCRIPTION: () => LocalizedString
+		}
+	}
+	EVENT: {
+		COMMAND_CREATE: {
+			/**
+			 * ✅ Event **{name}** created with ID `{id}`. Scheduled for {time}.
+			 */
+			SUCCESS: (arg: { id: number, name: string, time: string }) => LocalizedString
+			/**
+			 * ❌ Invalid date or time format. Use `YYYY-MM-DD` for date and `HH:MM` for time.
+			 */
+			ERROR_INVALID_DATE: () => LocalizedString
+			/**
+			 * ❌ The event date must be in the future.
+			 */
+			ERROR_PAST_DATE: () => LocalizedString
+		}
+		COMMAND_RECREATE: {
+			/**
+			 * ✅ Event recreated as `{id}`. Scheduled for {time}.
+			 */
+			SUCCESS: (arg: { id: number, time: string }) => LocalizedString
+			/**
+			 * ❌ No event found with ID `{id}`.
+			 */
+			ERROR_NOT_FOUND: (arg: { id: number }) => LocalizedString
+			/**
+			 * ❌ You can only recreate events you created.
+			 */
+			ERROR_NOT_OWNER: () => LocalizedString
+		}
+		COMMAND_REPEAT: {
+			/**
+			 * ✅ Recurring schedule set for event `{id}`: `{cron}`.
+			 */
+			SET: (arg: { cron: string, id: number }) => LocalizedString
+			/**
+			 * ✅ Recurring schedule cleared for event `{id}`.
+			 */
+			CLEARED: (arg: { id: number }) => LocalizedString
+			/**
+			 * ❌ Invalid cron expression. Example: `0 18 * * 5` for every Friday at 18:00.
+			 */
+			ERROR_INVALID_CRON: () => LocalizedString
+		}
+		COMMAND_DASHBOARD: {
+			/**
+			 * Your Events
+			 */
+			TITLE: () => LocalizedString
+			/**
+			 * You have no events in the last 30 days or upcoming.
+			 */
+			EMPTY: () => LocalizedString
+		}
+		COMMAND_LIST: {
+			/**
+			 * Upcoming Events
+			 */
+			TITLE: () => LocalizedString
+			/**
+			 * There are no upcoming events.
+			 */
+			EMPTY: () => LocalizedString
+			/**
+			 * ✅ Signed up for {count} event(s).
+			 */
+			SIGNED_UP: (arg: { count: number }) => LocalizedString
+		}
+		COMMAND_REGISTER: {
+			/**
+			 * ✅ You are now registered for **{name}** ({time}).
+			 */
+			SUCCESS: (arg: { name: string, time: string }) => LocalizedString
+			/**
+			 * ⚠️ You are already registered for this event.
+			 */
+			ALREADY_REGISTERED: () => LocalizedString
+			/**
+			 * ❌ No event found with ID `{id}`.
+			 */
+			ERROR_NOT_FOUND: (arg: { id: number }) => LocalizedString
+			/**
+			 * ❌ This event has already passed or been cancelled.
+			 */
+			ERROR_PAST_OR_CANCELLED: () => LocalizedString
+		}
+		COMMAND_UNREGISTER: {
+			/**
+			 * ✅ You have been removed from **{name}**.
+			 */
+			SUCCESS: (arg: { name: string }) => LocalizedString
+			/**
+			 * ⚠️ You are not registered for this event.
+			 */
+			NOT_REGISTERED: () => LocalizedString
+			/**
+			 * ❌ No event found with ID `{id}`.
+			 */
+			ERROR_NOT_FOUND: (arg: { id: number }) => LocalizedString
+		}
+		COMMAND_CANCEL: {
+			/**
+			 * ✅ Event `{id}` cancelled. {count} registrant(s) notified.
+			 */
+			SUCCESS: (arg: { count: number, id: number }) => LocalizedString
+			/**
+			 * ❌ No event found with ID `{id}`.
+			 */
+			ERROR_NOT_FOUND: (arg: { id: number }) => LocalizedString
+			/**
+			 * ❌ You can only cancel events you created.
+			 */
+			ERROR_NOT_OWNER: () => LocalizedString
+			/**
+			 * **{name}** (scheduled for {time}) has been cancelled.
+			 */
+			DM_NOTIFY: (arg: { name: string, time: string }) => LocalizedString
+		}
+		COMMAND_ATTENDEES: {
+			/**
+			 * Attendees for {name}
+			 */
+			TITLE: (arg: { name: string }) => LocalizedString
+			/**
+			 * No one has registered for this event yet.
+			 */
+			EMPTY: () => LocalizedString
+		}
+		ANNOUNCEMENT: {
+			/**
+			 * 📅 Event Starting Soon
+			 */
+			EMBED_TITLE: () => LocalizedString
+			/**
+			 * **{name}** begins {time}.
+			 */
+			EMBED_DESCRIPTION: (arg: { name: string, time: string }) => LocalizedString
+			/**
+			 * No registered attendees.
+			 */
+			NO_REGISTRANTS: () => LocalizedString
+		}
+		WEEKLY_DIGEST: {
+			/**
+			 * 📅 Events This Week
+			 */
+			EMBED_TITLE: () => LocalizedString
+			/**
+			 * Here are the upcoming events for the next 7 days.
+			 */
+			EMBED_DESCRIPTION: () => LocalizedString
+			/**
+			 * No events scheduled for the next 7 days.
+			 */
+			NO_EVENTS: () => LocalizedString
 		}
 	}
 }
