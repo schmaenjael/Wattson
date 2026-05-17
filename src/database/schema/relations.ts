@@ -8,6 +8,8 @@ import { reports } from './reports';
 import { courtCases } from './courtCases';
 import { externalPosts } from './externalPosts';
 import { starboardEntries } from './starboardEntries';
+import { events } from './events';
+import { eventRegistrations } from './eventRegistrations';
 
 export const usersRelations = relations(users, ({ many }) => ({
   usernameHistory: many(usernameHistory),
@@ -53,3 +55,15 @@ export const externalPostsRelations = relations(externalPosts, ({ one }) => ({
 }));
 
 export const starboardEntriesRelations = relations(starboardEntries, ({ many }) => ({ externalPosts: many(externalPosts) }));
+
+export const eventsRelations = relations(events, ({ one, many }) => ({
+  creator: one(users, { fields: [events.creatorId], references: [users.id] }),
+  parent: one(events, { fields: [events.parentEventId], references: [events.id], relationName: 'event_children' }),
+  children: many(events, { relationName: 'event_children' }),
+  registrations: many(eventRegistrations),
+}));
+
+export const eventRegistrationsRelations = relations(eventRegistrations, ({ one }) => ({
+  event: one(events, { fields: [eventRegistrations.eventId], references: [events.id] }),
+  user: one(users, { fields: [eventRegistrations.userId], references: [users.id] }),
+}));

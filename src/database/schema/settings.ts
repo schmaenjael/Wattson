@@ -1,4 +1,4 @@
-import { boolean, check, integer, pgTable, varchar } from 'drizzle-orm/pg-core';
+import { boolean, check, integer, pgTable, timestamp, varchar } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 import { SNOWFLAKE_LENGTH } from './shared';
@@ -24,16 +24,6 @@ export const settings = pgTable(
     courtParentChannelId: varchar({ length: SNOWFLAKE_LENGTH }),
     starboardChannelId: varchar({ length: SNOWFLAKE_LENGTH }),
 
-    // Role IDs
-    roleUnregisteredId: varchar({ length: SNOWFLAKE_LENGTH }),
-    roleCommunityId: varchar({ length: SNOWFLAKE_LENGTH }),
-    roleMemberId: varchar({ length: SNOWFLAKE_LENGTH }),
-    roleModerationId: varchar({ length: SNOWFLAKE_LENGTH }),
-    roleAdministrationId: varchar({ length: SNOWFLAKE_LENGTH }),
-    roleMutedId: varchar({ length: SNOWFLAKE_LENGTH }),
-    roleObscrId: varchar({ length: SNOWFLAKE_LENGTH }),
-    roleVolterId: varchar({ length: SNOWFLAKE_LENGTH }),
-
     // Feature toggles
     featureWelcomeEnabled: boolean().notNull().default(true),
     featureStarboardEnabled: boolean().notNull().default(false),
@@ -47,6 +37,8 @@ export const settings = pgTable(
     starboardExternalThreshold: integer().notNull().default(10),
     warnAutoEscalateCount: integer().notNull().default(3),
     warnAutoEscalateWindowDays: integer().notNull().default(30),
+    featureWarnAutoMuteEnabled: boolean().notNull().default(false),
+    warnAutoMuteBaseMinutes: integer().notNull().default(60),
 
     // Starboard appearance — comma-separated "threshold:emoji" pairs e.g. "1:⭐,5:🌟,10:💫,25:🌠"
     starboardEmojiTiers: varchar({ length: 512 }).notNull().default('1:⭐,5:🌟,10:💫,25:🌠'),
@@ -56,7 +48,7 @@ export const settings = pgTable(
     featureHarmDetectionEnabled: boolean().notNull().default(false),
 
     // Profanity filter (file-based, configured via PROFANITY_LIST_PATH env var)
-    // Severity 1 always skipped; severity >= badWordDeleteThreshold → immediate delete without LLM; 2–(threshold-1) → LLM check
+    // severity >= badWordDeleteThreshold → immediate delete, no LLM; severity < threshold → always LLM context check
     featureBadWordsEnabled: boolean().notNull().default(true),
     badWordDeleteThreshold: integer().notNull().default(4),
 
@@ -65,7 +57,37 @@ export const settings = pgTable(
 
     // Modmail
     modmailChannelId: varchar({ length: SNOWFLAKE_LENGTH }),
-    roleModmailHandlerId: varchar({ length: SNOWFLAKE_LENGTH }),
+
+    // Anti-spam
+    featureAntiSpamEnabled: boolean().notNull().default(false),
+    // Anti-hoist
+    featureAntiHoistEnabled: boolean().notNull().default(false),
+    antiSpamMaxMessages: integer().notNull().default(5),
+    antiSpamWindowMs: integer().notNull().default(10000),
+
+    // React command defaults
+    reactDefaultEmojis: varchar({ length: 512 }).notNull().default('👍,👎'),
+
+    // Say command log channel
+    sayLogChannelId: varchar({ length: SNOWFLAKE_LENGTH }),
+
+    // Invite tracking
+    featureInviteTrackingEnabled: boolean().notNull().default(false),
+    inviteRaidThreshold: integer().notNull().default(3),
+    inviteRaidWindowMs: integer().notNull().default(60000),
+
+    // Auto-slowmode
+    featureAutoSlowmodeEnabled: boolean().notNull().default(false),
+    autoSlowmodeThreshold: integer().notNull().default(10),
+    autoSlowmodeWindowMs: integer().notNull().default(10000),
+
+    // Ban appeals
+    appealChannelId: varchar({ length: SNOWFLAKE_LENGTH }),
+    appealVoteThreshold: integer().notNull().default(2),
+
+    // Events
+    eventAnnouncementChannelId: varchar({ length: SNOWFLAKE_LENGTH }),
+    lastEventDigestAt: timestamp({ withTimezone: true }),
   },
   (t) => [check('settings_singleton', sql`${t.id} = 1`)]
 );

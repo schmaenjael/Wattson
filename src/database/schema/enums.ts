@@ -51,6 +51,7 @@ export enum ModmailCategory {
   InformationRequest = 'information_request',
   VoltMembership = 'volt_membership',
   ModComplaint = 'mod_complaint',
+  VerificationFollowUp = 'verification_follow_up',
 }
 export const modmailCategoryEnum = pgEnum('modmail_category', Object.values(ModmailCategory) as [string, ...string[]]);
 
@@ -108,6 +109,15 @@ export enum AuditEventType {
   ModmailOpened = 'modmail_opened',
   ModmailClosed = 'modmail_closed',
   ModmailStaleClosed = 'modmail_stale_closed',
+  // Channel lockdown
+  ChannelLocked = 'channel_locked',
+  ChannelUnlocked = 'channel_unlocked',
+  // Anti-spam
+  AntiSpamTriggered = 'anti_spam_triggered',
+  // Anti-hoist
+  AntiHoistTriggered = 'anti_hoist_triggered',
+  // Bulk message deletion
+  BulkMessagesDeleted = 'bulk_messages_deleted',
 }
 export const auditEventTypeEnum = pgEnum('audit_event_type', Object.values(AuditEventType) as [string, ...string[]]);
 
@@ -146,6 +156,8 @@ export enum RoleMappingType {
   Country = 'country',
   Language = 'language',
   Pronouns = 'pronouns',
+  Permission = 'permission',
+  Utility = 'utility',
 }
 export const roleMappingTypeEnum = pgEnum('role_mapping_type', Object.values(RoleMappingType) as [string, ...string[]]);
 

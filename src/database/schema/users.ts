@@ -1,4 +1,4 @@
-import { pgTable, timestamp, varchar } from 'drizzle-orm/pg-core';
+import { pgTable, varchar } from 'drizzle-orm/pg-core';
 
 import { createdAt, SNOWFLAKE_LENGTH, USERNAME_LENGTH } from './shared';
 
@@ -8,5 +8,4 @@ export const users = pgTable('users', {
   haiiloLink: varchar({ length: 512 }),
   chapterCountry: varchar({ length: 4 }),
   firstSeenAt: createdAt(),
-  leftAt: timestamp({ withTimezone: true }),
 });
