@@ -1,6 +1,0 @@
--- role_mappings table is seeded via /rolemapping add slash command.
--- No default data — mappings depend on the specific Discord server's role IDs.
--- Example usage after setup:
---   /rolemapping add type:country  value:de  role:@Germany
---   /rolemapping add type:language value:fr  role:@French-speakers
---   /rolemapping add type:pronouns value:she role:@she-her
