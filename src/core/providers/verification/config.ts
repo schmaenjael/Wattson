@@ -117,3 +117,24 @@ export const buildVerificationFlow = async (locale: Locale, color: `#${string}`)
     })
     .build();
 };
+
+export const buildVolterFlow = async (locale: Locale) => {
+  const Q = L[locale].SYSTEM.VERIFICATION.QUESTIONS;
+  const chapterCountryOptions = await getVoltChapters();
+
+  return new Flow()
+    .step({
+      kind: 'text',
+      key: 'haiilo',
+      prompt: () => ({ title: Q.QUESTION_HAIILO.TITLE(), description: Q.QUESTION_HAIILO.DESCRIPTION() }),
+      validate: (input) => /^https:\/\/volt\.haiilo\.app\/profile\/[^\s/]+/.test(input.trim()) || Q.QUESTION_HAIILO.VALIDATION_ERROR(),
+    })
+    .step({
+      kind: 'choice',
+      key: 'chapter_country',
+      prompt: () => ({ title: Q.QUESTION_CHAPTER_COUNTRY.TITLE(), description: Q.QUESTION_CHAPTER_COUNTRY.DESCRIPTION() }),
+      multi: false,
+      options: chapterCountryOptions,
+    })
+    .build();
+};

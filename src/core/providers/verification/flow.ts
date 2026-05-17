@@ -217,8 +217,11 @@ export class FlowRunner {
       } else if (interaction.isButton() && interaction.customId === confirmId) {
         const currentSelections = Array.from(selections.values()).flat();
 
-        if (currentSelections.length === 0) {
-          await interaction.reply({ content: '⚠️ You need to select at least one item before confirming!', flags: MessageFlags.Ephemeral });
+        if (currentSelections.length < (step.min ?? 0)) {
+          await interaction.reply({
+            content: `⚠️ You need to select at least ${step.min ?? 'one'} item before confirming!`,
+            flags: MessageFlags.Ephemeral,
+          });
           continue;
         }
 

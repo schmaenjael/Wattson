@@ -5,6 +5,8 @@ import {
   AuditEventType,
   getCountryLabelMap,
   getLanguageLabelMap,
+  getLatestJoinRecord,
+  getRecentJoinsByCode,
   getSettings,
   recordAuditEvent,
   saveUserMembershipData,
@@ -14,11 +16,12 @@ import { Client } from '~/core/models';
 import { Logger } from '~/utilities';
 import { L } from '~/core/locales';
 
-import { buildVerificationFlow } from './config';
+import { buildVerificationFlow, buildVolterFlow } from './config';
 import { FlowAnswers, FlowCancelled } from './flow';
-import { buildApprovalAnswerFields, grantAccess, postWelcomeEmbed } from './actions';
+import { ANSWER_DISPLAY_NAMES, assignVolterRoles, buildApprovalAnswerFields, grantAccess, postWelcomeEmbed } from './actions';
 
 export const activeVerifications = new Set<string>();
+export const activeVolterVerifications = new Set<string>();
 
 export const runVerification = async (client: Client, member: GuildMember): Promise<void> => {
   if (activeVerifications.has(member.id)) return;
@@ -130,7 +133,11 @@ export const runVerification = async (client: Client, member: GuildMember): Prom
   const approvalChannel = (await client.channels.fetch(settings.approvalChannelId)) as TextChannel | null;
   if (!approvalChannel) return autoApprove(`Approval channel ${settings.approvalChannelId} not found — granting immediately.`);
 
-  const [countryLabelMap, languageLabelMap] = await Promise.all([getCountryLabelMap(), getLanguageLabelMap()]);
+  const [countryLabelMap, languageLabelMap, joinRecord] = await Promise.all([
+    getCountryLabelMap(),
+    getLanguageLabelMap(),
+    settings.featureInviteTrackingEnabled ? getLatestJoinRecord(member.id).catch(() => undefined) : Promise.resolve(undefined),
+  ]);
 
   const approvalEmbed = new EmbedBuilder()
     .setColor(color)
@@ -144,6 +151,26 @@ export const runVerification = async (client: Client, member: GuildMember): Prom
     )
     .setTimestamp();
 
+  if (joinRecord) {
+    const code = joinRecord.inviteCode;
+    let inviteFieldValue: string;
+    if (code === 'VANITY') {
+      inviteFieldValue = 'Vanity URL';
+    } else if (code === 'UNKNOWN') {
+      inviteFieldValue = 'Unknown (untracked)';
+    } else {
+      const recentUses = await getRecentJoinsByCode(code, settings.inviteRaidWindowMs);
+      const isSuspicious = recentUses > settings.inviteRaidThreshold;
+      const inviterPart = joinRecord.inviterId ? `by <@${joinRecord.inviterId}>` : 'inviter unknown';
+      const avatarPart = joinRecord.hadAvatar ? '' : ' · no avatar at join';
+      inviteFieldValue = `\`${code}\` — ${inviterPart}${avatarPart}`;
+      if (isSuspicious) {
+        inviteFieldValue += `\n⚠️ **${recentUses} joins** from this code in the last ${Math.round(settings.inviteRaidWindowMs / 1000)}s`;
+      }
+    }
+    approvalEmbed.addFields({ name: '🔗 Invite', value: inviteFieldValue, inline: false });
+  }
+
   const isMemberApplicant = answers['is_member'] === 'yes' && typeof answers['chapter_country'] === 'string' && answers['chapter_country'].length > 0;
 
   const initialSettings = await getSettings();
@@ -152,7 +179,7 @@ export const runVerification = async (client: Client, member: GuildMember): Prom
     new ButtonBuilder().setCustomId(`verify:reject:${member.id}`).setLabel('Reject & Kick').setStyle(ButtonStyle.Danger),
   ];
 
-  if (isMemberApplicant && initialSettings.roleVolterId) {
+  if (isMemberApplicant && initialSettings.roleMemberId) {
     approvalButtons.splice(
       1,
       0,
@@ -160,5 +187,100 @@ export const runVerification = async (client: Client, member: GuildMember): Prom
     );
   }
 
+  // Insert "Ask Question" before Reject
+  approvalButtons.splice(
+    approvalButtons.length - 1,
+    0,
+    new ButtonBuilder().setCustomId(`verify:ask_question:${member.id}`).setLabel('Ask Question').setEmoji('📬').setStyle(ButtonStyle.Secondary)
+  );
+
   await approvalChannel.send({ embeds: [approvalEmbed], components: [new ActionRowBuilder<ButtonBuilder>().addComponents(...approvalButtons)] });
+};
+
+export const runVolterVerification = async (client: Client, member: GuildMember): Promise<void> => {
+  if (activeVolterVerifications.has(member.id)) return;
+  activeVolterVerifications.add(member.id);
+
+  const logger = Logger.getInstance(AppFeature.Welcome);
+  const settings = await getSettings();
+  const locale = member.guild.preferredLocale;
+  const color = appFeatureMap[AppFeature.Welcome].color;
+
+  let dm;
+  try {
+    dm = await member.createDM();
+  } catch (error) {
+    activeVolterVerifications.delete(member.id);
+    logger.warn(Object(error), `Cannot DM ${member.user.tag}; skipping volter verification.`);
+    return;
+  }
+
+  const flow = await buildVolterFlow(locale);
+
+  let answers: FlowAnswers;
+  try {
+    answers = await flow.run(member.user, dm, { color });
+  } catch (err) {
+    activeVolterVerifications.delete(member.id);
+    if (err instanceof FlowCancelled) {
+      logger.info(`Volter verification cancelled for ${member.user.tag} at step "${err.step.key}" (${err.reason}).`);
+      return;
+    }
+    throw err;
+  }
+
+  activeVolterVerifications.delete(member.id);
+
+  const haiiloUrl = typeof answers['haiilo'] === 'string' ? answers['haiilo'].trim() : '';
+  const chapterCountry = typeof answers['chapter_country'] === 'string' ? answers['chapter_country'] : '';
+
+  await upsertUser({ id: member.id, username: member.user.username });
+  await saveUserMembershipData(member.id, haiiloUrl, chapterCountry || null).catch((err) =>
+    logger.warn(Object(err), 'Volter verification: failed to persist membership data.')
+  );
+  await recordAuditEvent({
+    eventType: AuditEventType.VerificationAnswered,
+    targetUserId: member.id,
+    payload: { source: 'volter', haiilo: haiiloUrl, chapterCountry },
+  });
+
+  const V = L[locale].SYSTEM.VERIFICATION.VOLTER;
+  await dm.send({ embeds: [new EmbedBuilder().setColor(color).setTitle(V.SUBMITTED_TITLE()).setDescription(V.SUBMITTED())] }).catch(() => null);
+
+  if (!settings.approvalChannelId) {
+    logger.warn('Volter verification: approvalChannelId not configured — assigning roles immediately.');
+    await assignVolterRoles(member, answers, settings);
+    return;
+  }
+
+  const approvalChannel = (await client.channels.fetch(settings.approvalChannelId).catch(() => null)) as TextChannel | null;
+  if (!approvalChannel) {
+    logger.warn(`Volter verification: approval channel ${settings.approvalChannelId} not found — assigning roles immediately.`);
+    await assignVolterRoles(member, answers, settings);
+    return;
+  }
+
+  const countryLabelMap = await getCountryLabelMap();
+  const chapterLabel = countryLabelMap.get(chapterCountry);
+  const chapterDisplay = chapterLabel ? `${chapterLabel} (${chapterCountry})` : chapterCountry;
+
+  const approvalEmbed = new EmbedBuilder()
+    .setColor(color)
+    .setTitle(`Volter Request: ${member.user.tag}`)
+    .setThumbnail(member.user.displayAvatarURL({ size: 512 }))
+    .addFields(
+      { name: 'User', value: `<@${member.id}> (${member.id})`, inline: true },
+      { name: 'Account created', value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`, inline: true },
+      { name: ANSWER_DISPLAY_NAMES['haiilo'], value: haiiloUrl, inline: false },
+      { name: ANSWER_DISPLAY_NAMES['chapter_country'], value: chapterDisplay, inline: false }
+    )
+    .setFooter({ text: `🟣 Volter membership request | ${member.user.tag}` })
+    .setTimestamp();
+
+  const volterButton = new ButtonBuilder()
+    .setCustomId(`verify:volter:${member.id}`)
+    .setLabel('Assign Volter + Chapter Role')
+    .setStyle(ButtonStyle.Primary);
+
+  await approvalChannel.send({ embeds: [approvalEmbed], components: [new ActionRowBuilder<ButtonBuilder>().addComponents(volterButton)] });
 };

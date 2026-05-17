@@ -1,4 +1,4 @@
-export type HarmCategory = 'racism' | 'discrimination' | 'sexism' | 'harassment';
+export type HarmCategory = 'race' | 'sexualOrientation' | 'gender' | 'physicalAppearance' | 'religion' | 'class' | 'disability';
 export type HarmAction = 'ignore' | 'flag' | 'warn' | 'ban';
 
 export interface HarmCategoryResult {
