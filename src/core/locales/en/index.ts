@@ -25,6 +25,8 @@ const en = {
         EMBED_TITLE: 'Thank you~',
         EMBED_DESCRIPTION:
           'Your answers have been submitted and are now under review by the moderation team. This process may take **a while** — we appreciate your patience!',
+        VOLTER_HINT:
+          '💜 **Are you a Volt member?** Once your verification is approved and you have server access, run `/verify volter` to receive your Volter role.',
       },
       DENIED: {
         EMBED_TITLE: 'We apologize!',
@@ -44,14 +46,6 @@ const en = {
         SUCCESS: '✅ Starting your verification — check your DMs!',
         ALREADY_ACTIVE: '⚠️ A verification is already in progress for your account.',
         ALREADY_VERIFIED: '✅ You are already verified and have full server access.',
-      },
-      VOLTER: {
-        SUCCESS: '✅ Starting your Volter verification — check your DMs!',
-        ALREADY_ACTIVE: '⚠️ A verification is already in progress for your account.',
-        ALREADY_VOLTER: '✅ You already have Volt member status on this server.',
-        NOT_VERIFIED: '⚠️ You are not yet verified. Please use `/verify start` first.',
-        SUBMITTED_TITLE: '🟣 Volter Request Submitted',
-        SUBMITTED: 'Your Haiilo profile has been submitted for review. A moderator will verify your Volt membership shortly.',
       },
       QUESTIONS: {
         QUESTION_ICEBREAKER: {
@@ -78,26 +72,26 @@ const en = {
         },
         QUESTION_PRONOUNS: { TITLE: 'What are your pronouns?', DESCRIPTION: 'Please select your pronouns, so we may correctly refer to you!' },
         QUESTION_DISCOVERY: { TITLE: 'How did you come across our Volt Discord?', DESCRIPTION: "We're curious: How did you find us?" },
-        QUESTION_IS_MEMBER: {
-          TITLE: 'Are you a member or volunteer of Volt Europa?',
-          DESCRIPTION:
-            'Select Yes if you are a registered member or active volunteer of any Volt party. If yes, we will ask for your Haiilo profile link in the next step.',
-        },
-        QUESTION_HAIILO: {
-          TITLE: 'Please share your Haiilo profile link',
-          DESCRIPTION: 'Open your Volt Haiilo profile and copy the URL. Expected format: `https://volt.haiilo.app/profile/your-name`',
-          VALIDATION_ERROR: '❌ Please provide a valid Haiilo profile URL (https://volt.haiilo.app/profile/your-name).',
-        },
-        QUESTION_CHAPTER_COUNTRY: {
-          TITLE: 'Which Volt national chapter are you a member of?',
-          DESCRIPTION: 'Select the European country whose Volt party you are registered with.',
-        },
         QUESTION_RULE_ACCEPTANCE: {
           TITLE: '📜 Server Rules',
           DESCRIPTION:
             'Please read through **all pages** of the rules before you can accept. The accept button only appears on the last page. By agreeing you confirm you have read and understood all rules.',
         },
       },
+    },
+    VOLT_VERIFICATION: {
+      EMBED_TITLE: '🟣 Volt Membership Verification',
+      EMBED_DESCRIPTION:
+        '**1.** Open this link: {url:string}\n**2.** Enter code `{code:string}` if not pre-filled\n**3.** Sign in with your Volt account\n\nThis code expires {expiry:string}.',
+      SUCCESS_TITLE: '✅ Volt Membership Verified!',
+      SUCCESS: 'Welcome, Volter! Your membership has been verified and will be valid for 12 months.',
+      ALREADY_VERIFIED: '✅ You already have an active Volt verification, valid until {expiry:string}.',
+      IN_PROGRESS: '⏳ A verification session is already in progress for your account. Please complete or wait for it to expire.',
+      NOT_ENROLLED: '❌ You must complete `/verify start` and have server access before verifying your Volt membership.',
+      TIMEOUT: '⏱️ Verification timed out. Please run `/verify volter` again to start a new session.',
+      DENIED: '❌ You denied the authorization request. Run `/verify volter` to try again.',
+      ERROR: '❌ Verification failed. Please try again later.',
+      LOG_TITLE: '💜 Volt Membership Verified',
     },
     ERROR: {
       EMBED_TITLE: 'An unexpected Error occured!',

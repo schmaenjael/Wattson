@@ -1,14 +1,21 @@
-import { eq, type InferSelectModel } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 import { getDb } from '../client';
+import { voltVerifications } from '../schema/voltVerifications';
 import { users } from '../schema/users';
 
-export type VolterExportRow = Pick<InferSelectModel<typeof users>, 'id' | 'username' | 'haiiloLink' | 'chapterCountry'>;
+export type VolterExportRow = { discordUserId: string; username: string | null; logtoSub: string; verifiedAt: Date; expiresAt: Date };
 
-export const getVoltersForChapter = async (chapterCountry: string): Promise<VolterExportRow[]> => {
+export const getVerifiedVolters = async (): Promise<VolterExportRow[]> => {
   const db = getDb();
   return db
-    .select({ id: users.id, username: users.username, haiiloLink: users.haiiloLink, chapterCountry: users.chapterCountry })
-    .from(users)
-    .where(eq(users.chapterCountry, chapterCountry));
+    .select({
+      discordUserId: voltVerifications.discordUserId,
+      username: users.username,
+      logtoSub: voltVerifications.logtoSub,
+      verifiedAt: voltVerifications.verifiedAt,
+      expiresAt: voltVerifications.expiresAt,
+    })
+    .from(voltVerifications)
+    .leftJoin(users, eq(users.id, voltVerifications.discordUserId));
 };

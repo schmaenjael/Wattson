@@ -31,6 +31,12 @@ declare global {
     HAIILO_API_KEY?: string;
 
     BLOCKLIST_PATHS?: string;
+
+    LOGTO_ENDPOINT: string;
+    LOGTO_DEVICE_APP_ID: string;
+    LOGTO_M2M_APP_ID: string;
+    LOGTO_M2M_APP_SECRET: string;
+    LOGTO_MANAGEMENT_API_RESOURCE: string;
   }
 
   interface Window {

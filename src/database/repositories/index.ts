@@ -23,3 +23,6 @@ export * from './inviteSnapshot';
 export * from './appealVotes';
 export * from './events';
 export * from './eventRegistrations';
+export * from './forumRoleMappings';
+export * from './voltVerifications';
+export * from './schedulableConfigs';

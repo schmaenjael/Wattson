@@ -3,16 +3,7 @@ import { ApplicationCommandType, ChannelType, Colors, EmbedBuilder, MessageFlags
 import { Command, Permission } from '~/core/models';
 import { AppFeature, ProcessExitCode } from '~/settings';
 import { Logger } from '~/utilities';
-import {
-  AuditEventType,
-  findLockedChannel,
-  getSettings,
-  listLockedChannels,
-  lockChannel,
-  recordAuditEvent,
-  unlockChannel,
-  upsertUser,
-} from '~/database';
+import { AuditEventType, findLockedChannel, listLockedChannels, lockChannel, recordAuditEvent, unlockChannel, upsertUser } from '~/database';
 
 const SLOWMODE_MAX = 21600;
 
@@ -68,8 +59,6 @@ export default new Command<ApplicationCommandType.ChatInput>({
     const scope = (interaction.options.getString('scope') ?? 'channel') as 'channel' | 'server';
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-
-    const settings = await getSettings();
 
     // ── start ─────────────────────────────────────────────────────────────────
     if (sub === 'start') {
@@ -130,28 +119,23 @@ export default new Command<ApplicationCommandType.ChatInput>({
         payload: { channelIds: lockedIds, slowmode, reason, scope },
       });
 
-      if (settings.surveillanceLogChannelId) {
-        const logChannel = await client.channels.fetch(settings.surveillanceLogChannelId).catch(() => null);
-        if (logChannel?.isSendable()) {
-          await (
-            logChannel.send({
-              embeds: [
-                new EmbedBuilder()
-                  .setColor(Colors.Red)
-                  .setTitle('🐌 Slowmode Lockdown Started')
-                  .addFields(
-                    { name: 'Moderator', value: `<@${interaction.user.id}> — ${interaction.user.username}`, inline: true },
-                    { name: 'Scope', value: scope, inline: true },
-                    { name: 'Slowmode', value: `${slowmode}s`, inline: true },
-                    { name: 'Channels', value: lockedIds.length > 0 ? lockedIds.map((id) => `<#${id}>`).join(' ') : 'None', inline: false },
-                    { name: 'Reason', value: reason }
-                  )
-                  .setTimestamp(),
-              ],
-            }) as Promise<unknown>
-          ).catch(() => null);
-        }
-      }
+      await logger.log({
+        level: 'info',
+        message: `Slowmode lockdown started by ${interaction.user.id}`,
+        data: { channelIds: lockedIds, slowmode, reason, scope },
+        target: 'surveillance',
+        internalEmbed: new EmbedBuilder()
+          .setColor(Colors.Red)
+          .setTitle('🐌 Slowmode Lockdown Started')
+          .addFields(
+            { name: 'Moderator', value: `<@${interaction.user.id}> — ${interaction.user.username}`, inline: true },
+            { name: 'Scope', value: scope, inline: true },
+            { name: 'Slowmode', value: `${slowmode}s`, inline: true },
+            { name: 'Channels', value: lockedIds.length > 0 ? lockedIds.map((id) => `<#${id}>`).join(' ') : 'None', inline: false },
+            { name: 'Reason', value: reason }
+          )
+          .setTimestamp(),
+      });
 
       if (lockedIds.length === 0) {
         await interaction.editReply({ content: 'No channels were updated (all targets already under lockdown).' });
@@ -219,30 +203,21 @@ export default new Command<ApplicationCommandType.ChatInput>({
         payload: { channelIds: unlockedIds, scope },
       });
 
-      if (settings.surveillanceLogChannelId) {
-        const logChannel = await client.channels.fetch(settings.surveillanceLogChannelId).catch(() => null);
-        if (logChannel?.isSendable()) {
-          await (
-            logChannel.send({
-              embeds: [
-                new EmbedBuilder()
-                  .setColor(Colors.Green)
-                  .setTitle('✅ Slowmode Lockdown Ended')
-                  .addFields(
-                    { name: 'Moderator', value: `<@${interaction.user.id}> — ${interaction.user.username}`, inline: true },
-                    { name: 'Scope', value: scope, inline: true },
-                    {
-                      name: 'Channels restored',
-                      value: unlockedIds.length > 0 ? unlockedIds.map((id) => `<#${id}>`).join(' ') : 'None',
-                      inline: false,
-                    }
-                  )
-                  .setTimestamp(),
-              ],
-            }) as Promise<unknown>
-          ).catch(() => null);
-        }
-      }
+      await logger.log({
+        level: 'info',
+        message: `Slowmode lockdown ended by ${interaction.user.id}`,
+        data: { channelIds: unlockedIds, scope },
+        target: 'surveillance',
+        internalEmbed: new EmbedBuilder()
+          .setColor(Colors.Green)
+          .setTitle('✅ Slowmode Lockdown Ended')
+          .addFields(
+            { name: 'Moderator', value: `<@${interaction.user.id}> — ${interaction.user.username}`, inline: true },
+            { name: 'Scope', value: scope, inline: true },
+            { name: 'Channels restored', value: unlockedIds.length > 0 ? unlockedIds.map((id) => `<#${id}>`).join(' ') : 'None', inline: false }
+          )
+          .setTimestamp(),
+      });
 
       await interaction.editReply({ content: `✅ Slowmode restored on ${unlockedIds.length} channel(s).` });
       return;

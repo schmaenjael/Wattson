@@ -32,7 +32,7 @@
     "@types/pg": "^8.20.0",
     "chart.js": "^4.5.1",
     "chartjs-node-canvas": "^5.0.0",
-    "cron-parser": "^5.5.0",
+    "croner": "^10.0.1",
     "discord.js": "^14.26.4",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",

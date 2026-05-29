@@ -1,4 +1,4 @@
-import { Colors, EmbedBuilder, Events, TextChannel } from 'discord.js';
+import { Colors, EmbedBuilder, Events } from 'discord.js';
 
 import { AuditEventType, getSettings, insertWarning, recordAuditEvent, upsertUser } from '~/database';
 import { AppFeature } from '~/settings';
@@ -10,12 +10,6 @@ const POLICY_TEXT =
   'must begin with a standard Latin alphabet letter (A–Z or a–z). ' +
   'Names that are invisible, consist entirely of symbols, or start ' +
   'with non-Latin characters are not permitted.';
-
-const logToSurveillance = async (guild: NonNullable<TextChannel['guild']>, channelId: string | null | undefined, text: string): Promise<void> => {
-  if (!channelId) return;
-  const ch = (await guild.channels.fetch(channelId).catch(() => null)) as TextChannel | null;
-  await ch?.send({ content: text.slice(0, 2000) }).catch(() => null);
-};
 
 export default new Event({
   type: Events.GuildMemberUpdate,
@@ -66,11 +60,22 @@ export default new Event({
       })
       .catch(() => null);
 
-    await logToSurveillance(
-      newMember.guild,
-      settings.surveillanceLogChannelId,
-      `🔤 **anti-hoist** <@${newMember.id}> nickname \`${newNick}\` → \`${fixed}\` · warn #${warning.id} issued`
-    );
+    await logger.log({
+      level: 'info',
+      message: `Anti-hoist: nickname reset for ${newMember.id}`,
+      data: { userId: newMember.id, from: newNick, to: fixed, warningId: warning.id },
+      target: 'surveillance',
+      internalEmbed: new EmbedBuilder()
+        .setColor(Colors.Yellow)
+        .setTitle('🔤 Anti-Hoist — Nickname Reset')
+        .addFields(
+          { name: 'User', value: `<@${newMember.id}>`, inline: true },
+          { name: 'Before', value: `\`${newNick}\``, inline: true },
+          { name: 'After', value: `\`${fixed}\``, inline: true },
+          { name: 'Warning', value: `#${warning.id}`, inline: true }
+        )
+        .setTimestamp(),
+    });
 
     logger.info({ userId: newMember.id, from: newNick, to: fixed, warningId: warning.id }, 'Anti-hoist: nickname reset.');
   },

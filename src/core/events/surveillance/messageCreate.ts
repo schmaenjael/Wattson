@@ -1,4 +1,4 @@
-import { ChannelType, Colors, EmbedBuilder, Events, Message, TextChannel } from 'discord.js';
+import { ChannelType, Colors, EmbedBuilder, Events, Message, TextChannel, type Guild } from 'discord.js';
 
 import { AuditEventType, findLockedChannel, getSettings, insertMute, lockChannel, recordAuditEvent, unlockChannel, upsertUser } from '~/database';
 import { AppFeature } from '~/settings';
@@ -14,14 +14,10 @@ import {
   type StickyMessage,
 } from '~/core/providers/sticky';
 import { runAutomod } from '~/core/providers/automod/run';
-import { enqueueMessage } from '~/core/scheduler/messageQueue';
+import { AsyncQueue } from '~/utilities';
 import type { Client } from '~/core/models';
 
-const logToSurveillance = async (guild: NonNullable<TextChannel['guild']>, channelId: string | null | undefined, text: string): Promise<void> => {
-  if (!channelId) return;
-  const ch = (await guild.channels.fetch(channelId).catch(() => null)) as TextChannel | null;
-  await ch?.send({ content: text.slice(0, 2000) }).catch(() => null);
-};
+const messageQueue = new AsyncQueue<void>();
 
 const STICKY_COLOR = { info: '#82D0F4', warning: '#FDC220' } as const;
 
@@ -50,9 +46,10 @@ const handleStickyRepost = async (sticky: StickyMessage, channel: TextChannel, l
 const applyAutoSlowmodeAction = async (
   action: SlowmodeAction,
   channel: TextChannel,
-  guild: Message<true>['guild'],
+  guild: Guild,
   client: Client,
-  settings: Awaited<ReturnType<typeof getSettings>>
+  settings: Awaited<ReturnType<typeof getSettings>>,
+  logger: ReturnType<typeof Logger.getInstance>
 ): Promise<void> => {
   if (!action) return;
 
@@ -81,11 +78,21 @@ const applyAutoSlowmodeAction = async (
     } else {
       await channel.setRateLimitPerUser(action.slowmodeSeconds).catch(() => null);
     }
-    await logToSurveillance(
-      guild,
-      settings.surveillanceLogChannelId,
-      `🐌 **auto-slowmode** ↑ level ${action.level}/${SLOWMODE_TIERS.length} → ${action.slowmodeSeconds}s in <#${channel.id}>`
-    );
+    await logger.log({
+      level: 'info',
+      message: `Auto-slowmode step up level ${action.level} in ${channel.id}`,
+      data: { channelId: channel.id, slowmodeSeconds: action.slowmodeSeconds, level: action.level },
+      target: 'surveillance',
+      internalEmbed: new EmbedBuilder()
+        .setColor(Colors.Yellow)
+        .setTitle('🐌 Auto-slowmode — Stepped Up')
+        .addFields(
+          { name: 'Channel', value: `<#${channel.id}>`, inline: true },
+          { name: 'Level', value: `${action.level}/${SLOWMODE_TIERS.length}`, inline: true },
+          { name: 'Slowmode', value: `${action.slowmodeSeconds}s`, inline: true }
+        )
+        .setTimestamp(),
+    });
     await recordAuditEvent({
       eventType: AuditEventType.ChannelLocked,
       payload: { channelId: channel.id, slowmode: action.slowmodeSeconds, level: action.level, source: 'auto' },
@@ -95,11 +102,21 @@ const applyAutoSlowmodeAction = async (
 
   if (action.type === 'step_down') {
     await channel.setRateLimitPerUser(action.slowmodeSeconds).catch(() => null);
-    await logToSurveillance(
-      guild,
-      settings.surveillanceLogChannelId,
-      `🐌 **auto-slowmode** ↓ level ${action.level}/${SLOWMODE_TIERS.length} → ${action.slowmodeSeconds}s in <#${channel.id}>`
-    );
+    await logger.log({
+      level: 'info',
+      message: `Auto-slowmode step down level ${action.level} in ${channel.id}`,
+      data: { channelId: channel.id, slowmodeSeconds: action.slowmodeSeconds, level: action.level },
+      target: 'surveillance',
+      internalEmbed: new EmbedBuilder()
+        .setColor(Colors.Yellow)
+        .setTitle('🐌 Auto-slowmode — Stepped Down')
+        .addFields(
+          { name: 'Channel', value: `<#${channel.id}>`, inline: true },
+          { name: 'Level', value: `${action.level}/${SLOWMODE_TIERS.length}`, inline: true },
+          { name: 'Slowmode', value: `${action.slowmodeSeconds}s`, inline: true }
+        )
+        .setTimestamp(),
+    });
     await recordAuditEvent({
       eventType: AuditEventType.ChannelLocked,
       payload: { channelId: channel.id, slowmode: action.slowmodeSeconds, level: action.level, source: 'auto' },
@@ -124,11 +141,17 @@ const applyAutoSlowmodeAction = async (
         ],
       })
       .catch(() => null);
-    await logToSurveillance(
-      guild,
-      settings.surveillanceLogChannelId,
-      `✅ **auto-slowmode** removed from <#${channel.id}> — restored to ${previousSlowmode}s`
-    );
+    await logger.log({
+      level: 'info',
+      message: `Auto-slowmode removed from ${channel.id}`,
+      data: { channelId: channel.id, previousSlowmode },
+      target: 'surveillance',
+      internalEmbed: new EmbedBuilder()
+        .setColor(Colors.Green)
+        .setTitle('✅ Auto-slowmode Removed')
+        .addFields({ name: 'Channel', value: `<#${channel.id}>`, inline: true }, { name: 'Restored to', value: `${previousSlowmode}s`, inline: true })
+        .setTimestamp(),
+    });
     await recordAuditEvent({ eventType: AuditEventType.ChannelUnlocked, payload: { channelId: channel.id, previousSlowmode, source: 'auto' } });
   }
 };
@@ -154,7 +177,7 @@ const processMessage = async (client: Client, message: Message<true>): Promise<v
       const existingLock = await findLockedChannel(message.channelId);
       const isManualLock = existingLock !== null && existingLock.moderatorId !== client.user?.id;
       if (!isManualLock) {
-        await applyAutoSlowmodeAction(action, message.channel as TextChannel, message.guild, client, settings);
+        await applyAutoSlowmodeAction(action, message.channel as TextChannel, message.guild, client, settings, logger);
       }
     }
   }
@@ -187,11 +210,23 @@ const processMessage = async (client: Client, message: Message<true>): Promise<v
             expiresAt: expiresAt.toISOString(),
           },
         });
-        await logToSurveillance(
-          message.guild,
-          settings.surveillanceLogChannelId,
-          `🚫 **anti-spam** <@${message.author.id}> muted (mute #${mute.id}) in <#${message.channelId}> — >${settings.antiSpamMaxMessages} msg/${settings.antiSpamWindowMs}ms · expires <t:${Math.floor(expiresAt.getTime() / 1000)}:R>`
-        );
+        await logger.log({
+          level: 'info',
+          message: `Anti-spam mute applied to ${message.author.id}`,
+          data: { muteId: mute.id, userId: message.author.id, channelId: message.channelId },
+          target: 'surveillance',
+          internalEmbed: new EmbedBuilder()
+            .setColor(Colors.Red)
+            .setTitle('🚫 Anti-spam — User Muted')
+            .addFields(
+              { name: 'User', value: `<@${message.author.id}>`, inline: true },
+              { name: 'Channel', value: `<#${message.channelId}>`, inline: true },
+              { name: 'Mute', value: `#${mute.id}`, inline: true },
+              { name: 'Threshold', value: `>${settings.antiSpamMaxMessages} msg/${settings.antiSpamWindowMs}ms`, inline: true },
+              { name: 'Expires', value: `<t:${Math.floor(expiresAt.getTime() / 1000)}:R>`, inline: true }
+            )
+            .setTimestamp(),
+        });
         logger.info({ userId: message.author.id, channelId: message.channelId, muteId: mute.id }, 'Anti-spam triggered: user muted.');
       }
       return;
@@ -211,7 +246,7 @@ export default new Event({
     if (message.author.bot || message.system) return;
     if (!message.content) return;
 
-    const queued = enqueueMessage(() => processMessage(client, message));
+    const queued = messageQueue.enqueue(() => processMessage(client, message));
     if (!queued) {
       Logger.getInstance(AppFeature.Surveillance).warn({ messageId: message.id }, 'Message queue full — dropped.');
     }

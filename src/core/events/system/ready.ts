@@ -5,10 +5,7 @@ import { getSettings, type Settings } from '~/database';
 import { Event, Permission } from '~/core/models';
 import { Logger } from '~/utilities';
 import { L } from '~/core/locales';
-import { startBanSweeper } from '~/core/scheduler/banSweeper';
-import { startMuteSweeper } from '~/core/scheduler/muteSweeper';
-import { startModmailSweeper } from '~/core/scheduler/modmailSweeper';
-import { startEventSweeper } from '~/core/scheduler/eventSweeper';
+import { loadSchedulables, getSchedulables } from '~/core/loaders/loadSchedulables';
 import { warmupHarmDetector } from '~/core/providers/harm';
 import { initInviteCache } from '~/core/loaders/inviteCache';
 
@@ -31,6 +28,7 @@ export default new Event({
     const logger = Logger.getInstance(AppFeature.System);
     const settings = await getSettings();
 
+    Logger.initDiscord(client);
     logger.info(`Ready as ${readyClient.user.username}#${readyClient.user.discriminator}`);
 
     const expectedGuildId = process.env.GUILD_ID;
@@ -47,10 +45,7 @@ export default new Event({
       return;
     }
 
-    startBanSweeper(client);
-    startMuteSweeper(client);
-    startModmailSweeper(client);
-    startEventSweeper(client);
+    await loadSchedulables(client);
 
     if (settings.featureInviteTrackingEnabled) {
       await initInviteCache(guild);
@@ -76,7 +71,7 @@ export default new Event({
     const ragEndpoint = process.env.RAG_ENDPOINT;
 
     const serviceLines = [
-      '🟢 Sweepers · ban / mute / modmail',
+      `🟢 Schedulables · ${[...getSchedulables().keys()].join(' / ')}`,
       `${on(!!ollamaModel)} Ollama · ${ollamaModel ?? 'not configured'}${ollamaEndpoint ? ` @ ${ollamaEndpoint}` : ''}`,
       `${on(!!ragEndpoint)} RAG · ${ragEndpoint ?? 'not configured'}`,
       `${on(settings.featureInviteTrackingEnabled)} Invite cache · ${settings.featureInviteTrackingEnabled ? 'active' : 'disabled'}`,
@@ -87,7 +82,7 @@ export default new Event({
       `${on(settings.featureSurveillanceEnabled)} Surveillance${settings.featureSurveillanceEnabled ? ` · ${ch(settings.surveillanceLogChannelId)}` : ''}`,
       `${on(settings.featureStarboardEnabled)} Starboard${settings.featureStarboardEnabled ? ` · ${ch(settings.starboardChannelId)} · ≥${settings.starboardThreshold}⭐` : ''}`,
       `${on(settings.featureCourtEnabled)} Court${settings.featureCourtEnabled ? ` · ${ch(settings.courtParentChannelId)}` : ''}`,
-      `${on(settings.featureHarmDetectionEnabled)} Harm detection${settings.featureHarmDetectionEnabled ? ` · ${ollamaModel ?? '?'} · ${ch(settings.harmAlertChannelId)}` : ''}`,
+      `${on(settings.featureHarmDetectionEnabled)} Harm detection${settings.featureHarmDetectionEnabled ? ` · ${ollamaModel ?? '?'} · alerts → surveillance log` : ''}`,
       `${on(settings.featureBadWordsEnabled)} Bad words${settings.featureBadWordsEnabled ? ` · delete ≥ sev ${settings.badWordDeleteThreshold}` : ''}`,
       `${on(settings.featureAntiSpamEnabled)} Anti-spam${settings.featureAntiSpamEnabled ? ` · ${settings.antiSpamMaxMessages} msg / ${settings.antiSpamWindowMs}ms` : ''}`,
       `${on(settings.featureAntiHoistEnabled)} Anti-hoist`,

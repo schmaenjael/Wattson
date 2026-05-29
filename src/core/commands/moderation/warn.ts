@@ -1,8 +1,9 @@
-import { ApplicationCommandType, EmbedBuilder, MessageFlags, SlashCommandBuilder, TextChannel } from 'discord.js';
+import { ApplicationCommandType, EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
 
 import { Command, Permission, BotException } from '~/core/models';
 import { logModAction } from '~/core/middleware';
 import { AppFeature, appFeatureMap, MOD_LIST_PAGE_SIZE, ProcessExitCode } from '~/settings';
+import { Logger, validateModerationTarget } from '~/utilities';
 import {
   AuditEventType,
   countActiveWarnings,
@@ -18,7 +19,6 @@ import {
   WARNING_DEFAULT_EXPIRY_DAYS,
   type Warning,
 } from '~/database';
-import { validateModerationTarget } from '~/utilities';
 
 const MUTE_CAP_MINUTES = 14 * 24 * 60;
 
@@ -135,25 +135,28 @@ export default new Command<ApplicationCommandType.ChatInput>({
           .catch(() => null);
       }
 
-      if (settings.warningsLogChannelId) {
-        const logChannel = (await interaction.guild!.channels.fetch(settings.warningsLogChannelId)) as TextChannel | null;
-        await logChannel
-          ?.send({
-            embeds: [
-              new EmbedBuilder()
-                .setColor(appFeatureMap[command.options.feature].color)
-                .setTitle(`Warning #${warning.id}`)
-                .addFields(
-                  { name: 'Target', value: `<@${target.id}>`, inline: true },
-                  { name: 'Moderator', value: `<@${interaction.user.id}>`, inline: true },
-                  { name: 'Expires', value: warning.expiresAt ? `<t:${Math.floor(warning.expiresAt.getTime() / 1000)}:R>` : 'Never', inline: true },
-                  { name: 'Reason', value: reason }
-                )
-                .setTimestamp(warning.createdAt),
-            ],
-          })
-          .catch(() => null);
-      }
+      const logger = Logger.getInstance(AppFeature.Warn);
+      await logger.log({
+        level: 'info',
+        message: `Warning #${warning.id} issued against ${target.id}`,
+        data: { warningId: warning.id, targetId: target.id, moderatorId: interaction.user.id },
+        target: 'moderation',
+        internalEmbed: new EmbedBuilder()
+          .setColor(appFeatureMap[command.options.feature].color)
+          .setTitle(`Warning #${warning.id}`)
+          .addFields(
+            { name: 'Target', value: `<@${target.id}>`, inline: true },
+            { name: 'Moderator', value: `<@${interaction.user.id}>`, inline: true },
+            { name: 'Expires', value: warning.expiresAt ? `<t:${Math.floor(warning.expiresAt.getTime() / 1000)}:R>` : 'Never', inline: true },
+            { name: 'Reason', value: reason }
+          )
+          .setTimestamp(warning.createdAt),
+        publicEmbed: new EmbedBuilder()
+          .setColor(appFeatureMap[command.options.feature].color)
+          .setTitle('⚠️ Member Warned')
+          .addFields({ name: 'User', value: `<@${target.id}>` }, { name: 'Reason', value: reason })
+          .setTimestamp(warning.createdAt),
+      });
 
       const windowStart = new Date(Date.now() - settings.warnAutoEscalateWindowDays * 24 * 60 * 60 * 1000);
       const [activeCount, windowCount] = await Promise.all([countActiveWarnings(target.id), countActiveWarningsSince(target.id, windowStart)]);
@@ -184,25 +187,31 @@ export default new Command<ApplicationCommandType.ChatInput>({
               targetUserId: target.id,
               payload: { muteId: autoMute.id, reason: autoMute.reason, expiresAt: muteExpiresAt.toISOString() },
             });
-            if (settings.warningsLogChannelId) {
-              const logChannel = (await interaction.guild!.channels.fetch(settings.warningsLogChannelId)) as TextChannel | null;
-              await logChannel
-                ?.send({
-                  embeds: [
-                    new EmbedBuilder()
-                      .setColor(appFeatureMap[command.options.feature].color)
-                      .setTitle(`Auto-mute #${autoMute.id}`)
-                      .addFields(
-                        { name: 'Target', value: `<@${target.id}>`, inline: true },
-                        { name: 'Active warnings', value: `${activeCount}`, inline: true },
-                        { name: 'Duration', value: durationLabel, inline: true },
-                        { name: 'Expires', value: `<t:${Math.floor(muteExpiresAt.getTime() / 1000)}:F>`, inline: true }
-                      )
-                      .setTimestamp(),
-                  ],
-                })
-                .catch(() => null);
-            }
+            await logger.log({
+              level: 'info',
+              message: `Auto-mute #${autoMute.id} applied to ${target.id}`,
+              data: { muteId: autoMute.id, targetId: target.id, activeCount },
+              target: 'moderation',
+              internalEmbed: new EmbedBuilder()
+                .setColor(appFeatureMap[command.options.feature].color)
+                .setTitle(`Auto-mute #${autoMute.id}`)
+                .addFields(
+                  { name: 'Target', value: `<@${target.id}>`, inline: true },
+                  { name: 'Active warnings', value: `${activeCount}`, inline: true },
+                  { name: 'Duration', value: durationLabel, inline: true },
+                  { name: 'Expires', value: `<t:${Math.floor(muteExpiresAt.getTime() / 1000)}:F>`, inline: true }
+                )
+                .setTimestamp(),
+              publicEmbed: new EmbedBuilder()
+                .setColor(appFeatureMap[command.options.feature].color)
+                .setTitle('🔇 Member Muted (Automod)')
+                .addFields(
+                  { name: 'User', value: `<@${target.id}>` },
+                  { name: 'Duration', value: durationLabel },
+                  { name: 'Reason', value: `Warn auto-mute: ${activeCount} active warnings` }
+                )
+                .setTimestamp(),
+            });
             escalationNote += `\n\n🔇 **Auto-muted** for ${durationLabel} (${activeCount} active warnings, expires <t:${Math.floor(muteExpiresAt.getTime() / 1000)}:R>).`;
           }
         }

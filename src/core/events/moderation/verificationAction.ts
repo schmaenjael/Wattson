@@ -1,7 +1,5 @@
 import {
   ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
   ChannelType,
   EmbedBuilder,
   Events,
@@ -31,7 +29,7 @@ import { CloseActionType, type VerificationFollowUpPayload } from '~/core/provid
 import { buildModmailOpenThreadEmbed, buildVerificationFollowUpUserDmEmbed } from '~/core/components/Modmail';
 import { L } from '~/core/locales';
 import type { FlowAnswers } from '~/core/providers/verification/flow';
-import { ANSWER_DISPLAY_NAMES, assignVolterRoles, grantAccess, postWelcomeEmbed } from '~/core/providers/verification/actions';
+import { ANSWER_DISPLAY_NAMES, grantAccess, postWelcomeEmbed } from '~/core/providers/verification/actions';
 
 const STATIC_FIELDS = new Set(['User', 'Account created', 'Joined server']);
 const MULTI_SELECT_KEYS = new Set(['home_country', 'pronouns', 'spoken_languages_eu', 'spoken_languages_other']);
@@ -57,11 +55,6 @@ const answersFromEmbed = (embed: { fields: { name: string; value: string }[] }):
     }
   }
   return result;
-};
-
-const getAnswerField = (embed: { fields: { name: string; value: string }[] }, key: string): string => {
-  const displayName = ANSWER_DISPLAY_NAMES[key] ?? key;
-  return embed.fields.find((f) => f.name === displayName || f.name === key)?.value ?? '';
 };
 
 export default new Event({
@@ -275,11 +268,6 @@ export default new Event({
       return;
     }
 
-    if (action === 'volter' && embed?.footer?.text?.includes('Volter + chapter role assigned')) {
-      await interaction.followUp({ content: 'Volter roles have already been assigned.', flags: MessageFlags.Ephemeral });
-      return;
-    }
-
     const member = await interaction.guild?.members.fetch(memberId).catch(() => null);
     const locale = interaction.guild?.preferredLocale ?? 'en-US';
     const color = appFeatureMap[AppFeature.Welcome].color;
@@ -296,20 +284,7 @@ export default new Event({
       await recordAuditEvent({ eventType: AuditEventType.VerificationCompleted, actorUserId: interaction.user.id, targetUserId: memberId });
 
       updatedEmbed.setTitle(`✅ Approved by ${interaction.user.tag}`);
-
-      const isMemberApplicant = getAnswerField(embed, 'is_member') === 'yes' && getAnswerField(embed, 'chapter_country').length > 0;
-      const volterAlreadyAssigned = embed?.footer?.text?.includes('Volter + chapter role assigned') ?? false;
-      const showVolterButton = isMemberApplicant && !!settings.roleMemberId && !volterAlreadyAssigned;
-
-      const components = showVolterButton
-        ? [
-            new ActionRowBuilder<ButtonBuilder>().addComponents(
-              new ButtonBuilder().setCustomId(`verify:volter:${memberId}`).setLabel('Assign Volter + Chapter Role').setStyle(ButtonStyle.Primary)
-            ),
-          ]
-        : [];
-
-      await interaction.message.edit({ embeds: [updatedEmbed], components });
+      await interaction.message.edit({ embeds: [updatedEmbed], components: [] });
 
       const dm = await member.createDM().catch(() => null);
       if (dm) {
@@ -323,23 +298,6 @@ export default new Event({
             ],
           })
           .catch(() => null);
-      }
-    } else if (action === 'volter') {
-      if (member) {
-        await assignVolterRoles(member, answersFromEmbed(embed), settings);
-      }
-
-      updatedEmbed.setFooter({ text: `🟣 Volter + chapter role assigned by ${interaction.user.tag}` });
-
-      const isVolterOnlyRequest = embed?.footer?.text?.includes('Volter membership request') ?? false;
-      if (isDecided || isVolterOnlyRequest) {
-        await interaction.message.edit({ embeds: [updatedEmbed], components: [] });
-      } else {
-        const approvalRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-          new ButtonBuilder().setCustomId(`verify:approve:${memberId}`).setLabel('Approve').setStyle(ButtonStyle.Success),
-          new ButtonBuilder().setCustomId(`verify:reject:${memberId}`).setLabel('Reject & Kick').setStyle(ButtonStyle.Danger)
-        );
-        await interaction.message.edit({ embeds: [updatedEmbed], components: [approvalRow] });
       }
     }
   },

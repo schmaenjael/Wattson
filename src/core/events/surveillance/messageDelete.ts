@@ -1,9 +1,10 @@
-import { AuditLogEvent, EmbedBuilder, Events, TextChannel } from 'discord.js';
+import { AuditLogEvent, EmbedBuilder, Events } from 'discord.js';
 
 import { AppFeature } from '~/settings';
 import { Colors } from '~/settings/theme';
 import { AuditEventType, getSettings, recordAuditEvent } from '~/database';
 import { Event } from '~/core/models';
+import { Logger } from '~/utilities';
 
 const MAX_CONTENT = 1024;
 
@@ -28,11 +29,6 @@ export default new Event({
         attachments: [...message.attachments.values()].map((a) => a.url),
       },
     });
-
-    if (!settings.surveillanceLogChannelId) return;
-
-    const logChannel = (await message.guild.channels.fetch(settings.surveillanceLogChannelId).catch(() => null)) as TextChannel | null;
-    if (!logChannel) return;
 
     // Self-deletions are not recorded in the Discord audit log; only mod deletions appear there.
     let isModDelete = false;
@@ -80,6 +76,13 @@ export default new Event({
       embed.addFields({ name: 'Attachments', value: urls });
     }
 
-    await logChannel.send({ embeds: [embed] }).catch(() => null);
+    const logger = Logger.getInstance(AppFeature.Surveillance);
+    await logger.log({
+      level: 'info',
+      message: `Message deleted by ${message.author?.id ?? 'unknown'} in ${message.channelId}`,
+      data: { messageId: message.id, channelId: message.channelId, isModDelete, modId },
+      target: 'surveillance',
+      internalEmbed: embed,
+    });
   },
 });

@@ -1,10 +1,10 @@
-import { ApplicationCommandType, EmbedBuilder, MessageFlags, SlashCommandBuilder, TextChannel } from 'discord.js';
+import { ApplicationCommandType, EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
 
 import { BotException, Command, Permission } from '~/core/models';
 import { logModAction } from '~/core/middleware';
 import { AppFeature, appFeatureMap, ProcessExitCode } from '~/settings';
 import { AuditEventType, getSettings, insertMute, upsertUser } from '~/database';
-import { validateModerationTarget, resolveExpiresAt } from '~/utilities';
+import { Logger, validateModerationTarget, resolveExpiresAt } from '~/utilities';
 
 export default new Command<ApplicationCommandType.ChatInput>({
   feature: AppFeature.Mute,
@@ -71,25 +71,32 @@ export default new Command<ApplicationCommandType.ChatInput>({
 
     const mute = await insertMute({ targetUserId: target.id, moderatorId: interaction.user.id, reason, expiresAt });
 
-    if (settings.warningsLogChannelId) {
-      const logChannel = (await interaction.guild!.channels.fetch(settings.warningsLogChannelId)) as TextChannel | null;
-      await logChannel
-        ?.send({
-          embeds: [
-            new EmbedBuilder()
-              .setColor(appFeatureMap[command.options.feature].color)
-              .setTitle(`Mute #${mute.id}`)
-              .addFields(
-                { name: 'Target', value: `<@${target.id}>`, inline: true },
-                { name: 'Moderator', value: `<@${interaction.user.id}>`, inline: true },
-                { name: 'Reason', value: reason },
-                { name: 'Expires', value: expiresAt ? `<t:${Math.floor(expiresAt.getTime() / 1000)}:F>` : 'indefinite', inline: true }
-              )
-              .setTimestamp(mute.createdAt),
-          ],
-        })
-        .catch(() => null);
-    }
+    const logger = Logger.getInstance(AppFeature.Mute);
+    await logger.log({
+      level: 'info',
+      message: `Mute #${mute.id} issued against ${target.id}`,
+      data: { muteId: mute.id, targetId: target.id, moderatorId: interaction.user.id },
+      target: 'moderation',
+      internalEmbed: new EmbedBuilder()
+        .setColor(appFeatureMap[command.options.feature].color)
+        .setTitle(`Mute #${mute.id}`)
+        .addFields(
+          { name: 'Target', value: `<@${target.id}>`, inline: true },
+          { name: 'Moderator', value: `<@${interaction.user.id}>`, inline: true },
+          { name: 'Reason', value: reason },
+          { name: 'Expires', value: expiresAt ? `<t:${Math.floor(expiresAt.getTime() / 1000)}:F>` : 'indefinite', inline: true }
+        )
+        .setTimestamp(mute.createdAt),
+      publicEmbed: new EmbedBuilder()
+        .setColor(appFeatureMap[command.options.feature].color)
+        .setTitle('🔇 Member Muted')
+        .addFields(
+          { name: 'User', value: `<@${target.id}>` },
+          { name: 'Duration', value: expiresAt ? `<t:${Math.floor(expiresAt.getTime() / 1000)}:R>` : 'indefinite' },
+          { name: 'Reason', value: reason }
+        )
+        .setTimestamp(mute.createdAt),
+    });
 
     await interaction.editReply({
       content: `Muted <@${target.id}>. Mute **#${mute.id}** recorded${expiresAt ? `; expires <t:${Math.floor(expiresAt.getTime() / 1000)}:R>` : ' (indefinite)'}.`,

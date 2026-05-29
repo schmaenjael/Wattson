@@ -2,6 +2,8 @@ import { ApplicationCommandType, ChannelType, EmbedBuilder, MessageFlags, SlashC
 
 import { Command, Permission } from '~/core/models';
 import { AppFeature, appFeatureMap, ProcessExitCode } from '~/settings';
+import { getSchedulables, SCHEDULABLE_CHOICES } from '~/core/loaders/loadSchedulables';
+import { upsertSchedulableConfig } from '~/database';
 import {
   getSettings,
   updateSettings,
@@ -11,6 +13,9 @@ import {
   getVerificationCountryOptions,
   getEuropeanLanguageOptions,
   getWorldLanguageOptions,
+  insertForumRoleMapping,
+  deleteForumRoleMapping,
+  listForumRoleMappings,
   type Settings,
   RoleMappingType,
 } from '~/database';
@@ -18,34 +23,28 @@ import { handlePaginatedEmbeds } from '~/core/components';
 
 type ChannelKey =
   | 'notificationChannelId'
+  | 'modLogChannelId'
   | 'publicLogChannelId'
   | 'surveillanceLogChannelId'
   | 'reportsLogChannelId'
-  | 'warningsLogChannelId'
-  | 'bansLogChannelId'
   | 'welcomeChannelId'
   | 'approvalChannelId'
   | 'courtParentChannelId'
   | 'starboardChannelId'
-  | 'harmAlertChannelId'
   | 'modmailChannelId'
-  | 'sayLogChannelId'
   | 'eventAnnouncementChannelId';
 
 const CHANNEL_CHOICES: { name: string; value: ChannelKey }[] = [
   { name: 'System notifications', value: 'notificationChannelId' },
-  { name: 'Public log', value: 'publicLogChannelId' },
+  { name: 'Moderation log (internal)', value: 'modLogChannelId' },
+  { name: 'Public moderation log', value: 'publicLogChannelId' },
   { name: 'Surveillance log', value: 'surveillanceLogChannelId' },
   { name: 'Reports log', value: 'reportsLogChannelId' },
-  { name: 'Warnings log', value: 'warningsLogChannelId' },
-  { name: 'Bans log', value: 'bansLogChannelId' },
   { name: 'Welcome', value: 'welcomeChannelId' },
   { name: 'Verification approval', value: 'approvalChannelId' },
   { name: 'Court parent', value: 'courtParentChannelId' },
   { name: 'Starboard', value: 'starboardChannelId' },
-  { name: 'Harm detection alerts', value: 'harmAlertChannelId' },
   { name: 'Modmail (mod-only thread parent)', value: 'modmailChannelId' },
-  { name: 'Say command log', value: 'sayLogChannelId' },
   { name: 'Event announcements', value: 'eventAnnouncementChannelId' },
 ];
 
@@ -205,10 +204,10 @@ const FEATURES: FeatureDef[] = [
   },
   {
     label: 'Harm Detection (LLM)',
-    description: 'Uses an Ollama LLM to score messages for harmful content and posts alerts.',
+    description: 'Uses an Ollama LLM to score messages for harmful content and posts alerts to the surveillance log.',
     enabled: (s) => s.featureHarmDetectionEnabled,
     warnings: (s) => [
-      ...(!s.harmAlertChannelId ? ['`harmAlertChannelId` not set — alerts cannot be delivered'] : []),
+      ...(!s.surveillanceLogChannelId ? ['`surveillanceLogChannelId` not set — harm alerts will not be delivered'] : []),
       ...(s.featureHarmDetectionEnabled && !process.env.OLLAMA_MODEL ? ['`OLLAMA_MODEL` env var not set — LLM evaluation will be skipped'] : []),
     ],
   },
@@ -265,11 +264,10 @@ const buildConfigPages = (s: Settings): EmbedBuilder[] => {
         name: 'Log Channels',
         value: [
           `**System notifications:** ${ch(s.notificationChannelId)}`,
-          `**Public log:** ${ch(s.publicLogChannelId)}`,
+          `**Moderation log (internal):** ${ch(s.modLogChannelId)}`,
+          `**Public moderation log:** ${ch(s.publicLogChannelId)}`,
           `**Surveillance log:** ${ch(s.surveillanceLogChannelId)}`,
           `**Reports log:** ${ch(s.reportsLogChannelId)}`,
-          `**Warnings log:** ${ch(s.warningsLogChannelId)}`,
-          `**Bans log:** ${ch(s.bansLogChannelId)}`,
         ].join('\n'),
       },
       {
@@ -279,9 +277,7 @@ const buildConfigPages = (s: Settings): EmbedBuilder[] => {
           `**Verification approval:** ${ch(s.approvalChannelId)}`,
           `**Court parent:** ${ch(s.courtParentChannelId)}`,
           `**Starboard:** ${ch(s.starboardChannelId)}`,
-          `**Harm detection alerts:** ${ch(s.harmAlertChannelId)}`,
           `**Modmail (mod-only):** ${ch(s.modmailChannelId)}`,
-          `**Say log:** ${ch(s.sayLogChannelId)}`,
           `**Event announcements:** ${ch(s.eventAnnouncementChannelId)}`,
         ].join('\n'),
       }
@@ -347,7 +343,7 @@ const buildConfigPages = (s: Settings): EmbedBuilder[] => {
         name: 'Harm Detection',
         value: [
           `**Status:** ${bool(s.featureHarmDetectionEnabled)}`,
-          `**Alert channel:** ${ch(s.harmAlertChannelId)}\n-# Requires OLLAMA_MODEL env var to be set`,
+          `**Alerts route to:** surveillance log channel\n-# Requires OLLAMA_MODEL env var to be set`,
         ].join('\n'),
       },
       {
@@ -543,12 +539,74 @@ export default new Command<ApplicationCommandType.ChatInput>({
         .setName('enable-all')
         .setDescription('Enable or disable every feature flag at once.')
         .addBooleanOption((o) => o.setName('enabled').setDescription('Enable or disable all features').setRequired(true))
+    )
+    .addSubcommandGroup((group) =>
+      group
+        .setName('forum')
+        .setDescription('Map forum thread channels to roles (members get auto-added when role is assigned).')
+        .addSubcommand((s) =>
+          s
+            .setName('add')
+            .setDescription('Add a mapping: role → forum thread.')
+            .addRoleOption((o) => o.setName('role').setDescription('The Discord role').setRequired(true))
+            .addChannelOption((o) =>
+              o
+                .setName('channel')
+                .setDescription('The forum thread (post) to map to this role')
+                .addChannelTypes(ChannelType.PublicThread, ChannelType.PrivateThread)
+                .setRequired(true)
+            )
+        )
+        .addSubcommand((s) =>
+          s
+            .setName('remove')
+            .setDescription('Remove a mapping: role → forum thread.')
+            .addRoleOption((o) => o.setName('role').setDescription('The Discord role').setRequired(true))
+            .addStringOption((o) => o.setName('channel').setDescription('Forum thread channel ID').setRequired(true).setAutocomplete(true))
+        )
+        .addSubcommand((s) => s.setName('list').setDescription('List all forum role mappings.'))
+    )
+    .addSubcommand((s) =>
+      s
+        .setName('schedulable')
+        .setDescription('Reschedule a background job with a new cron expression.')
+        .addStringOption((o) =>
+          o
+            .setName('name')
+            .setDescription('Which schedulable to configure')
+            .setRequired(true)
+            .addChoices(...SCHEDULABLE_CHOICES)
+        )
+        .addStringOption((o) =>
+          o.setName('cron').setDescription('New cron expression (e.g. "0 * * * *" for hourly)').setRequired(true).setMaxLength(128)
+        )
     ),
 
   async autocomplete(_client, interaction) {
+    const group = interaction.options.getSubcommandGroup(false);
     const sub = interaction.options.getSubcommand(false);
     const focused = interaction.options.getFocused(true);
     const query = focused.value.toLowerCase();
+
+    if (group === 'forum' && sub === 'remove' && focused.name === 'channel') {
+      const roleId = interaction.options.get('role')?.value as string | undefined;
+      const mappings = await listForumRoleMappings();
+      const relevant = roleId ? mappings.filter((m) => m.roleId === roleId) : mappings;
+      const seen = new Set<string>();
+      const choices = relevant
+        .filter((m) => {
+          if (seen.has(m.channelId)) return false;
+          seen.add(m.channelId);
+          return m.channelId.includes(query);
+        })
+        .slice(0, 25)
+        .map((m) => {
+          const resolved = interaction.guild?.channels.cache.get(m.channelId);
+          return { name: resolved ? `${resolved.name} (${m.channelId})` : m.channelId, value: m.channelId };
+        });
+      await interaction.respond(choices);
+      return;
+    }
 
     if (sub === 'country') {
       const options = await getVerificationCountryOptions();
@@ -594,6 +652,74 @@ export default new Command<ApplicationCommandType.ChatInput>({
 
     const group = interaction.options.getSubcommandGroup(false);
     const sub = interaction.options.getSubcommand(true);
+
+    if (group === 'forum') {
+      if (sub === 'add') {
+        const role = interaction.options.getRole('role', true);
+        const channelOption = interaction.options.getChannel('channel', true);
+        const thread = await interaction.guild?.channels.fetch(channelOption.id).catch(() => null);
+
+        if (!thread?.isThread() || thread.parent?.type !== ChannelType.GuildForum) {
+          await interaction.reply({ content: 'Channel must be a thread inside a forum channel.', flags: MessageFlags.Ephemeral });
+          return;
+        }
+
+        await insertForumRoleMapping({ channelId: thread.id, roleId: role.id });
+
+        const members = interaction.guild?.roles.cache.get(role.id)?.members;
+        let synced = 0;
+        if (members) {
+          await Promise.allSettled(
+            members.map(async (member) => {
+              await thread.members.add(member.id).catch(() => null);
+              synced++;
+            })
+          );
+        }
+
+        await interaction.reply({
+          content: `Mapped ${role} → <#${thread.id}>. Added ${synced} existing role holder(s) to the thread.`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (sub === 'remove') {
+        const role = interaction.options.getRole('role', true);
+        const channelId = interaction.options.getString('channel', true).trim();
+        const deleted = await deleteForumRoleMapping(channelId, role.id);
+        await interaction.reply({
+          content: deleted ? `Removed mapping ${role} → <#${channelId}>.` : `No mapping found for ${role} → \`${channelId}\`.`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (sub === 'list') {
+        const mappings = await listForumRoleMappings();
+        const color = appFeatureMap[command.options.feature].color;
+        const embed = new EmbedBuilder().setColor(color).setTitle('Forum Role Mappings').setTimestamp();
+
+        if (mappings.length === 0) {
+          embed.setDescription('*No mappings configured.*');
+        } else {
+          const grouped = new Map<string, typeof mappings>();
+          for (const m of mappings) {
+            const bucket = grouped.get(m.channelId) ?? [];
+            bucket.push(m);
+            grouped.set(m.channelId, bucket);
+          }
+          for (const [channelId, entries] of grouped) {
+            embed.addFields({ name: `<#${channelId}>`, value: entries.map((e) => `<@&${e.roleId}>`).join('\n') });
+          }
+        }
+
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      return;
+    }
 
     if (group === 'role') {
       if (sub === 'permission') {
@@ -761,6 +887,31 @@ export default new Command<ApplicationCommandType.ChatInput>({
       const patch = Object.fromEntries(ALL_FEATURE_KEYS.map((k) => [k, enabled]));
       await updateSettings(patch);
       await interaction.reply({ content: `All features ${enabled ? 'enabled' : 'disabled'}.`, flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    if (sub === 'schedulable') {
+      const name = interaction.options.getString('name', true);
+      const cron = interaction.options.getString('cron', true).trim();
+
+      const schedulable = getSchedulables().get(name);
+      if (!schedulable) {
+        await interaction.reply({ content: `Unknown schedulable \`${name}\`.`, flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      try {
+        schedulable.restart(client, cron);
+      } catch {
+        await interaction.reply({ content: `Invalid cron expression: \`${cron}\`.`, flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      await upsertSchedulableConfig(name, cron);
+      await interaction.reply({
+        content: `Schedulable **${name}** rescheduled to \`${cron}\`. Takes effect immediately.`,
+        flags: MessageFlags.Ephemeral,
+      });
       return;
     }
   },

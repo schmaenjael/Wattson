@@ -21,8 +21,3 @@ export const findUserById = async (id: Snowflake): Promise<UserRecord | undefine
   const [row] = await db.select().from(users).where(eq(users.id, id)).limit(1);
   return row;
 };
-
-export const saveUserMembershipData = async (id: Snowflake, haiiloLink: string, chapterCountry: string | null): Promise<void> => {
-  const db = getDb();
-  await db.update(users).set({ haiiloLink, chapterCountry }).where(eq(users.id, id));
-};

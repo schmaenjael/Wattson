@@ -10,7 +10,7 @@ import {
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
 } from 'discord.js';
-import { CronExpressionParser } from 'cron-parser';
+import { Cron } from 'croner';
 
 import { Command, Permission } from '~/core/models';
 import { AppFeature, appFeatureMap, ProcessExitCode } from '~/settings';
@@ -300,7 +300,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
       }
 
       try {
-        CronExpressionParser.parse(cronStr);
+        new Cron(cronStr);
       } catch {
         await interaction.reply({ content: L[locale].EVENT.COMMAND_REPEAT.ERROR_INVALID_CRON(), flags: MessageFlags.Ephemeral });
         return;

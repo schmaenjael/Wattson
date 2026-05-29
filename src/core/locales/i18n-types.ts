@@ -77,6 +77,10 @@ type RootTranslation = {
 				 * Y​o​u​r​ ​a​n​s​w​e​r​s​ ​h​a​v​e​ ​b​e​e​n​ ​s​u​b​m​i​t​t​e​d​ ​a​n​d​ ​a​r​e​ ​n​o​w​ ​u​n​d​e​r​ ​r​e​v​i​e​w​ ​b​y​ ​t​h​e​ ​m​o​d​e​r​a​t​i​o​n​ ​t​e​a​m​.​ ​T​h​i​s​ ​p​r​o​c​e​s​s​ ​m​a​y​ ​t​a​k​e​ ​*​*​a​ ​w​h​i​l​e​*​*​ ​—​ ​w​e​ ​a​p​p​r​e​c​i​a​t​e​ ​y​o​u​r​ ​p​a​t​i​e​n​c​e​!
 				 */
 				EMBED_DESCRIPTION: string
+				/**
+				 * �​�​ ​*​*​A​r​e​ ​y​o​u​ ​a​ ​V​o​l​t​ ​m​e​m​b​e​r​?​*​*​ ​O​n​c​e​ ​y​o​u​r​ ​v​e​r​i​f​i​c​a​t​i​o​n​ ​i​s​ ​a​p​p​r​o​v​e​d​ ​a​n​d​ ​y​o​u​ ​h​a​v​e​ ​s​e​r​v​e​r​ ​a​c​c​e​s​s​,​ ​r​u​n​ ​`​/​v​e​r​i​f​y​ ​v​o​l​t​e​r​`​ ​t​o​ ​r​e​c​e​i​v​e​ ​y​o​u​r​ ​V​o​l​t​e​r​ ​r​o​l​e​.
+				 */
+				VOLTER_HINT: string
 			}
 			DENIED: {
 				/**
@@ -129,32 +133,6 @@ type RootTranslation = {
 				 * ✅​ ​Y​o​u​ ​a​r​e​ ​a​l​r​e​a​d​y​ ​v​e​r​i​f​i​e​d​ ​a​n​d​ ​h​a​v​e​ ​f​u​l​l​ ​s​e​r​v​e​r​ ​a​c​c​e​s​s​.
 				 */
 				ALREADY_VERIFIED: string
-			}
-			VOLTER: {
-				/**
-				 * ✅​ ​S​t​a​r​t​i​n​g​ ​y​o​u​r​ ​V​o​l​t​e​r​ ​v​e​r​i​f​i​c​a​t​i​o​n​ ​—​ ​c​h​e​c​k​ ​y​o​u​r​ ​D​M​s​!
-				 */
-				SUCCESS: string
-				/**
-				 * ⚠​️​ ​A​ ​v​e​r​i​f​i​c​a​t​i​o​n​ ​i​s​ ​a​l​r​e​a​d​y​ ​i​n​ ​p​r​o​g​r​e​s​s​ ​f​o​r​ ​y​o​u​r​ ​a​c​c​o​u​n​t​.
-				 */
-				ALREADY_ACTIVE: string
-				/**
-				 * ✅​ ​Y​o​u​ ​a​l​r​e​a​d​y​ ​h​a​v​e​ ​V​o​l​t​ ​m​e​m​b​e​r​ ​s​t​a​t​u​s​ ​o​n​ ​t​h​i​s​ ​s​e​r​v​e​r​.
-				 */
-				ALREADY_VOLTER: string
-				/**
-				 * ⚠​️​ ​Y​o​u​ ​a​r​e​ ​n​o​t​ ​y​e​t​ ​v​e​r​i​f​i​e​d​.​ ​P​l​e​a​s​e​ ​u​s​e​ ​`​/​v​e​r​i​f​y​ ​s​t​a​r​t​`​ ​f​i​r​s​t​.
-				 */
-				NOT_VERIFIED: string
-				/**
-				 * �​�​ ​V​o​l​t​e​r​ ​R​e​q​u​e​s​t​ ​S​u​b​m​i​t​t​e​d
-				 */
-				SUBMITTED_TITLE: string
-				/**
-				 * Y​o​u​r​ ​H​a​i​i​l​o​ ​p​r​o​f​i​l​e​ ​h​a​s​ ​b​e​e​n​ ​s​u​b​m​i​t​t​e​d​ ​f​o​r​ ​r​e​v​i​e​w​.​ ​A​ ​m​o​d​e​r​a​t​o​r​ ​w​i​l​l​ ​v​e​r​i​f​y​ ​y​o​u​r​ ​V​o​l​t​ ​m​e​m​b​e​r​s​h​i​p​ ​s​h​o​r​t​l​y​.
-				 */
-				SUBMITTED: string
 			}
 			QUESTIONS: {
 				QUESTION_ICEBREAKER: {
@@ -227,40 +205,6 @@ type RootTranslation = {
 					 */
 					DESCRIPTION: string
 				}
-				QUESTION_IS_MEMBER: {
-					/**
-					 * A​r​e​ ​y​o​u​ ​a​ ​m​e​m​b​e​r​ ​o​r​ ​v​o​l​u​n​t​e​e​r​ ​o​f​ ​V​o​l​t​ ​E​u​r​o​p​a​?
-					 */
-					TITLE: string
-					/**
-					 * S​e​l​e​c​t​ ​Y​e​s​ ​i​f​ ​y​o​u​ ​a​r​e​ ​a​ ​r​e​g​i​s​t​e​r​e​d​ ​m​e​m​b​e​r​ ​o​r​ ​a​c​t​i​v​e​ ​v​o​l​u​n​t​e​e​r​ ​o​f​ ​a​n​y​ ​V​o​l​t​ ​p​a​r​t​y​.​ ​I​f​ ​y​e​s​,​ ​w​e​ ​w​i​l​l​ ​a​s​k​ ​f​o​r​ ​y​o​u​r​ ​H​a​i​i​l​o​ ​p​r​o​f​i​l​e​ ​l​i​n​k​ ​i​n​ ​t​h​e​ ​n​e​x​t​ ​s​t​e​p​.
-					 */
-					DESCRIPTION: string
-				}
-				QUESTION_HAIILO: {
-					/**
-					 * P​l​e​a​s​e​ ​s​h​a​r​e​ ​y​o​u​r​ ​H​a​i​i​l​o​ ​p​r​o​f​i​l​e​ ​l​i​n​k
-					 */
-					TITLE: string
-					/**
-					 * O​p​e​n​ ​y​o​u​r​ ​V​o​l​t​ ​H​a​i​i​l​o​ ​p​r​o​f​i​l​e​ ​a​n​d​ ​c​o​p​y​ ​t​h​e​ ​U​R​L​.​ ​E​x​p​e​c​t​e​d​ ​f​o​r​m​a​t​:​ ​`​h​t​t​p​s​:​/​/​v​o​l​t​.​h​a​i​i​l​o​.​a​p​p​/​p​r​o​f​i​l​e​/​y​o​u​r​-​n​a​m​e​`
-					 */
-					DESCRIPTION: string
-					/**
-					 * ❌​ ​P​l​e​a​s​e​ ​p​r​o​v​i​d​e​ ​a​ ​v​a​l​i​d​ ​H​a​i​i​l​o​ ​p​r​o​f​i​l​e​ ​U​R​L​ ​(​h​t​t​p​s​:​/​/​v​o​l​t​.​h​a​i​i​l​o​.​a​p​p​/​p​r​o​f​i​l​e​/​y​o​u​r​-​n​a​m​e​)​.
-					 */
-					VALIDATION_ERROR: string
-				}
-				QUESTION_CHAPTER_COUNTRY: {
-					/**
-					 * W​h​i​c​h​ ​V​o​l​t​ ​n​a​t​i​o​n​a​l​ ​c​h​a​p​t​e​r​ ​a​r​e​ ​y​o​u​ ​a​ ​m​e​m​b​e​r​ ​o​f​?
-					 */
-					TITLE: string
-					/**
-					 * S​e​l​e​c​t​ ​t​h​e​ ​E​u​r​o​p​e​a​n​ ​c​o​u​n​t​r​y​ ​w​h​o​s​e​ ​V​o​l​t​ ​p​a​r​t​y​ ​y​o​u​ ​a​r​e​ ​r​e​g​i​s​t​e​r​e​d​ ​w​i​t​h​.
-					 */
-					DESCRIPTION: string
-				}
 				QUESTION_RULE_ACCEPTANCE: {
 					/**
 					 * �​�​ ​S​e​r​v​e​r​ ​R​u​l​e​s
@@ -272,6 +216,60 @@ type RootTranslation = {
 					DESCRIPTION: string
 				}
 			}
+		}
+		VOLT_VERIFICATION: {
+			/**
+			 * �​�​ ​V​o​l​t​ ​M​e​m​b​e​r​s​h​i​p​ ​V​e​r​i​f​i​c​a​t​i​o​n
+			 */
+			EMBED_TITLE: string
+			/**
+			 * *​*​1​.​*​*​ ​O​p​e​n​ ​t​h​i​s​ ​l​i​n​k​:​ ​{​u​r​l​}​
+		​*​*​2​.​*​*​ ​E​n​t​e​r​ ​c​o​d​e​ ​`​{​c​o​d​e​}​`​ ​i​f​ ​n​o​t​ ​p​r​e​-​f​i​l​l​e​d​
+		​*​*​3​.​*​*​ ​S​i​g​n​ ​i​n​ ​w​i​t​h​ ​y​o​u​r​ ​V​o​l​t​ ​a​c​c​o​u​n​t​
+		​
+		​T​h​i​s​ ​c​o​d​e​ ​e​x​p​i​r​e​s​ ​{​e​x​p​i​r​y​}​.
+			 * @param {string} code
+			 * @param {string} expiry
+			 * @param {string} url
+			 */
+			EMBED_DESCRIPTION: RequiredParams<'code' | 'expiry' | 'url'>
+			/**
+			 * ✅​ ​V​o​l​t​ ​M​e​m​b​e​r​s​h​i​p​ ​V​e​r​i​f​i​e​d​!
+			 */
+			SUCCESS_TITLE: string
+			/**
+			 * W​e​l​c​o​m​e​,​ ​V​o​l​t​e​r​!​ ​Y​o​u​r​ ​m​e​m​b​e​r​s​h​i​p​ ​h​a​s​ ​b​e​e​n​ ​v​e​r​i​f​i​e​d​ ​a​n​d​ ​w​i​l​l​ ​b​e​ ​v​a​l​i​d​ ​f​o​r​ ​1​2​ ​m​o​n​t​h​s​.
+			 */
+			SUCCESS: string
+			/**
+			 * ✅​ ​Y​o​u​ ​a​l​r​e​a​d​y​ ​h​a​v​e​ ​a​n​ ​a​c​t​i​v​e​ ​V​o​l​t​ ​v​e​r​i​f​i​c​a​t​i​o​n​,​ ​v​a​l​i​d​ ​u​n​t​i​l​ ​{​e​x​p​i​r​y​}​.
+			 * @param {string} expiry
+			 */
+			ALREADY_VERIFIED: RequiredParams<'expiry'>
+			/**
+			 * ⏳​ ​A​ ​v​e​r​i​f​i​c​a​t​i​o​n​ ​s​e​s​s​i​o​n​ ​i​s​ ​a​l​r​e​a​d​y​ ​i​n​ ​p​r​o​g​r​e​s​s​ ​f​o​r​ ​y​o​u​r​ ​a​c​c​o​u​n​t​.​ ​P​l​e​a​s​e​ ​c​o​m​p​l​e​t​e​ ​o​r​ ​w​a​i​t​ ​f​o​r​ ​i​t​ ​t​o​ ​e​x​p​i​r​e​.
+			 */
+			IN_PROGRESS: string
+			/**
+			 * ❌​ ​Y​o​u​ ​m​u​s​t​ ​c​o​m​p​l​e​t​e​ ​`​/​v​e​r​i​f​y​ ​s​t​a​r​t​`​ ​a​n​d​ ​h​a​v​e​ ​s​e​r​v​e​r​ ​a​c​c​e​s​s​ ​b​e​f​o​r​e​ ​v​e​r​i​f​y​i​n​g​ ​y​o​u​r​ ​V​o​l​t​ ​m​e​m​b​e​r​s​h​i​p​.
+			 */
+			NOT_ENROLLED: string
+			/**
+			 * ⏱​️​ ​V​e​r​i​f​i​c​a​t​i​o​n​ ​t​i​m​e​d​ ​o​u​t​.​ ​P​l​e​a​s​e​ ​r​u​n​ ​`​/​v​e​r​i​f​y​ ​v​o​l​t​e​r​`​ ​a​g​a​i​n​ ​t​o​ ​s​t​a​r​t​ ​a​ ​n​e​w​ ​s​e​s​s​i​o​n​.
+			 */
+			TIMEOUT: string
+			/**
+			 * ❌​ ​Y​o​u​ ​d​e​n​i​e​d​ ​t​h​e​ ​a​u​t​h​o​r​i​z​a​t​i​o​n​ ​r​e​q​u​e​s​t​.​ ​R​u​n​ ​`​/​v​e​r​i​f​y​ ​v​o​l​t​e​r​`​ ​t​o​ ​t​r​y​ ​a​g​a​i​n​.
+			 */
+			DENIED: string
+			/**
+			 * ❌​ ​V​e​r​i​f​i​c​a​t​i​o​n​ ​f​a​i​l​e​d​.​ ​P​l​e​a​s​e​ ​t​r​y​ ​a​g​a​i​n​ ​l​a​t​e​r​.
+			 */
+			ERROR: string
+			/**
+			 * �​�​ ​V​o​l​t​ ​M​e​m​b​e​r​s​h​i​p​ ​V​e​r​i​f​i​e​d
+			 */
+			LOG_TITLE: string
 		}
 		ERROR: {
 			/**
@@ -810,6 +808,10 @@ export type TranslationFunctions = {
 				 * Your answers have been submitted and are now under review by the moderation team. This process may take **a while** — we appreciate your patience!
 				 */
 				EMBED_DESCRIPTION: () => LocalizedString
+				/**
+				 * 💜 **Are you a Volt member?** Once your verification is approved and you have server access, run `/verify volter` to receive your Volter role.
+				 */
+				VOLTER_HINT: () => LocalizedString
 			}
 			DENIED: {
 				/**
@@ -862,32 +864,6 @@ export type TranslationFunctions = {
 				 * ✅ You are already verified and have full server access.
 				 */
 				ALREADY_VERIFIED: () => LocalizedString
-			}
-			VOLTER: {
-				/**
-				 * ✅ Starting your Volter verification — check your DMs!
-				 */
-				SUCCESS: () => LocalizedString
-				/**
-				 * ⚠️ A verification is already in progress for your account.
-				 */
-				ALREADY_ACTIVE: () => LocalizedString
-				/**
-				 * ✅ You already have Volt member status on this server.
-				 */
-				ALREADY_VOLTER: () => LocalizedString
-				/**
-				 * ⚠️ You are not yet verified. Please use `/verify start` first.
-				 */
-				NOT_VERIFIED: () => LocalizedString
-				/**
-				 * 🟣 Volter Request Submitted
-				 */
-				SUBMITTED_TITLE: () => LocalizedString
-				/**
-				 * Your Haiilo profile has been submitted for review. A moderator will verify your Volt membership shortly.
-				 */
-				SUBMITTED: () => LocalizedString
 			}
 			QUESTIONS: {
 				QUESTION_ICEBREAKER: {
@@ -960,40 +936,6 @@ export type TranslationFunctions = {
 					 */
 					DESCRIPTION: () => LocalizedString
 				}
-				QUESTION_IS_MEMBER: {
-					/**
-					 * Are you a member or volunteer of Volt Europa?
-					 */
-					TITLE: () => LocalizedString
-					/**
-					 * Select Yes if you are a registered member or active volunteer of any Volt party. If yes, we will ask for your Haiilo profile link in the next step.
-					 */
-					DESCRIPTION: () => LocalizedString
-				}
-				QUESTION_HAIILO: {
-					/**
-					 * Please share your Haiilo profile link
-					 */
-					TITLE: () => LocalizedString
-					/**
-					 * Open your Volt Haiilo profile and copy the URL. Expected format: `https://volt.haiilo.app/profile/your-name`
-					 */
-					DESCRIPTION: () => LocalizedString
-					/**
-					 * ❌ Please provide a valid Haiilo profile URL (https://volt.haiilo.app/profile/your-name).
-					 */
-					VALIDATION_ERROR: () => LocalizedString
-				}
-				QUESTION_CHAPTER_COUNTRY: {
-					/**
-					 * Which Volt national chapter are you a member of?
-					 */
-					TITLE: () => LocalizedString
-					/**
-					 * Select the European country whose Volt party you are registered with.
-					 */
-					DESCRIPTION: () => LocalizedString
-				}
 				QUESTION_RULE_ACCEPTANCE: {
 					/**
 					 * 📜 Server Rules
@@ -1005,6 +947,56 @@ export type TranslationFunctions = {
 					DESCRIPTION: () => LocalizedString
 				}
 			}
+		}
+		VOLT_VERIFICATION: {
+			/**
+			 * 🟣 Volt Membership Verification
+			 */
+			EMBED_TITLE: () => LocalizedString
+			/**
+			 * **1.** Open this link: {url}
+		**2.** Enter code `{code}` if not pre-filled
+		**3.** Sign in with your Volt account
+	
+		This code expires {expiry}.
+			 */
+			EMBED_DESCRIPTION: (arg: { code: string, expiry: string, url: string }) => LocalizedString
+			/**
+			 * ✅ Volt Membership Verified!
+			 */
+			SUCCESS_TITLE: () => LocalizedString
+			/**
+			 * Welcome, Volter! Your membership has been verified and will be valid for 12 months.
+			 */
+			SUCCESS: () => LocalizedString
+			/**
+			 * ✅ You already have an active Volt verification, valid until {expiry}.
+			 */
+			ALREADY_VERIFIED: (arg: { expiry: string }) => LocalizedString
+			/**
+			 * ⏳ A verification session is already in progress for your account. Please complete or wait for it to expire.
+			 */
+			IN_PROGRESS: () => LocalizedString
+			/**
+			 * ❌ You must complete `/verify start` and have server access before verifying your Volt membership.
+			 */
+			NOT_ENROLLED: () => LocalizedString
+			/**
+			 * ⏱️ Verification timed out. Please run `/verify volter` again to start a new session.
+			 */
+			TIMEOUT: () => LocalizedString
+			/**
+			 * ❌ You denied the authorization request. Run `/verify volter` to try again.
+			 */
+			DENIED: () => LocalizedString
+			/**
+			 * ❌ Verification failed. Please try again later.
+			 */
+			ERROR: () => LocalizedString
+			/**
+			 * 💜 Volt Membership Verified
+			 */
+			LOG_TITLE: () => LocalizedString
 		}
 		ERROR: {
 			/**

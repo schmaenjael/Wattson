@@ -1,10 +1,10 @@
-import { ApplicationCommandType, EmbedBuilder, MessageFlags, SlashCommandBuilder, TextChannel } from 'discord.js';
+import { ApplicationCommandType, EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
 
 import { BotException, Command, Permission } from '~/core/models';
 import { logModAction } from '~/core/middleware';
 import { AppFeature, appFeatureMap, ProcessExitCode } from '~/settings';
-import { AuditEventType, getSettings, insertBan, upsertUser } from '~/database';
-import { validateModerationTarget, resolveExpiresAt } from '~/utilities';
+import { AuditEventType, insertBan, upsertUser } from '~/database';
+import { Logger, validateModerationTarget, resolveExpiresAt } from '~/utilities';
 
 export default new Command<ApplicationCommandType.ChatInput>({
   feature: AppFeature.Ban,
@@ -56,8 +56,6 @@ export default new Command<ApplicationCommandType.ChatInput>({
       upsertUser({ id: interaction.user.id, username: interaction.user.username }),
     ]);
 
-    const settings = await getSettings();
-
     // Actually ban via Discord API first; if that fails we don't record the row.
     try {
       await interaction.guild!.bans.create(target.id, { reason: `[#${interaction.user.username}] ${reason}`, deleteMessageSeconds: deleteSeconds });
@@ -67,26 +65,29 @@ export default new Command<ApplicationCommandType.ChatInput>({
 
     const ban = await insertBan({ targetUserId: target.id, moderatorId: interaction.user.id, reason, expiresAt, appealable });
 
-    if (settings.bansLogChannelId) {
-      const logChannel = (await interaction.guild!.channels.fetch(settings.bansLogChannelId)) as TextChannel | null;
-      await logChannel
-        ?.send({
-          embeds: [
-            new EmbedBuilder()
-              .setColor(appFeatureMap[command.options.feature].color)
-              .setTitle(`Ban #${ban.id}`)
-              .addFields(
-                { name: 'Target', value: `<@${target.id}>`, inline: true },
-                { name: 'Moderator', value: `<@${interaction.user.id}>`, inline: true },
-                { name: 'Reason', value: reason },
-                { name: 'Expires', value: expiresAt ? `<t:${Math.floor(expiresAt.getTime() / 1000)}:F>` : 'permanent', inline: true },
-                { name: 'Appealable', value: appealable ? 'yes' : 'no', inline: true }
-              )
-              .setTimestamp(ban.createdAt),
-          ],
-        })
-        .catch(() => null);
-    }
+    const logger = Logger.getInstance(AppFeature.Ban);
+    await logger.log({
+      level: 'info',
+      message: `Ban #${ban.id} issued against ${target.id}`,
+      data: { banId: ban.id, targetId: target.id, moderatorId: interaction.user.id },
+      target: 'moderation',
+      internalEmbed: new EmbedBuilder()
+        .setColor(appFeatureMap[command.options.feature].color)
+        .setTitle(`Ban #${ban.id}`)
+        .addFields(
+          { name: 'Target', value: `<@${target.id}>`, inline: true },
+          { name: 'Moderator', value: `<@${interaction.user.id}>`, inline: true },
+          { name: 'Reason', value: reason },
+          { name: 'Expires', value: expiresAt ? `<t:${Math.floor(expiresAt.getTime() / 1000)}:F>` : 'permanent', inline: true },
+          { name: 'Appealable', value: appealable ? 'yes' : 'no', inline: true }
+        )
+        .setTimestamp(ban.createdAt),
+      publicEmbed: new EmbedBuilder()
+        .setColor(appFeatureMap[command.options.feature].color)
+        .setTitle('🔨 Member Banned')
+        .addFields({ name: 'User', value: `<@${target.id}>` }, { name: 'Reason', value: reason })
+        .setTimestamp(ban.createdAt),
+    });
 
     await interaction.editReply({
       content: `Banned <@${target.id}>. Ban **#${ban.id}** recorded${expiresAt ? `; expires <t:${Math.floor(expiresAt.getTime() / 1000)}:R>` : ' (permanent)'}.`,

@@ -11,6 +11,7 @@ import { usernameHistory } from '../schema/usernameHistory';
 import { users } from '../schema/users';
 import { warnings } from '../schema/warnings';
 import { mutes } from '../schema/mutes';
+import { voltVerifications } from '../schema/voltVerifications';
 
 export const GDPR_DELETED_USERNAME = '[deleted]';
 
@@ -40,8 +41,9 @@ export const executeGdprDeletion = async (targetUserId: string, moderatorId: str
     await tx.delete(bans).where(eq(bans.targetUserId, targetUserId));
     await tx.delete(usernameHistory).where(eq(usernameHistory.userId, targetUserId));
     await tx.delete(auditLog).where(or(eq(auditLog.actorUserId, targetUserId), eq(auditLog.targetUserId, targetUserId)));
+    await tx.delete(voltVerifications).where(eq(voltVerifications.discordUserId, targetUserId));
 
-    await tx.update(users).set({ username: GDPR_DELETED_USERNAME, haiiloLink: null, chapterCountry: null }).where(eq(users.id, targetUserId));
+    await tx.update(users).set({ username: GDPR_DELETED_USERNAME }).where(eq(users.id, targetUserId));
 
     await tx.insert(bans).values({ targetUserId, moderatorId, reason: 'Data Deletion Request (GDPR/DSGVO)', expiresAt: null, appealable: false });
   });

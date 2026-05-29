@@ -64,17 +64,17 @@ export default new Command<ApplicationCommandType.ChatInput>({
 
     let requestMessageId: string | undefined;
 
-    if (settings.bansLogChannelId) {
-      const logChannel = (await interaction.guild!.channels.fetch(settings.bansLogChannelId)) as TextChannel | null;
+    if (settings.modLogChannelId) {
+      const logChannel = (await interaction.guild!.channels.fetch(settings.modLogChannelId)) as TextChannel | null;
       if (logChannel) {
         const msg = await logChannel.send({ embeds: [pendingEmbed], components: [row] });
         requestMessageId = msg.id;
-        await interaction.editReply({ content: `Data deletion request posted to <#${settings.bansLogChannelId}>. A second moderator must approve.` });
+        await interaction.editReply({ content: `Data deletion request posted to <#${settings.modLogChannelId}>. A second moderator must approve.` });
       }
     }
 
     if (!requestMessageId) {
-      await interaction.editReply({ content: 'No bans log channel configured — request posted in this channel.' });
+      await interaction.editReply({ content: 'No moderation log channel configured — request posted in this channel.' });
       const msg = await (interaction.channel as TextChannel).send({ embeds: [pendingEmbed], components: [row] });
       requestMessageId = msg.id;
     }

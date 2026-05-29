@@ -32,8 +32,8 @@ const DEFAULT_RESULT: HarmDetectionResult = {
 };
 
 const toConfidenceLevel = (score: number): HarmCategoryResult['confidence'] => {
-  if (score >= 0.85) return 'high';
-  if (score >= 0.6) return 'medium';
+  if (score >= 0.92) return 'high';
+  if (score >= 0.75) return 'medium';
   return 'low';
 };
 

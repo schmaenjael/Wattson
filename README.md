@@ -7,7 +7,7 @@ Wattson is the successor to [VoltBot](https://github.com/fabnem12/VoltBot) (arch
 Core design principles:
 
 - **Single-guild, single purpose.** Wattson serves exactly one guild (`GUILD_ID`). No multi-tenant code paths exist and none will be added. Any accidental guild join is rejected immediately at runtime.
-- **Operator-controlled LLM.** Harm detection runs against a self-hosted Ollama instance. Message content never reaches a third-party inference API.
+- **Operator-controlled LLM.** Harm detection runs against a self-hosted model with generic tasks handled by a self-hosted ollama instance. Message content never reaches a third-party inference API.
 - **Append-only moderation records.** Warnings, bans, reports, and court cases are never deleted. Lifecycle is expressed through lifecycle columns (`revokedAt`, `resolvedAt`, `closedAt`). The full audit trail is always intact.
 
 ## 🪴 Architecture
@@ -61,6 +61,7 @@ src/utilities/                 Logger (Pino), duration parser, misc helpers
 - [x] **Modmail** — `/modmail open` for private mod contact; categorised, closeable, stale-detection
 - [x] **Statistics** — `/stats joins|moderation|activity` with chart generation
 - [x] **Ping** — `/ping`
+- [x] **Forum role sync** — auto-adds members to configured forum threads when they receive a mapped role
 
 ### Surveillance & Audit
 
@@ -75,6 +76,7 @@ src/utilities/                 Logger (Pino), duration parser, misc helpers
 ### Configuration
 
 - [x] **`/config`** — paginated guild settings viewer + per-feature on/off toggles, surveillance channel assignment, starboard config, automod thresholds
+- [x] **Forum role sync** — `/config forum add|remove|list` maps Discord forum thread channels to roles; members are auto-added to mapped threads when the role is assigned (retroactive sync on configure)
 
 ### Non-Functional
 

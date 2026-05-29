@@ -10,8 +10,9 @@ import { externalPosts } from './externalPosts';
 import { starboardEntries } from './starboardEntries';
 import { events } from './events';
 import { eventRegistrations } from './eventRegistrations';
+import { voltVerifications } from './voltVerifications';
 
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ many, one }) => ({
   usernameHistory: many(usernameHistory),
   warningsReceived: many(warnings, { relationName: 'warning_target' }),
   warningsIssued: many(warnings, { relationName: 'warning_moderator' }),
@@ -21,6 +22,11 @@ export const usersRelations = relations(users, ({ many }) => ({
   reportsAgainst: many(reports, { relationName: 'report_target' }),
   courtCasesAgainst: many(courtCases, { relationName: 'court_accused' }),
   courtCasesOpened: many(courtCases, { relationName: 'court_moderator' }),
+  voltVerification: one(voltVerifications, { fields: [users.id], references: [voltVerifications.discordUserId] }),
+}));
+
+export const voltVerificationsRelations = relations(voltVerifications, ({ one }) => ({
+  user: one(users, { fields: [voltVerifications.discordUserId], references: [users.id] }),
 }));
 
 export const usernameHistoryRelations = relations(usernameHistory, ({ one }) => ({

@@ -17,7 +17,7 @@ import {
 
 import { Command, Permission } from '~/core/models';
 import { AppFeature, appFeatureMap, ProcessExitCode } from '~/settings';
-import { AuditEventType, getSettings, getVoltersForChapter, recordAuditEvent } from '~/database';
+import { AuditEventType, getSettings, getVerifiedVolters, recordAuditEvent } from '~/database';
 import { Logger } from '~/utilities';
 
 const APPROVAL_TIMEOUT_MS = 15 * 60 * 1000;
@@ -38,11 +38,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
     .setName('export-volters')
     .setDescription('Export verified Volt members for a chapter as CSV.')
     .setContexts(InteractionContextType.Guild)
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-    .addStringOption((o) =>
-      o.setName('chapter').setDescription('ISO country code of the chapter (e.g. DE, FR, NL)').setRequired(true).setMaxLength(4)
-    ),
-
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
   async executeCommand(command, client, interaction, middlewareData) {
     if (middlewareData.some((m) => m.status !== ProcessExitCode.OK)) return;
 
@@ -56,11 +52,9 @@ export default new Command<ApplicationCommandType.ChatInput>({
       return;
     }
 
-    const chapter = interaction.options.getString('chapter', true).toUpperCase();
-
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    await recordAuditEvent({ eventType: AuditEventType.VolterExportRequested, actorUserId: interaction.user.id, payload: { chapter } });
+    await recordAuditEvent({ eventType: AuditEventType.VolterExportRequested, actorUserId: interaction.user.id, payload: {} });
 
     const settings = await getSettings();
     const postChannel = settings.notificationChannelId
@@ -75,7 +69,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
       .setColor(color)
       .setTitle('📊 Volter Export Request')
       .setDescription('A **second Administrator** must approve. The CSV will be sent to the requester via DM only.')
-      .addFields({ name: 'Chapter', value: chapter, inline: true }, { name: 'Requested by', value: `<@${interaction.user.id}>`, inline: true })
+      .addFields({ name: 'Requested by', value: `<@${interaction.user.id}>`, inline: true })
       .setTimestamp();
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -109,23 +103,28 @@ export default new Command<ApplicationCommandType.ChatInput>({
           eventType: AuditEventType.VolterExportApproved,
           actorUserId: btn.user.id,
           targetUserId: interaction.user.id,
-          payload: { chapter },
+          payload: {},
         });
 
-        const rows = await getVoltersForChapter(chapter);
+        const rows = await getVerifiedVolters();
         const csvLines = [
-          'id,username,haiilo_link,chapter_country',
-          ...rows.map((r) => `${r.id},${csvEscape(r.username)},${csvEscape(r.haiiloLink ?? '')},${csvEscape(r.chapterCountry ?? '')}`),
+          'discord_id,username,logto_sub,verified_at,expires_at',
+          ...rows.map((r) =>
+            [
+              csvEscape(r.discordUserId),
+              csvEscape(r.username ?? ''),
+              csvEscape(r.logtoSub),
+              r.verifiedAt.toISOString(),
+              r.expiresAt.toISOString(),
+            ].join(',')
+          ),
         ];
-        const attachment = new AttachmentBuilder(Buffer.from(csvLines.join('\n'), 'utf-8'), { name: `volters-${chapter.toLowerCase()}.csv` });
+        const attachment = new AttachmentBuilder(Buffer.from(csvLines.join('\n'), 'utf-8'), { name: 'volters.csv' });
 
         let deliveryNote: string;
         try {
           const dm = await client.users.createDM(interaction.user.id);
-          await dm.send({
-            content: `✅ Volter export for chapter **${chapter}** — ${rows.length} row(s). Approved by <@${btn.user.id}>.`,
-            files: [attachment],
-          });
+          await dm.send({ content: `✅ Volter export — ${rows.length} verified member(s). Approved by <@${btn.user.id}>.`, files: [attachment] });
           deliveryNote = `CSV sent to <@${interaction.user.id}> via DM.`;
         } catch (err) {
           logger.warn(Object(err), `Failed to DM export CSV to ${interaction.user.tag}`);
@@ -141,7 +140,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
           eventType: AuditEventType.VolterExportDenied,
           actorUserId: btn.user.id,
           targetUserId: interaction.user.id,
-          payload: { chapter },
+          payload: {},
         });
 
         approvalEmbed.setTitle(`❌ Denied by ${btn.user.tag}`).setDescription(null);
@@ -152,11 +151,11 @@ export default new Command<ApplicationCommandType.ChatInput>({
     collector.on('end', async (_collected: Collection<string, ButtonInteraction>, reason: string) => {
       if (reason === 'approved' || reason === 'denied') return;
       try {
-        await message.edit({ embeds: [approvalEmbed.setTitle(`⌛ Timed out: export for ${chapter}`)], components: [] });
+        await message.edit({ embeds: [approvalEmbed.setTitle('⌛ Timed out: Volter export')], components: [] });
       } catch {
         /* best-effort */
       }
-      logger.warn(`Volter export approval timed out for chapter ${chapter} requested by ${interaction.user.tag}`);
+      logger.warn(`Volter export approval timed out, requested by ${interaction.user.tag}`);
     });
   },
 });

@@ -92,6 +92,7 @@ src/
 │   │   ├── externalPosts.ts
 │   │   ├── languages.ts
 │   │   ├── roleMappings.ts
+│   │   ├── forumRoleMappings.ts
 │   │   └── countries.ts
 │   └── repositories/               # one file per domain, pure async functions only
 │       ├── index.ts                # barrel — import everything via ~/database
@@ -109,6 +110,7 @@ src/
 │       ├── stats.ts                # cross-table aggregation queries (joins/stats)
 │       ├── languages.ts
 │       ├── roleMappings.ts
+│       ├── forumRoleMappings.ts
 │       ├── countries.ts
 │       ├── gdprDeletion.ts         # cascaded user data wipe
 │       └── volterExport.ts
@@ -188,6 +190,7 @@ src/
     ├── events/                     # auto-discovered; one file per event, flat within category
     │   ├── general/
     │   │   ├── reactionAdd.ts      # starboard trigger
+    │   │   ├── forumRoleSync.ts    # GuildMemberUpdate → add members to mapped forum threads on role gain
     │   │   └── welcome.ts          # GuildMemberAdd → starts verification flow
     │   ├── moderation/
     │   │   ├── gdprAction.ts       # button handler for GDPR deletion approval
@@ -389,25 +392,26 @@ The TypeScript enum is used everywhere in application code; the pgEnum is used o
 
 ### Tables reference
 
-| Table               | Purpose                                                                                                                                                        |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `users`             | Snowflake ID + username cache. Must exist before any FK reference. Always `upsertUser()` before inserting moderation records.                                  |
-| `username_history`  | Append-only log of username changes.                                                                                                                           |
-| `warnings`          | Moderation warnings. `revokedAt`/`revokedBy` nullable — revocation doesn't delete.                                                                             |
-| `bans`              | Bans with `active` flag and optional `expiresAt`. `banSweeper.ts` polls for expired active bans.                                                               |
-| `reports`           | User-filed reports with `ReportStatus` (open/resolved/dismissed).                                                                                              |
-| `court_cases`       | Judicial thread records. Statuses: open → finalizing → resolved/dismissed/escalated. Stores `threadId`, `verdict`, `summary` (LLM-generated), `voteMessageId`. |
-| `court_votes`       | One row per moderator per case. Unique on `(case_id, moderator_id)` — supports vote changes via upsert.                                                        |
-| `audit_log`         | Append-only event stream. `eventType` from `AuditEventType` enum, `payload` is `jsonb`.                                                                        |
-| `rules`             | Server rules with category, title, content, example. Displayed paginated in verification and via `/rules`.                                                     |
-| `settings`          | Singleton row (id=1). All runtime config.                                                                                                                      |
-| `slur_patterns`     | Regex patterns for automod. `severity`: warn/ban/review.                                                                                                       |
-| `slur_violations`   | Log of automod triggers per user per pattern.                                                                                                                  |
-| `starboard_entries` | Tracks which messages have been posted to starboard (prevents duplicates).                                                                                     |
-| `external_posts`    | Queue/log for cross-platform posts (BSKY/Instagram/Haiilo). Status: queued/posted/failed.                                                                      |
-| `languages`         | Spoken language options for verification. `group`: european/world. `showInMenu` controls whether it appears in the select menu.                                |
-| `role_mappings`     | Maps verification answer values (country/language/pronouns) to Discord role IDs. Managed via `/rolemapping`.                                                   |
-| `countries`         | Country options for verification.                                                                                                                              |
+| Table                 | Purpose                                                                                                                                                        |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `users`               | Snowflake ID + username cache. Must exist before any FK reference. Always `upsertUser()` before inserting moderation records.                                  |
+| `username_history`    | Append-only log of username changes.                                                                                                                           |
+| `warnings`            | Moderation warnings. `revokedAt`/`revokedBy` nullable — revocation doesn't delete.                                                                             |
+| `bans`                | Bans with `active` flag and optional `expiresAt`. `banSweeper.ts` polls for expired active bans.                                                               |
+| `reports`             | User-filed reports with `ReportStatus` (open/resolved/dismissed).                                                                                              |
+| `court_cases`         | Judicial thread records. Statuses: open → finalizing → resolved/dismissed/escalated. Stores `threadId`, `verdict`, `summary` (LLM-generated), `voteMessageId`. |
+| `court_votes`         | One row per moderator per case. Unique on `(case_id, moderator_id)` — supports vote changes via upsert.                                                        |
+| `audit_log`           | Append-only event stream. `eventType` from `AuditEventType` enum, `payload` is `jsonb`.                                                                        |
+| `rules`               | Server rules with category, title, content, example. Displayed paginated in verification and via `/rules`.                                                     |
+| `settings`            | Singleton row (id=1). All runtime config.                                                                                                                      |
+| `slur_patterns`       | Regex patterns for automod. `severity`: warn/ban/review.                                                                                                       |
+| `slur_violations`     | Log of automod triggers per user per pattern.                                                                                                                  |
+| `starboard_entries`   | Tracks which messages have been posted to starboard (prevents duplicates).                                                                                     |
+| `external_posts`      | Queue/log for cross-platform posts (BSKY/Instagram/Haiilo). Status: queued/posted/failed.                                                                      |
+| `languages`           | Spoken language options for verification. `group`: european/world. `showInMenu` controls whether it appears in the select menu.                                |
+| `role_mappings`       | Maps verification answer values (country/language/pronouns) to Discord role IDs. Managed via `/rolemapping`.                                                   |
+| `forum_role_mappings` | Maps Discord role IDs to forum thread channel IDs. On role assignment, bot calls `thread.members.add()` for each mapped thread. Managed via `/config forum`.   |
+| `countries`           | Country options for verification.                                                                                                                              |
 
 ### Repositories (`src/database/repositories/`)
 

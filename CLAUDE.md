@@ -1,5 +1,6 @@
 # Wattson — Claude Rules
 
+ALWAYS: Check if a fitting MCP connection exists and rely on the information provided from there.
 ALWAYS: Execute bun run script:lint and bun run script:format after every prompt!
 ALWAYS: Execute bun run build after every prompt to check for TSC errors!
 ALWAYS: Remove unnecessary DB columns or tables. Ensure the schemas stay lean and clean.
@@ -28,6 +29,7 @@ NEVER: Execute bun run db:\* commands. Always leave it to the operator.
 
 ```
 src/
+  services/          # Directory with self-hosted external services such as LLMs, Models, APIs, DBs, etc.
   core/
     commands/        # flat per category subfolder; one file per command
     components/      # Discord UI builders (PascalCase files)

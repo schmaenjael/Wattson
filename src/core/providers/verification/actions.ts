@@ -17,9 +17,6 @@ export const ANSWER_DISPLAY_NAMES: Record<string, string> = {
   spoken_languages_eu: '🇪🇺 European Languages',
   spoken_languages_other: '🌐 Other Languages',
   discovery: '🔍 How They Found Us',
-  is_member: '🟣 Volt Member?',
-  haiilo: '📋 Haiilo Profile',
-  chapter_country: '🏛️ Volt Chapter',
   rule_acceptance: '📜 Rules Accepted',
 };
 
@@ -73,23 +70,6 @@ export const grantAccess = async (member: GuildMember, answers: FlowAnswers): Pr
 
   for (const mapping of [...countryRoles, ...pronounsRoles, ...langRoles]) {
     await member.roles.add(mapping.roleId, 'Verification role mapping').catch(() => null);
-  }
-};
-
-export const assignVolterRoles = async (
-  member: GuildMember,
-  answers: FlowAnswers,
-  settings: Awaited<ReturnType<typeof getSettings>>
-): Promise<void> => {
-  if (settings.roleMemberId) {
-    await member.roles.add(settings.roleMemberId, 'Volt member verified').catch(() => null);
-  }
-  const chapterCountry = typeof answers['chapter_country'] === 'string' ? answers['chapter_country'] : '';
-  if (chapterCountry) {
-    const chapterRoles = await getRoleMappingsForAnswers(RoleMappingType.Country, [chapterCountry]);
-    for (const mapping of chapterRoles) {
-      await member.roles.add(mapping.roleId, 'Volt chapter role').catch(() => null);
-    }
   }
 };
 

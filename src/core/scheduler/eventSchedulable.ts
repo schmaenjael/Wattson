@@ -1,9 +1,7 @@
-import { CronExpressionParser } from 'cron-parser';
+import { Cron } from 'croner';
 import { EmbedBuilder, TextChannel } from 'discord.js';
 
-import { Client } from '~/core/models';
 import { AppFeature, appFeatureMap } from '~/settings';
-import { Logger } from '~/utilities';
 import {
   getSettings,
   updateSettings,
@@ -14,23 +12,25 @@ import {
   createEvent,
   findNextRepeatInstance,
 } from '~/database';
-
-const POLL_INTERVAL_MS = 600_000;
-const ANNOUNCEMENT_WINDOW_MS = 60 * 60 * 1000;
-
-const logger = Logger.getInstance(AppFeature.Events);
+import { Schedulable } from '~/core/models/Schedulable';
+import { Client } from '~/core/models/Client';
+import { Logger } from '~/utilities';
 
 const ts = (date: Date) => `<t:${Math.floor(date.getTime() / 1000)}:F>`;
 
-const announceEvent = async (client: Client, settings: Awaited<ReturnType<typeof getSettings>>) => {
+const announceEvent = async (client: Client, settings: Awaited<ReturnType<typeof getSettings>>, logger: Logger) => {
+  const ANNOUNCEMENT_WINDOW_MS = 60 * 60 * 1000;
   const upcoming = await listAnnouncableEvents(ANNOUNCEMENT_WINDOW_MS);
-  if (upcoming.length === 0) return;
+  if (upcoming.length === 0) {
+    return 0;
+  }
+
+  const color = appFeatureMap[AppFeature.Events].color;
 
   for (const event of upcoming) {
     try {
       const registrations = await listRegistrationsForEvent(event.id);
       const pings = registrations.length > 0 ? registrations.map((r) => `<@${r.userId}>`).join(' ') : '';
-      const color = appFeatureMap[AppFeature.Events].color;
 
       const embed = new EmbedBuilder()
         .setColor(color)
@@ -75,8 +75,10 @@ const announceEvent = async (client: Client, settings: Awaited<ReturnType<typeof
         const existing = await findNextRepeatInstance(event.id);
         if (!existing) {
           try {
-            const parsed = CronExpressionParser.parse(event.cronPattern, { currentDate: event.scheduledAt });
-            const nextDate = parsed.next().toDate();
+            const nextDate = new Cron(event.cronPattern).nextRun(event.scheduledAt);
+            if (!nextDate) {
+              continue;
+            }
             const rootId = event.parentEventId ?? event.id;
             await createEvent({
               creatorId: event.creatorId,
@@ -98,18 +100,24 @@ const announceEvent = async (client: Client, settings: Awaited<ReturnType<typeof
       logger.error(Object(err), `Error processing event ${event.id}`);
     }
   }
+
+  return upcoming.length;
 };
 
-const weeklyDigest = async (client: Client, settings: Awaited<ReturnType<typeof getSettings>>) => {
+const weeklyDigest = async (client: Client, settings: Awaited<ReturnType<typeof getSettings>>, logger: Logger) => {
   const now = new Date();
-  if (now.getUTCDay() !== 1 || now.getUTCHours() !== 7) return;
+  if (now.getUTCDay() !== 1 || now.getUTCHours() !== 7) {
+    return false;
+  }
 
   const lastDigest = settings.lastEventDigestAt;
   if (lastDigest) {
     const lastMonday = new Date(now);
     lastMonday.setUTCHours(0, 0, 0, 0);
     lastMonday.setUTCDate(lastMonday.getUTCDate() - lastMonday.getUTCDay() + 1);
-    if (lastDigest >= lastMonday) return;
+    if (lastDigest >= lastMonday) {
+      return false;
+    }
   }
 
   const weekEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -118,7 +126,7 @@ const weeklyDigest = async (client: Client, settings: Awaited<ReturnType<typeof 
   if (!settings.eventAnnouncementChannelId) {
     logger.warn('Weekly digest skipped: eventAnnouncementChannelId not set');
     await updateSettings({ lastEventDigestAt: now });
-    return;
+    return false;
   }
 
   const color = appFeatureMap[AppFeature.Events].color;
@@ -139,19 +147,29 @@ const weeklyDigest = async (client: Client, settings: Awaited<ReturnType<typeof 
   }
 
   await updateSettings({ lastEventDigestAt: now });
+  return true;
 };
 
-export const startEventSweeper = (client: Client) => {
-  const sweep = async () => {
-    try {
-      const settings = await getSettings();
-      await announceEvent(client, settings);
-      await weeklyDigest(client, settings);
-    } catch (err) {
-      logger.error(Object(err), 'Event sweeper failed');
+export const eventSchedulable = new Schedulable({
+  name: 'event-sweeper',
+  feature: AppFeature.Events,
+  description: 'Announces upcoming events and sends weekly digests.',
+  defaultCron: '*/10 * * * *',
+  execute: async (client, logger) => {
+    const settings = await getSettings();
+    const announced = await announceEvent(client, settings, logger);
+    const digest = await weeklyDigest(client, settings, logger);
+
+    if (!announced && !digest) {
+      return;
     }
-  };
-
-  sweep();
-  return setInterval(sweep, POLL_INTERVAL_MS);
-};
+    const parts: string[] = [];
+    if (announced) {
+      parts.push(`Announced ${announced} event(s).`);
+    }
+    if (digest) {
+      parts.push('Sent weekly digest.');
+    }
+    return parts.join(' ');
+  },
+});

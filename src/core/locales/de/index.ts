@@ -26,6 +26,8 @@ const de = {
         EMBED_TITLE: 'Danke dir~',
         EMBED_DESCRIPTION:
           'Deine Antworten wurden eingereicht und werden vom Moderationsteam geprüft. Dieser Prozess kann **mehrere Tage** dauern – vielen Dank für deine Geduld!',
+        VOLTER_HINT:
+          '💜 **Bist du Volt-Mitglied?** Sobald deine Verifizierung genehmigt wurde und du Serverzugang hast, führe `/verify volter` aus, um deine Volter-Rolle zu erhalten.',
       },
       DENIED: {
         EMBED_TITLE: 'Es tut uns leid!',
@@ -45,14 +47,6 @@ const de = {
         SUCCESS: '✅ Deine Verifizierung startet – prüfe deine DMs!',
         ALREADY_ACTIVE: '⚠️ Für dein Konto läuft bereits eine Verifizierung.',
         ALREADY_VERIFIED: '✅ Du bist bereits verifiziert und hast vollen Zugang zum Server.',
-      },
-      VOLTER: {
-        SUCCESS: '✅ Deine Volter-Verifizierung startet – prüfe deine DMs!',
-        ALREADY_ACTIVE: '⚠️ Für dein Konto läuft bereits eine Verifizierung.',
-        ALREADY_VOLTER: '✅ Du hast bereits den Volt-Mitglieds-Status auf diesem Server.',
-        NOT_VERIFIED: '⚠️ Du bist noch nicht verifiziert. Bitte nutze zuerst `/verify start`.',
-        SUBMITTED_TITLE: '🟣 Volter-Antrag eingereicht',
-        SUBMITTED: 'Dein Haiilo-Profil wurde zur Prüfung eingereicht. Ein Moderator wird deine Volt-Mitgliedschaft in Kürze bestätigen.',
       },
       QUESTIONS: {
         QUESTION_ICEBREAKER: {
@@ -79,20 +73,6 @@ const de = {
         },
         QUESTION_PRONOUNS: { TITLE: 'Welche Pronomen verwendest du?', DESCRIPTION: 'So können wir dich korrekt ansprechen – danke fürs Ausfüllen!' },
         QUESTION_DISCOVERY: { TITLE: 'Wie bist du auf den Volt-Discord gestoßen?', DESCRIPTION: 'Wir sind neugierig: Wie hast du uns gefunden?' },
-        QUESTION_IS_MEMBER: {
-          TITLE: 'Bist du Mitglied oder Freiwillige*r bei Volt Europa?',
-          DESCRIPTION:
-            'Wähle Ja, wenn du registriertes Mitglied oder aktive*r Freiwillige*r einer Volt-Partei bist. Wenn ja, fragen wir dich im nächsten Schritt nach deinem Haiilo-Profillink.',
-        },
-        QUESTION_HAIILO: {
-          TITLE: 'Bitte teile deinen Haiilo-Profillink',
-          DESCRIPTION: 'Öffne dein Volt-Haiilo-Profil und kopiere die URL. Erwartetes Format: `https://volt.haiilo.app/profile/dein-name`',
-          VALIDATION_ERROR: '❌ Bitte gib eine gültige Haiilo-Profil-URL an (https://volt.haiilo.app/profile/dein-name).',
-        },
-        QUESTION_CHAPTER_COUNTRY: {
-          TITLE: 'Welchem nationalen Volt-Chapter bist du angehörig?',
-          DESCRIPTION: 'Wähle das europäische Land, dessen Volt-Partei du als Mitglied angehörst.',
-        },
         QUESTION_RULE_ACCEPTANCE: {
           TITLE: '📜 Serverregeln',
           DESCRIPTION:
@@ -120,6 +100,20 @@ const de = {
     EVENT_READY: {
       EMBED_TITLE: 'Wattson – Stets zu Diensten',
       EMBED_DESCRIPTION: 'Der ehrenwerte Detektiv Watson ist nun online und bereit, seinen Dienst anzutreten.',
+    },
+    VOLT_VERIFICATION: {
+      EMBED_TITLE: '🟣 Volt-Mitgliedschaft verifizieren',
+      EMBED_DESCRIPTION:
+        '**1.** Öffne diesen Link: {url:string}\n**2.** Gib den Code `{code:string}` ein, falls nicht vorausgefüllt\n**3.** Melde dich mit deinem Volt-Konto an\n\nDieser Code läuft ab {expiry:string}.',
+      SUCCESS_TITLE: '✅ Volt-Mitgliedschaft verifiziert!',
+      SUCCESS: 'Willkommen, Volter! Deine Mitgliedschaft wurde bestätigt und ist 12 Monate lang gültig.',
+      ALREADY_VERIFIED: '✅ Du hast bereits eine aktive Volt-Verifizierung, gültig bis {expiry:string}.',
+      IN_PROGRESS: '⏳ Für dein Konto läuft bereits eine Verifizierungssitzung. Bitte schließe diese ab oder warte, bis sie abläuft.',
+      NOT_ENROLLED: '❌ Du musst zuerst `/verify start` abschließen und Serverzugang haben, bevor du deine Volt-Mitgliedschaft verifizieren kannst.',
+      TIMEOUT: '⏱️ Verifizierung abgelaufen. Bitte starte mit `/verify volter` eine neue Sitzung.',
+      DENIED: '❌ Du hast die Autorisierung abgelehnt. Versuche es mit `/verify volter` erneut.',
+      ERROR: '❌ Verifizierung fehlgeschlagen. Bitte versuche es später erneut.',
+      LOG_TITLE: '💜 Volt-Mitgliedschaft verifiziert',
     },
   },
   GENERAL: {

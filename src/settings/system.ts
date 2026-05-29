@@ -65,6 +65,10 @@ export enum AppFeature {
   Appeal = 'Appeal',
   UserRecord = 'UserRecord',
   Events = 'Events',
+  ForumRoles = 'ForumRoles',
+  VolterVerification = 'VolterVerification',
+  VerificationSweeper = 'VerificationSweeper',
+  Scheduler = 'Scheduler',
 }
 
 export enum LogNamespace {
@@ -111,10 +115,10 @@ export const appFeatureMap: { [K in AppFeature]: { category: Categories; namespa
   [AppFeature.Appeal]: { category: AbilityCategories.Moderation, namespace: LogNamespace.Moderation, color: Colors.Blue },
   [AppFeature.UserRecord]: { category: AbilityCategories.Moderation, namespace: LogNamespace.Moderation, color: Colors.Purple },
   [AppFeature.Events]: { category: AbilityCategories.Utility, namespace: LogNamespace.Utility, color: Colors.Blue },
+  [AppFeature.ForumRoles]: { category: AbilityCategories.Utility, namespace: LogNamespace.Utility, color: Colors.Blue },
+  [AppFeature.VolterVerification]: { category: AbilityCategories.Utility, namespace: LogNamespace.Utility, color: Colors.Purple },
+  [AppFeature.VerificationSweeper]: { category: AbilityCategories.Surveillance, namespace: LogNamespace.Surveillance, color: Colors.Purple },
+  [AppFeature.Scheduler]: { category: SystemCategories.System, namespace: LogNamespace.System, color: Colors.Yellow },
 } as const;
 
-export const SNOWFLAKE_ID_LENGTH = 20;
-export const MAX_PREFIX_LENGTH = 1;
-export const USERNAME_LENGTH = 32;
-export const MAX_COMMENT_LENGTH = 512;
 export const MOD_LIST_PAGE_SIZE = 10;

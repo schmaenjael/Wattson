@@ -9,4 +9,9 @@ export const REQUIRED_ENV_VARS: (keyof Environment)[] = [
   'POSTGRES_HOST',
   'BOT_USERNAME',
   'BOT_PASSWORD',
+  'LOGTO_ENDPOINT',
+  'LOGTO_DEVICE_APP_ID',
+  'LOGTO_M2M_APP_ID',
+  'LOGTO_M2M_APP_SECRET',
+  'LOGTO_MANAGEMENT_API_RESOURCE',
 ] as const;

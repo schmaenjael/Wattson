@@ -11,7 +11,7 @@ import {
 
 import { Command, Permission } from '~/core/models';
 import { AppFeature, appFeatureMap, ProcessExitCode } from '~/settings';
-import { getSettings } from '~/database';
+import { Logger } from '~/utilities';
 
 export default new Command<ApplicationCommandType.ChatInput>({
   feature: AppFeature.Say,
@@ -69,28 +69,25 @@ export default new Command<ApplicationCommandType.ChatInput>({
 
     const sent = await targetChannel.send(sendOptions);
 
-    const settings = await getSettings();
-    if (settings.sayLogChannelId) {
-      const logChannel = (await interaction.guild!.channels.fetch(settings.sayLogChannelId).catch(() => null)) as TextChannel | null;
-      await logChannel
-        ?.send({
-          embeds: [
-            new EmbedBuilder()
-              .setColor(appFeatureMap[command.options.feature].color)
-              .setTitle('Bot message sent')
-              .addFields(
-                { name: 'By', value: `<@${interaction.user.id}>`, inline: true },
-                { name: 'In', value: `<#${targetChannel.id}>`, inline: true },
-                { name: 'Message', value: `[Jump](${sent.url})`, inline: true },
-                ...(text ? [{ name: 'Content', value: text.length > 1024 ? `${text.slice(0, 1021)}…` : text }] : []),
-                ...(replyTarget ? [{ name: 'Reply to', value: `[Jump](${replyTarget.url})`, inline: true }] : []),
-                ...(attachment ? [{ name: 'Attachment', value: attachment.name }] : [])
-              )
-              .setTimestamp(),
-          ],
-        })
-        .catch(() => null);
-    }
+    const logger = Logger.getInstance(AppFeature.Say);
+    await logger.log({
+      level: 'info',
+      message: `Bot message sent by ${interaction.user.id} in ${targetChannel.id}`,
+      data: { userId: interaction.user.id, channelId: targetChannel.id, messageId: sent.id },
+      target: 'moderation',
+      internalEmbed: new EmbedBuilder()
+        .setColor(appFeatureMap[command.options.feature].color)
+        .setTitle('Bot message sent')
+        .addFields(
+          { name: 'By', value: `<@${interaction.user.id}>`, inline: true },
+          { name: 'In', value: `<#${targetChannel.id}>`, inline: true },
+          { name: 'Message', value: `[Jump](${sent.url})`, inline: true },
+          ...(text ? [{ name: 'Content', value: text.length > 1024 ? `${text.slice(0, 1021)}…` : text }] : []),
+          ...(replyTarget ? [{ name: 'Reply to', value: `[Jump](${replyTarget.url})`, inline: true }] : []),
+          ...(attachment ? [{ name: 'Attachment', value: attachment.name }] : [])
+        )
+        .setTimestamp(),
+    });
 
     await interaction.editReply({ content: `Done. [Jump to message](${sent.url})` });
   },

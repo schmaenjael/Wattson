@@ -14,11 +14,10 @@ export const settings = pgTable(
 
     // Channel IDs (nullable until configured)
     notificationChannelId: varchar({ length: SNOWFLAKE_LENGTH }),
+    modLogChannelId: varchar({ length: SNOWFLAKE_LENGTH }),
     publicLogChannelId: varchar({ length: SNOWFLAKE_LENGTH }),
     surveillanceLogChannelId: varchar({ length: SNOWFLAKE_LENGTH }),
     reportsLogChannelId: varchar({ length: SNOWFLAKE_LENGTH }),
-    warningsLogChannelId: varchar({ length: SNOWFLAKE_LENGTH }),
-    bansLogChannelId: varchar({ length: SNOWFLAKE_LENGTH }),
     welcomeChannelId: varchar({ length: SNOWFLAKE_LENGTH }),
     approvalChannelId: varchar({ length: SNOWFLAKE_LENGTH }),
     courtParentChannelId: varchar({ length: SNOWFLAKE_LENGTH }),
@@ -44,7 +43,6 @@ export const settings = pgTable(
     starboardEmojiTiers: varchar({ length: 512 }).notNull().default('1:⭐,5:🌟,10:💫,25:🌠'),
 
     // Harm detection
-    harmAlertChannelId: varchar({ length: SNOWFLAKE_LENGTH }),
     featureHarmDetectionEnabled: boolean().notNull().default(false),
 
     // Profanity filter (file-based, configured via PROFANITY_LIST_PATH env var)
@@ -67,9 +65,6 @@ export const settings = pgTable(
 
     // React command defaults
     reactDefaultEmojis: varchar({ length: 512 }).notNull().default('👍,👎'),
-
-    // Say command log channel
-    sayLogChannelId: varchar({ length: SNOWFLAKE_LENGTH }),
 
     // Invite tracking
     featureInviteTrackingEnabled: boolean().notNull().default(false),

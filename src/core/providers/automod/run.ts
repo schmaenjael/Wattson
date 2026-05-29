@@ -23,12 +23,6 @@ const CONFIDENCE_EMOJI: Record<string, string> = { low: '🟡', medium: '🟠', 
 
 const _harmAlertState = new Map<string, { alertMessageId: string; count: number }>();
 
-const logToSurveillance = async (guild: NonNullable<TextChannel['guild']>, channelId: string | null | undefined, text: string): Promise<void> => {
-  if (!channelId) return;
-  const ch = (await guild.channels.fetch(channelId).catch(() => null)) as TextChannel | null;
-  await ch?.send({ content: text.slice(0, 2000) }).catch(() => null);
-};
-
 const postHarmAlert = async (
   result: HarmDetectionResult,
   authorId: string,
@@ -80,11 +74,7 @@ const postHarmAlert = async (
   }
 };
 
-const issueAutoWarn = async (
-  message: Message<true>,
-  result: HarmDetectionResult,
-  settings: Awaited<ReturnType<typeof getSettings>>
-): Promise<void> => {
+const issueAutoWarn = async (message: Message<true>, result: HarmDetectionResult): Promise<void> => {
   const botId = message.client.user!.id;
   const botUsername = message.client.user!.username;
   const categoryList = result.detectedCategories.map((c) => CATEGORY_LABELS[c]).join(', ');
@@ -121,25 +111,28 @@ const issueAutoWarn = async (
       .catch(() => null);
   }
 
-  if (settings.warningsLogChannelId) {
-    const logChannel = (await message.guild.channels.fetch(settings.warningsLogChannelId).catch(() => null)) as TextChannel | null;
-    await logChannel
-      ?.send({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(Colors.Orange)
-            .setTitle(`Auto-Warning #${warning.id}`)
-            .addFields(
-              { name: 'Target', value: `<@${message.author.id}>`, inline: true },
-              { name: 'Moderator', value: 'Automod', inline: true },
-              { name: 'Expires', value: warning.expiresAt ? `<t:${Math.floor(warning.expiresAt.getTime() / 1000)}:R>` : 'Never', inline: true },
-              { name: 'Reason', value: reason }
-            )
-            .setTimestamp(warning.createdAt),
-        ],
-      })
-      .catch(() => null);
-  }
+  const autoWarnLogger = Logger.getInstance(AppFeature.Surveillance);
+  await autoWarnLogger.log({
+    level: 'info',
+    message: `Auto-warning #${warning.id} issued against ${message.author.id}`,
+    data: { warningId: warning.id, targetId: message.author.id },
+    target: 'moderation',
+    internalEmbed: new EmbedBuilder()
+      .setColor(Colors.Orange)
+      .setTitle(`Auto-Warning #${warning.id}`)
+      .addFields(
+        { name: 'Target', value: `<@${message.author.id}>`, inline: true },
+        { name: 'Moderator', value: 'Automod', inline: true },
+        { name: 'Expires', value: warning.expiresAt ? `<t:${Math.floor(warning.expiresAt.getTime() / 1000)}:R>` : 'Never', inline: true },
+        { name: 'Reason', value: reason }
+      )
+      .setTimestamp(warning.createdAt),
+    publicEmbed: new EmbedBuilder()
+      .setColor(Colors.Orange)
+      .setTitle('🤖 Automod Action')
+      .addFields({ name: 'User', value: `<@${message.author.id}>` }, { name: 'Reason', value: reason })
+      .setTimestamp(warning.createdAt),
+  });
 };
 
 const runLlmCheck = async (content: string, settings: Awaited<ReturnType<typeof getSettings>>): Promise<HarmDetectionResult | null> => {
@@ -169,11 +162,18 @@ export const runAutomod = async (message: Message<true>, settings: Awaited<Retur
           targetUserId: message.author.id,
           payload: { domain: blocked, messageId: message.id, channelId: message.channelId },
         });
-        await logToSurveillance(
-          message.guild,
-          settings.surveillanceLogChannelId,
-          `🚫 **link filter** on <@${message.author.id}> in <#${message.channelId}>\n> blocked domain: \`${blocked}\``
-        );
+        await logger.log({
+          level: 'info',
+          message: `Link filter blocked domain ${blocked} from ${message.author.id}`,
+          data: { domain: blocked, userId: message.author.id, channelId: message.channelId },
+          target: 'surveillance',
+          internalEmbed: new EmbedBuilder()
+            .setColor(Colors.Red)
+            .setTitle('🚫 Link Filter')
+            .setDescription(`<@${message.author.id}> in <#${message.channelId}>`)
+            .addFields({ name: 'Blocked domain', value: `\`${blocked}\`` })
+            .setTimestamp(),
+        });
         return;
       }
     }
@@ -209,48 +209,66 @@ export const runAutomod = async (message: Message<true>, settings: Awaited<Retur
           // Severity ≥ threshold → delete immediately, no LLM
           await message.delete().catch(() => null);
           logger.info({ word: match.word, severity: match.severity, userId: message.author.id }, 'Profanity: immediate delete.');
-          await logToSurveillance(
-            message.guild,
-            settings.surveillanceLogChannelId,
-            `🚫 **profanity** sev${match.severity} \`${match.word}\` — deleted · <@${message.author.id}> in <#${message.channelId}>\n\`\`\`\n${excerpt.slice(0, 400)}\n\`\`\``
-          );
+          await logger.log({
+            level: 'info',
+            message: `Profanity sev${match.severity} deleted: ${message.author.id}`,
+            data: { word: match.word, severity: match.severity, userId: message.author.id, channelId: message.channelId },
+            target: 'surveillance',
+            internalEmbed: new EmbedBuilder()
+              .setColor(Colors.Red)
+              .setTitle('🚫 Profanity — Deleted')
+              .setDescription(`<@${message.author.id}> in <#${message.channelId}>`)
+              .addFields(
+                { name: 'Word', value: `\`${match.word}\``, inline: true },
+                { name: 'Severity', value: `${match.severity}`, inline: true },
+                { name: 'Excerpt', value: `\`\`\`\n${excerpt.slice(0, 400)}\n\`\`\`` }
+              )
+              .setTimestamp(),
+          });
           return;
         }
 
-        // Severity < threshold → always ask LLM for context
-        logger.debug({ word: match.word, severity: match.severity }, 'Profanity: LLM context check.');
+        // Severity < threshold → ask LLM for context; only act on high confidence
         const result = await runLlmCheck(message.content, settings);
 
         if (result?.anyDetected) {
           const isHighConfidence = result.detectedCategories.some((cat) => result.categories[cat].confidence === 'high');
-          await message.delete().catch(() => null);
-          logger.info({ word: match.word, categories: result.detectedCategories, isHighConfidence }, 'Profanity: LLM confirmed harm, deleted.');
           if (isHighConfidence) {
-            await issueAutoWarn(message, result, settings);
-          }
-          await logToSurveillance(
-            message.guild,
-            settings.surveillanceLogChannelId,
-            `🚫 **profanity+llm** sev${match.severity} \`${match.word}\` — LLM confirmed${isHighConfidence ? ' · warned' : ''} · <@${message.author.id}> in <#${message.channelId}>\n\`\`\`\n${excerpt.slice(0, 400)}\n\`\`\``
-          );
-          if (settings.harmAlertChannelId) {
-            await postHarmAlert(
-              result,
-              message.author.id,
-              message.channelId,
-              message.id,
-              message.content,
-              message.guild,
-              settings.harmAlertChannelId
+            await message.delete().catch(() => null);
+            await issueAutoWarn(message, result);
+            logger.info(
+              { word: match.word, categories: result.detectedCategories },
+              'Profanity: LLM confirmed high confidence harm, deleted + warned.'
             );
+            await logger.log({
+              level: 'info',
+              message: `Profanity+LLM sev${match.severity} deleted+warned: ${message.author.id}`,
+              data: { word: match.word, categories: result.detectedCategories, userId: message.author.id, channelId: message.channelId },
+              target: 'surveillance',
+              internalEmbed: new EmbedBuilder()
+                .setColor(Colors.Red)
+                .setTitle('🚫 Profanity + LLM — Deleted + Warned')
+                .setDescription(`<@${message.author.id}> in <#${message.channelId}>`)
+                .addFields(
+                  { name: 'Word', value: `\`${match.word}\``, inline: true },
+                  { name: 'Severity', value: `${match.severity}`, inline: true },
+                  { name: 'Categories', value: result.detectedCategories.map((c) => CATEGORY_LABELS[c]).join(', ') },
+                  { name: 'Excerpt', value: `\`\`\`\n${excerpt.slice(0, 400)}\n\`\`\`` }
+                )
+                .setTimestamp(),
+            });
+            if (settings.surveillanceLogChannelId) {
+              await postHarmAlert(
+                result,
+                message.author.id,
+                message.channelId,
+                message.id,
+                message.content,
+                message.guild,
+                settings.surveillanceLogChannelId
+              );
+            }
           }
-        } else {
-          logger.debug({ word: match.word }, 'Profanity: LLM cleared — flagged only.');
-          await logToSurveillance(
-            message.guild,
-            settings.surveillanceLogChannelId,
-            `📋 **profanity flagged** sev${match.severity} \`${match.word}\` — LLM cleared · <@${message.author.id}> in <#${message.channelId}>`
-          );
         }
 
         return;
@@ -275,26 +293,27 @@ export const runAutomod = async (message: Message<true>, settings: Awaited<Retur
   if (!result.anyDetected) return;
 
   const isHighConfidence = result.detectedCategories.some((cat) => result.categories[cat].confidence === 'high');
+  if (!isHighConfidence) return;
 
-  if (isHighConfidence) {
-    await message.delete().catch(() => null);
-    await issueAutoWarn(message, result, settings);
-    logger.info({ categories: result.detectedCategories }, 'Harm detection: high confidence — deleted + warned.');
-    await logToSurveillance(
-      message.guild,
-      settings.surveillanceLogChannelId,
-      `🚫 **harm detection** — deleted + warned · <@${message.author.id}> in <#${message.channelId}>\nCategories: ${result.detectedCategories.map((c) => `${CATEGORY_LABELS[c]} (high)`).join(', ')}`
-    );
-  } else {
-    logger.info({ categories: result.detectedCategories }, 'Harm detection: low/medium confidence — alert only.');
+  await message.delete().catch(() => null);
+  await issueAutoWarn(message, result);
+  logger.info({ categories: result.detectedCategories }, 'Harm detection: high confidence — deleted + warned.');
+  await logger.log({
+    level: 'info',
+    message: `Harm detection deleted+warned: ${message.author.id}`,
+    data: { categories: result.detectedCategories, userId: message.author.id, channelId: message.channelId },
+    target: 'surveillance',
+    internalEmbed: new EmbedBuilder()
+      .setColor(Colors.Red)
+      .setTitle('⚠️ Harm Detected — Deleted + Warned')
+      .setDescription(`<@${message.author.id}> in <#${message.channelId}>`)
+      .addFields({ name: 'Categories', value: result.detectedCategories.map((c) => `${CATEGORY_LABELS[c]} (high)`).join(', ') })
+      .setTimestamp(),
+  });
+
+  if (settings.surveillanceLogChannelId) {
+    await postHarmAlert(result, message.author.id, message.channelId, message.id, message.content, message.guild, settings.surveillanceLogChannelId);
   }
-
-  if (!settings.harmAlertChannelId) {
-    logger.warn('Harm detected but harmAlertChannelId not configured — skipping alert.');
-    return;
-  }
-
-  await postHarmAlert(result, message.author.id, message.channelId, message.id, message.content, message.guild, settings.harmAlertChannelId);
   await recordAuditEvent({
     eventType: AuditEventType.AutomodTriggered,
     targetUserId: message.author.id,
@@ -303,7 +322,7 @@ export const runAutomod = async (message: Message<true>, settings: Awaited<Retur
       detectedCategories: result.detectedCategories,
       messageId: message.id,
       channelId: message.channelId,
-      action: isHighConfidence ? 'delete_warn' : 'alert',
+      action: 'delete_warn',
     },
   });
 };

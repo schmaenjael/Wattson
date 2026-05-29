@@ -1,9 +1,10 @@
-import { EmbedBuilder, Events, TextChannel } from 'discord.js';
+import { EmbedBuilder, Events } from 'discord.js';
 
 import { AppFeature } from '~/settings';
 import { Colors } from '~/settings/theme';
 import { AuditEventType, getSettings, recordAuditEvent } from '~/database';
 import { Event } from '~/core/models';
+import { Logger } from '~/utilities';
 import { runAutomod } from '~/core/providers/automod/run';
 
 const MAX_DISPLAY = 1000;
@@ -81,51 +82,54 @@ export default new Event({
 
     const settings = await getSettings();
 
-    if (settings.featureSurveillanceEnabled && settings.surveillanceLogChannelId) {
-      const logChannel = (await newMessage.guild.channels.fetch(settings.surveillanceLogChannelId).catch(() => null)) as TextChannel | null;
+    if (settings.featureSurveillanceEnabled) {
+      const rawBefore = oldMessage.content;
+      const rawAfter = newMessage.content ?? '';
 
-      if (logChannel) {
-        const rawBefore = oldMessage.content;
-        const rawAfter = newMessage.content ?? '';
+      let beforeDisplay: string;
+      let afterDisplay: string;
+      let metricsValue: string;
 
-        let beforeDisplay: string;
-        let afterDisplay: string;
-        let metricsValue: string;
-
-        if (rawBefore) {
-          const { before, after } = diffWords(rawBefore, rawAfter);
-          beforeDisplay = before.slice(0, MAX_DISPLAY) || '*(empty)*';
-          afterDisplay = after.slice(0, MAX_DISPLAY) || '*(empty)*';
-          const lev = levenshtein(rawBefore.slice(0, METRIC_CAP), rawAfter.slice(0, METRIC_CAP));
-          const jaccard = jaccardWordDistance(rawBefore, rawAfter);
-          metricsValue = `Levenshtein: \`${lev}\` · Jaccard word dist: \`${jaccard.toFixed(2)}\``;
-        } else {
-          beforeDisplay = '*(not in cache)*';
-          afterDisplay = rawAfter.slice(0, MAX_DISPLAY) || '*(empty)*';
-          metricsValue = '*(metrics unavailable — old message not in cache)*';
-        }
-
-        const embed = new EmbedBuilder()
-          .setColor(Colors.Yellow)
-          .setTitle('✏️ Message Edited')
-          .setDescription(`<@${newMessage.author.id}> in <#${newMessage.channelId}> · [Jump](${newMessage.url})`)
-          .addFields({ name: 'Before', value: beforeDisplay }, { name: 'After', value: afterDisplay }, { name: 'Metrics', value: metricsValue })
-          .setFooter({ text: `Message ID: ${newMessage.id}` })
-          .setTimestamp();
-
-        await logChannel.send({ embeds: [embed] }).catch(() => null);
-
-        await recordAuditEvent({
-          eventType: AuditEventType.MessageEdited,
-          targetUserId: newMessage.author?.id,
-          payload: {
-            messageId: newMessage.id,
-            channelId: newMessage.channelId,
-            before: oldMessage.content ? oldMessage.content.slice(0, 512) : null,
-            after: (newMessage.content ?? '').slice(0, 512),
-          },
-        });
+      if (rawBefore) {
+        const { before, after } = diffWords(rawBefore, rawAfter);
+        beforeDisplay = before.slice(0, MAX_DISPLAY) || '*(empty)*';
+        afterDisplay = after.slice(0, MAX_DISPLAY) || '*(empty)*';
+        const lev = levenshtein(rawBefore.slice(0, METRIC_CAP), rawAfter.slice(0, METRIC_CAP));
+        const jaccard = jaccardWordDistance(rawBefore, rawAfter);
+        metricsValue = `Levenshtein: \`${lev}\` · Jaccard word dist: \`${jaccard.toFixed(2)}\``;
+      } else {
+        beforeDisplay = '*(not in cache)*';
+        afterDisplay = rawAfter.slice(0, MAX_DISPLAY) || '*(empty)*';
+        metricsValue = '*(metrics unavailable — old message not in cache)*';
       }
+
+      const embed = new EmbedBuilder()
+        .setColor(Colors.Yellow)
+        .setTitle('✏️ Message Edited')
+        .setDescription(`<@${newMessage.author.id}> in <#${newMessage.channelId}> · [Jump](${newMessage.url})`)
+        .addFields({ name: 'Before', value: beforeDisplay }, { name: 'After', value: afterDisplay }, { name: 'Metrics', value: metricsValue })
+        .setFooter({ text: `Message ID: ${newMessage.id}` })
+        .setTimestamp();
+
+      const logger = Logger.getInstance(AppFeature.Surveillance);
+      await logger.log({
+        level: 'info',
+        message: `Message edited by ${newMessage.author.id} in ${newMessage.channelId}`,
+        data: { messageId: newMessage.id, channelId: newMessage.channelId },
+        target: 'surveillance',
+        internalEmbed: embed,
+      });
+
+      await recordAuditEvent({
+        eventType: AuditEventType.MessageEdited,
+        targetUserId: newMessage.author?.id,
+        payload: {
+          messageId: newMessage.id,
+          channelId: newMessage.channelId,
+          before: oldMessage.content ? oldMessage.content.slice(0, 512) : null,
+          after: (newMessage.content ?? '').slice(0, 512),
+        },
+      });
     }
 
     if (newMessage.content) {
