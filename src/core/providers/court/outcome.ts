@@ -15,6 +15,7 @@ import {
 } from '~/database';
 import type { Client } from '~/core/models';
 import { summarizeCourtThread } from './summarizer';
+import { attempt } from '~/utilities';
 
 const COLOR = appFeatureMap[AppFeature.System].color;
 
@@ -97,19 +98,15 @@ export const fetchCourtSummary = async (client: Client, caseRow: CourtCase): Pro
 };
 
 export const archiveCourtThread = async (client: Client, caseRow: CourtCase, message: string): Promise<void> => {
-  try {
+  await attempt(async () => {
     const channel = await client.channels.fetch(caseRow.threadId);
     if (channel && channel.isThread()) {
       await channel.send({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle('Case closed').setDescription(message).setTimestamp()] });
-      try {
+      await attempt(async () => {
         await channel.setArchived(true);
-      } catch {
-        // best-effort
-      }
+      });
     }
-  } catch {
-    // best-effort
-  }
+  });
 };
 
 // ─── Outcome execution ───────────────────────────────────────────────────────
@@ -135,23 +132,25 @@ export const executeCaseOutcome = async (
 
   await upsertUser({ id: botId, username: botUsername });
 
-  if (outcome === CourtVoteOption.Warn) {
-    await insertWarning({ targetUserId: caseRow.accusedUserId, moderatorId: botId, reason: `Court case #${caseRow.id} — moderator panel verdict` });
-  } else if (outcome === CourtVoteOption.Ban) {
-    await guild.bans.create(caseRow.accusedUserId, { reason: `[court #${caseRow.id}] moderator panel verdict` }).catch(() => null);
-    await insertBan({
-      targetUserId: caseRow.accusedUserId,
-      moderatorId: botId,
-      reason: `Court case #${caseRow.id} — moderator panel verdict`,
-      expiresAt: null,
-      appealable: true,
-    });
-  }
+  if (caseRow.accusedUserId) {
+    if (outcome === CourtVoteOption.Warn) {
+      await insertWarning({ targetUserId: caseRow.accusedUserId, moderatorId: botId, reason: `Court case #${caseRow.id} — moderator panel verdict` });
+    } else if (outcome === CourtVoteOption.Ban) {
+      await guild.bans.create(caseRow.accusedUserId, { reason: `[court #${caseRow.id}] moderator panel verdict` }).catch(() => null);
+      await insertBan({
+        targetUserId: caseRow.accusedUserId,
+        moderatorId: botId,
+        reason: `Court case #${caseRow.id} — moderator panel verdict`,
+        expiresAt: null,
+        appealable: true,
+      });
+    }
 
-  if (outcome !== CourtVoteOption.Ban && settings.roleMutedId) {
-    const member = await guild.members.fetch(caseRow.accusedUserId).catch(() => null);
-    if (member) {
-      await member.roles.remove(settings.roleMutedId, `Court #${caseRow.id} ${outcome}`).catch(() => null);
+    if (outcome !== CourtVoteOption.Ban && settings.roleMutedId) {
+      const member = await guild.members.fetch(caseRow.accusedUserId).catch(() => null);
+      if (member) {
+        await member.roles.remove(settings.roleMutedId, `Court #${caseRow.id} ${outcome}`).catch(() => null);
+      }
     }
   }
 
@@ -162,11 +161,12 @@ export const executeCaseOutcome = async (
   await recordAuditEvent({
     eventType: outcome === CourtVoteOption.Dismiss ? AuditEventType.CourtClosed : AuditEventType.CourtEscalated,
     actorUserId: botId,
-    targetUserId: caseRow.accusedUserId,
+    targetUserId: caseRow.accusedUserId ?? undefined,
     payload: { caseId: caseRow.id, outcome },
   });
 
-  try {
+  await attempt(async () => {
+    if (!caseRow.accusedUserId) return;
     const dmUser = await client.users.fetch(caseRow.accusedUserId);
     await dmUser.send({
       embeds: [
@@ -178,9 +178,7 @@ export const executeCaseOutcome = async (
       ],
       flags: MessageFlags.SuppressNotifications,
     });
-  } catch {
-    // DMs may be closed
-  }
+  });
 
   await archiveCourtThread(client, caseRow, `Verdict: **${outcome.toUpperCase()}** — reached by moderator panel vote.`);
 };

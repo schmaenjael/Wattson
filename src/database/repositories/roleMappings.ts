@@ -1,9 +1,9 @@
 import { and, eq, inArray, type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
 
-import { getDb } from '../client';
-import { roleMappings } from '../schema/roleMappings';
-import { RoleMappingType } from '../schema/enums';
-import { invalidateSettingsCache } from '../settings';
+import { getDb } from '~/database/client';
+import { roleMappings } from '~/database/schema/roleMappings';
+import { RoleMappingType } from '~/database/schema/enums';
+import { invalidateSettingsCache } from '~/database/settings';
 
 export type RoleMapping = InferSelectModel<typeof roleMappings>;
 export type RoleMappingInsert = Omit<InferInsertModel<typeof roleMappings>, 'id'>;

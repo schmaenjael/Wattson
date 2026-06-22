@@ -1,10 +1,10 @@
-import { and, eq, isNull, lte, type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
+import { and, eq, isNull, lt, lte, type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
 
-import { getDb } from '../client';
-import { voltVerifications } from '../schema/voltVerifications';
+import { getDb } from '~/database/client';
+import { voltVerifications } from '~/database/schema/voltVerifications';
 
 export type VoltVerification = InferSelectModel<typeof voltVerifications>;
-export type NewVoltVerification = Omit<InferInsertModel<typeof voltVerifications>, 'reverificationNotifiedAt' | 'createdAt'>;
+export type NewVoltVerification = Omit<InferInsertModel<typeof voltVerifications>, 'reverificationNotifiedAt' | 'kickNotifiedAt' | 'createdAt'>;
 
 const VERIFICATION_EXPIRY_DAYS = 365;
 
@@ -40,6 +40,28 @@ export const deleteVerification = async (discordUserId: string): Promise<void> =
 export const listExpiredVerifications = async (now: Date = new Date()): Promise<VoltVerification[]> => {
   const db = getDb();
   return db.select().from(voltVerifications).where(lte(voltVerifications.expiresAt, now));
+};
+
+export const listExpiredPendingKickNotice = async (now: Date = new Date()): Promise<VoltVerification[]> => {
+  const db = getDb();
+  return db
+    .select()
+    .from(voltVerifications)
+    .where(and(lte(voltVerifications.expiresAt, now), isNull(voltVerifications.kickNotifiedAt)));
+};
+
+export const listExpiredPastKickDeadline = async (now: Date = new Date()): Promise<VoltVerification[]> => {
+  const db = getDb();
+  const deadline = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  return db
+    .select()
+    .from(voltVerifications)
+    .where(and(lte(voltVerifications.expiresAt, now), lt(voltVerifications.kickNotifiedAt, deadline)));
+};
+
+export const setKickNotified = async (discordUserId: string): Promise<void> => {
+  const db = getDb();
+  await db.update(voltVerifications).set({ kickNotifiedAt: new Date() }).where(eq(voltVerifications.discordUserId, discordUserId));
 };
 
 export const listVerificationsExpiringSoon = async (days: number, now: Date = new Date()): Promise<VoltVerification[]> => {

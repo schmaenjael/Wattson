@@ -1,4 +1,4 @@
-import { index, pgTable, serial, varchar } from 'drizzle-orm/pg-core';
+import { index, integer, pgTable, varchar } from 'drizzle-orm/pg-core';
 
 import { createdAt, SNOWFLAKE_LENGTH, USERNAME_LENGTH } from './shared';
 import { users } from './users';
@@ -6,10 +6,10 @@ import { users } from './users';
 export const usernameHistory = pgTable(
   'username_history',
   {
-    id: serial().primaryKey(),
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
     userId: varchar({ length: SNOWFLAKE_LENGTH })
       .notNull()
-      .references(() => users.id),
+      .references(() => users.id, { onDelete: 'cascade' }),
     username: varchar({ length: USERNAME_LENGTH }).notNull(),
     changedAt: createdAt(),
   },

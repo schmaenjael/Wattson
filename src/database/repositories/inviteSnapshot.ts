@@ -1,8 +1,8 @@
 import { eq } from 'drizzle-orm';
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 
-import { getDb } from '../client';
-import { inviteSnapshot } from '../schema/inviteSnapshot';
+import { getDb } from '~/database/client';
+import { inviteSnapshot } from '~/database/schema/inviteSnapshot';
 
 export type InviteSnapshotRecord = InferSelectModel<typeof inviteSnapshot>;
 export type InsertInviteSnapshot = Omit<InferInsertModel<typeof inviteSnapshot>, 'id' | 'deletedAt'>;

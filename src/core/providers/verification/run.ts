@@ -1,6 +1,6 @@
 import { EmbedBuilder, GuildMember, TextChannel, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 
-import { AppFeature, appFeatureMap } from '~/settings';
+import { AppFeature, appFeatureMap, Colors } from '~/settings';
 import {
   AuditEventType,
   getCountryLabelMap,
@@ -20,9 +20,20 @@ import { buildApprovalAnswerFields, grantAccess, postWelcomeEmbed } from './acti
 
 export const activeVerifications = new Set<string>();
 
+const formatDuration = (ms: number): string => {
+  const totalSeconds = Math.floor(ms / 1000);
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+};
+
 export const runVerification = async (client: Client, member: GuildMember): Promise<void> => {
   if (activeVerifications.has(member.id)) return;
   activeVerifications.add(member.id);
+  const startedAt = Date.now();
 
   const logger = Logger.getInstance(AppFeature.Welcome);
   const settings = await getSettings();
@@ -104,7 +115,7 @@ export const runVerification = async (client: Client, member: GuildMember): Prom
           .setColor(color)
           .setTitle(L[locale].SYSTEM.VERIFICATION.FINAL.EMBED_TITLE())
           .setDescription(L[locale].SYSTEM.VERIFICATION.FINAL.EMBED_DESCRIPTION()),
-        new EmbedBuilder().setColor('#7C3AED').setDescription(L[locale].SYSTEM.VERIFICATION.FINAL.VOLTER_HINT()),
+        new EmbedBuilder().setColor(Colors.Purple).setDescription(L[locale].SYSTEM.VERIFICATION.FINAL.VOLTER_HINT()),
       ],
     })
     .catch(() => null);
@@ -159,6 +170,8 @@ export const runVerification = async (client: Client, member: GuildMember): Prom
     }
     approvalEmbed.addFields({ name: '🔗 Invite', value: inviteFieldValue, inline: false });
   }
+
+  approvalEmbed.addFields({ name: '⏱️ Flow duration', value: formatDuration(Date.now() - startedAt), inline: true });
 
   const approvalButtons: ButtonBuilder[] = [
     new ButtonBuilder().setCustomId(`verify:approve:${member.id}`).setLabel('Approve').setStyle(ButtonStyle.Success),

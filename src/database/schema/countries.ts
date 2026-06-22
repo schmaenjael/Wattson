@@ -1,9 +1,9 @@
-import { boolean, pgTable, serial, varchar } from 'drizzle-orm/pg-core';
+import { boolean, integer, pgTable, varchar } from 'drizzle-orm/pg-core';
 
 import { continentEnum, Continents } from './enums';
 
 export const countries = pgTable('countries', {
-  id: serial().primaryKey(),
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
   name: varchar({ length: 100 }).notNull(),
   code: varchar({ length: 4 }).notNull().unique(),
   region: continentEnum().notNull().$type<Continents>(),

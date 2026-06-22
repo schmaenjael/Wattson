@@ -78,7 +78,7 @@ def _retrieve(question: str) -> list[dict]:
 
 def _call_ollama(system_prompt: str, question: str) -> str | None:
     endpoint = os.environ.get("OLLAMA_ENDPOINT", "http://ollama:11434")
-    model = os.environ.get("OLLAMA_MODEL", "llama3.2:3b")
+    model = os.environ.get("OLLAMA_MODEL", "granite3.2:8b")
     url = endpoint.rstrip("/") + "/api/chat"
 
     payload = {

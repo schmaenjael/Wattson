@@ -1,6 +1,7 @@
 import { EmbedBuilder, Message, MessageReaction, PartialMessageReaction, TextChannel } from 'discord.js';
 
 import { AppFeature, appFeatureMap } from '~/settings';
+import type { StarboardEmojiTier } from '~/database';
 import {
   AuditEventType,
   ExternalPlatform,
@@ -20,18 +21,10 @@ import { getAllPosters } from '~/core/providers/external';
 
 const STAR_REACTION = '⭐';
 
-const resolveStarEmoji = (count: number, tiers: string): string => {
-  const parsed = tiers
-    .split(',')
-    .map((t) => {
-      const [n, ...rest] = t.trim().split(':');
-      return { threshold: parseInt(n, 10), emoji: rest.join(':').trim() };
-    })
-    .filter((t) => !isNaN(t.threshold) && t.emoji.length > 0)
-    .sort((a, b) => a.threshold - b.threshold);
-
+const resolveStarEmoji = (count: number, tiers: StarboardEmojiTier[]): string => {
+  const sorted = [...tiers].sort((a, b) => a.threshold - b.threshold);
   let emoji = STAR_REACTION;
-  for (const tier of parsed) {
+  for (const tier of sorted) {
     if (count >= tier.threshold) {
       emoji = tier.emoji;
     }

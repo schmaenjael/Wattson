@@ -2,8 +2,8 @@ import { and, count, desc, eq, gte, isNull, sql } from 'drizzle-orm';
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 import type { Snowflake } from 'discord.js';
 
-import { getDb } from '../client';
-import { memberHistory } from '../schema/memberHistory';
+import { getDb } from '~/database/client';
+import { memberHistory } from '~/database/schema/memberHistory';
 
 export type MemberHistoryRecord = InferSelectModel<typeof memberHistory>;
 export type InsertMemberHistory = Omit<InferInsertModel<typeof memberHistory>, 'id' | 'joinedAt' | 'leftAt'>;

@@ -1,11 +1,11 @@
-import { and, count, desc, eq, isNotNull, isNull, lte, type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
+import { and, count, desc, eq, isNotNull, lte, type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
 
-import { getDb } from '../client';
-import { bans } from '../schema/bans';
-import { AppealOutcome } from '../schema/enums';
+import { getDb } from '~/database/client';
+import { bans } from '~/database/schema/bans';
+import { ModerationStatus } from '~/database/schema/enums';
 
 export type Ban = InferSelectModel<typeof bans>;
-export type NewBan = Omit<InferInsertModel<typeof bans>, 'id' | 'createdAt' | 'active' | 'appealedAt' | 'appealOutcome'>;
+export type NewBan = Omit<InferInsertModel<typeof bans>, 'id' | 'createdAt' | 'status'>;
 
 export const insertBan = async (input: NewBan): Promise<Ban> => {
   const db = getDb();
@@ -21,12 +21,17 @@ export const findBanById = async (id: number): Promise<Ban | undefined> => {
 
 export const deactivateBan = async (id: number): Promise<void> => {
   const db = getDb();
-  await db.update(bans).set({ active: false }).where(eq(bans.id, id));
+  await db.update(bans).set({ status: ModerationStatus.Expired }).where(eq(bans.id, id));
+};
+
+export const liftBan = async (id: number): Promise<void> => {
+  const db = getDb();
+  await db.update(bans).set({ status: ModerationStatus.Lifted }).where(eq(bans.id, id));
 };
 
 export const listActiveBans = async (): Promise<Ban[]> => {
   const db = getDb();
-  return db.select().from(bans).where(eq(bans.active, true)).orderBy(desc(bans.createdAt));
+  return db.select().from(bans).where(eq(bans.status, ModerationStatus.Active)).orderBy(desc(bans.createdAt));
 };
 
 export const listExpiredActiveBans = async (now: Date = new Date()): Promise<Ban[]> => {
@@ -34,7 +39,7 @@ export const listExpiredActiveBans = async (now: Date = new Date()): Promise<Ban
   return db
     .select()
     .from(bans)
-    .where(and(eq(bans.active, true), isNotNull(bans.expiresAt), lte(bans.expiresAt, now)));
+    .where(and(eq(bans.status, ModerationStatus.Active), isNotNull(bans.expiresAt), lte(bans.expiresAt, now)));
 };
 
 export const listAllBansForUser = async (targetUserId: string): Promise<Ban[]> => {
@@ -47,7 +52,7 @@ export const listActiveBansForUser = async (targetUserId: string): Promise<Ban[]
   return db
     .select()
     .from(bans)
-    .where(and(eq(bans.targetUserId, targetUserId), eq(bans.active, true)))
+    .where(and(eq(bans.targetUserId, targetUserId), eq(bans.status, ModerationStatus.Active)))
     .orderBy(desc(bans.createdAt));
 };
 
@@ -55,8 +60,8 @@ export const deactivateBansForUser = async (targetUserId: string): Promise<numbe
   const db = getDb();
   const result = await db
     .update(bans)
-    .set({ active: false })
-    .where(and(eq(bans.targetUserId, targetUserId), eq(bans.active, true)))
+    .set({ status: ModerationStatus.Expired })
+    .where(and(eq(bans.targetUserId, targetUserId), eq(bans.status, ModerationStatus.Active)))
     .returning();
   return result.length;
 };
@@ -78,17 +83,7 @@ export const findAppealableBan = async (targetUserId: string): Promise<Ban | nul
   const [row] = await db
     .select()
     .from(bans)
-    .where(and(eq(bans.targetUserId, targetUserId), eq(bans.active, true), eq(bans.appealable, true), isNull(bans.appealedAt)))
+    .where(and(eq(bans.targetUserId, targetUserId), eq(bans.status, ModerationStatus.Active), eq(bans.appealable, true)))
     .limit(1);
   return row ?? null;
-};
-
-export const setAppealFiled = async (id: number): Promise<void> => {
-  const db = getDb();
-  await db.update(bans).set({ appealedAt: new Date() }).where(eq(bans.id, id));
-};
-
-export const setAppealOutcome = async (id: number, outcome: AppealOutcome): Promise<void> => {
-  const db = getDb();
-  await db.update(bans).set({ appealOutcome: outcome }).where(eq(bans.id, id));
 };

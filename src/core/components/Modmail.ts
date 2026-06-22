@@ -106,8 +106,8 @@ export const buildModmailShowEmbed = (modmail: Modmail, user: User | null): Embe
       { name: 'Status', value: STATUS_LABELS[modmail.status as ModmailStatus], inline: true },
       { name: 'Category', value: CATEGORY_LABELS[modmail.category as ModmailCategory], inline: true },
       { name: '​', value: '​', inline: true },
-      { name: 'User', value: user ? `<@${user.id}> — ${user.username}` : `ID: ${modmail.userId}`, inline: true },
-      { name: 'User ID', value: modmail.userId, inline: true },
+      { name: 'User', value: user ? `<@${user.id}> — ${user.username}` : `ID: ${modmail.userId ?? '[deleted]'}`, inline: true },
+      { name: 'User ID', value: modmail.userId ?? '[deleted]', inline: true },
       { name: '​', value: '​', inline: true },
       { name: 'Thread', value: `<#${modmail.threadId}>`, inline: true },
       { name: 'Opened', value: `<t:${Math.floor(modmail.createdAt.getTime() / 1000)}:F>`, inline: true },
@@ -131,6 +131,49 @@ export const buildModmailSummaryEmbed = (summary: string, modmailId: number): Em
     .setTitle(`📋 Modmail #${modmailId} — Conversation Summary`)
     .setDescription(summary)
     .setFooter({ text: 'AI-generated summary — may not be fully accurate.' })
+    .setTimestamp();
+
+export const buildModmailChannelEmbed = (modmail: Modmail, user: User | null): EmbedBuilder => {
+  const isClosed = modmail.status === ModmailStatus.Closed;
+  const embed = new EmbedBuilder()
+    .setColor(isClosed ? Colors.Red : CATEGORY_COLORS[modmail.category as ModmailCategory])
+    .setTitle(`📬 Modmail #${modmail.id}`)
+    .setDescription(`**${CATEGORY_LABELS[modmail.category as ModmailCategory]}**`)
+    .addFields(
+      { name: 'User', value: user ? `<@${user.id}> — ${user.username}` : `<@${modmail.userId}>`, inline: true },
+      { name: 'Status', value: STATUS_LABELS[modmail.status as ModmailStatus], inline: true },
+      { name: '​', value: '​', inline: true },
+      { name: 'Reason', value: modmail.reason },
+      { name: 'Opened', value: `<t:${Math.floor(modmail.createdAt.getTime() / 1000)}:R>`, inline: true }
+    );
+
+  if (user) {
+    embed.setThumbnail(user.displayAvatarURL());
+  }
+
+  if (modmail.closedAt) {
+    embed.addFields({ name: 'Closed', value: `<t:${Math.floor(modmail.closedAt.getTime() / 1000)}:R>`, inline: true });
+  }
+
+  return embed.setTimestamp();
+};
+
+export const buildModmailThreadTutorialEmbed = (modmail: Modmail): EmbedBuilder =>
+  new EmbedBuilder()
+    .setColor(Colors.Yellow)
+    .setTitle('📖 How to use Modmail')
+    .setDescription(
+      'This thread is your direct line to the moderation team.\n\n' +
+        '**User commands (DMs or guild):**\n' +
+        '`/modmail message` — Send a text message\n' +
+        '`/modmail attach` — Attach a file or image\n' +
+        '`/modmail close` — Close this modmail\n\n' +
+        '**Moderator commands (use from within this thread):**\n' +
+        '`/modmail message` — Reply to the user\n' +
+        '`/modmail attach` — Send an attachment to the user\n' +
+        '`/modmail close` — Close this modmail'
+    )
+    .setFooter({ text: `Modmail #${modmail.id} · ${CATEGORY_LABELS[modmail.category as ModmailCategory]}` })
     .setTimestamp();
 
 export const buildKeepOpenRow = (modmailId: number): ActionRowBuilder<ButtonBuilder> =>

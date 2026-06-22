@@ -1,7 +1,8 @@
-import { Colors, EmbedBuilder, type Message, type TextChannel } from 'discord.js';
+import { Colors, EmbedBuilder, type Message, type PartialMessage, type TextChannel } from 'discord.js';
 
 import { AuditEventType, getSettings, insertWarning, recordAuditEvent, upsertUser } from '~/database';
 import { AppFeature } from '~/settings';
+import { Client } from '~/core/models';
 import { Logger } from '~/utilities';
 import { getHarmDetector, type HarmCategory, type HarmDetectionResult } from '~/core/providers/harm';
 import { getBlocklistChecker } from '~/core/providers/blocklist';
@@ -144,6 +145,17 @@ const runLlmCheck = async (content: string, settings: Awaited<ReturnType<typeof 
   } catch {
     return null;
   }
+};
+
+/** MessageUpdate fan-out entrypoint: re-runs automod on an edited message when its content changed. */
+export const runAutomodOnEdit = async (_client: Client, oldMessage: Message<boolean> | PartialMessage, newMessage: Message<boolean> | PartialMessage): Promise<void> => {
+  if (!newMessage.inGuild()) return;
+  if (newMessage.author?.bot) return;
+  if (oldMessage.content === newMessage.content) return;
+  if (!newMessage.content) return;
+
+  const settings = await getSettings();
+  await runAutomod(newMessage, settings);
 };
 
 export const runAutomod = async (message: Message<true>, settings: Awaited<ReturnType<typeof getSettings>>): Promise<void> => {

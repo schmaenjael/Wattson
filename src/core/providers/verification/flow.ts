@@ -1,5 +1,6 @@
 import {
   ActionRowBuilder,
+  AttachmentBuilder,
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
@@ -10,6 +11,9 @@ import {
   StringSelectMenuBuilder,
   User,
 } from 'discord.js';
+import { createCanvas } from 'canvas';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { createChoiceMenu } from './actions';
 
 export type PromptRenderer = () => { title: string; description?: string };
@@ -41,13 +45,15 @@ export type PaginatedConfirmStep = {
   pages: EmbedBuilder[];
   when?: (answers: FlowAnswers) => boolean;
 };
+export type CaptchaStep = { kind: 'captcha'; key: string; prompt: PromptRenderer; maxAttempts?: number; when?: (answers: FlowAnswers) => boolean };
 
 export type Step =
   | TextStep
   | (ChoiceStep & { categorization?: false; options: ChoiceOption[] })
   | (ChoiceStep & { categorization: true; options: CategorizedChoiceOption[] })
   | ConfirmStep
-  | PaginatedConfirmStep;
+  | PaginatedConfirmStep
+  | CaptchaStep;
 
 export type FlowAnswer = string | string[];
 export type FlowAnswers = Record<string, FlowAnswer>;
@@ -100,6 +106,8 @@ export class FlowRunner {
         answers[step.key] = await this.runConfirmStep(user, channel, step, opts.color, displayIndex, this.steps.length);
       } else if (step.kind === 'paginated-confirm') {
         answers[step.key] = await this.runPaginatedConfirmStep(user, channel, step, opts.color, displayIndex, this.steps.length);
+      } else if (step.kind === 'captcha') {
+        answers[step.key] = await this.runCaptchaStep(user, channel, step, opts.color, displayIndex, this.steps.length);
       }
       displayIndex++;
     }
@@ -347,5 +355,183 @@ export class FlowRunner {
         }
       });
     });
+  }
+
+  private generateCaptchaCode(length = 6): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  }
+
+  private renderCaptchaImage(code: string): Buffer {
+    const width = 320;
+    const height = 100;
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+
+    // 1. Dynamic Background Gradient instead of solid color
+    const gradient = ctx.createLinearGradient(0, 0, width, height);
+    gradient.addColorStop(0, '#e0e4e8');
+    gradient.addColorStop(0.5, '#f0f2f5');
+    gradient.addColorStop(1, '#d8dee4');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+
+    // 2. Heavy Background Noise (Curves and Blobs)
+    // Bezier curves are much harder for OCR to filter out than straight lines
+    for (let i = 0; i < 6; i++) {
+      ctx.beginPath();
+      ctx.strokeStyle = `hsl(${Math.random() * 360}, 50%, 60%)`;
+      ctx.lineWidth = Math.random() * 2 + 1.5;
+      ctx.moveTo(Math.random() * width, Math.random() * height);
+      ctx.bezierCurveTo(
+        Math.random() * width,
+        Math.random() * height,
+        Math.random() * width,
+        Math.random() * height,
+        Math.random() * width,
+        Math.random() * height
+      );
+      ctx.stroke();
+    }
+
+    // Random scattering of noise blocks
+    for (let i = 0; i < 60; i++) {
+      ctx.fillStyle = `hsl(${Math.random() * 360}, 40%, 60%)`;
+      ctx.fillRect(Math.random() * width, Math.random() * height, Math.random() * 4 + 1, Math.random() * 4 + 1);
+    }
+
+    // 3. Render Text with Tracking, Scaling, and Rotation Per Character
+    const charSlot = width / (code.length + 0.5);
+
+    for (let i = 0; i < code.length; i++) {
+      ctx.save();
+
+      // Slight random offset to break the rigid grid alignment
+      const xOffset = (Math.random() - 0.5) * 10;
+      const yOffset = (Math.random() - 0.5) * 12;
+
+      ctx.translate(charSlot * (i + 0.5) + charSlot / 2 + xOffset, height / 2 + 14 + yOffset);
+
+      // Increased maximum rotation angle (~35 degrees max)
+      ctx.rotate((Math.random() - 0.5) * 0.85);
+
+      // Randomize font style and slight scale distortions per character
+      const fontSizes = ['32px', '42px', '46px', '50px'];
+      const fontStyles = ['bold', 'italic bold', '900'];
+      ctx.font = `${fontStyles[Math.floor(Math.random() * fontStyles.length)]} ${fontSizes[Math.floor(Math.random() * fontSizes.length)]} sans-serif`;
+
+      // Random scale distortion (stretching/squeezing)
+      ctx.scale(Math.random() * 0.5 + 0.9, Math.random() * 0.2 + 0.9);
+
+      ctx.fillStyle = `hsl(${Math.random() * 360}, 75%, 20%)`;
+      ctx.fillText(code[i]!, 0, 0);
+      ctx.restore();
+    }
+
+    // 4. Foreground Distortion Strike-through Lines
+    // Drawing lines over the characters forces OCR segmentation to fail
+    for (let i = 0; i < 5; i++) {
+      ctx.beginPath();
+      ctx.strokeStyle = `hsl(${Math.random() * 360}, 60%, 35%)`;
+      ctx.lineWidth = Math.random() * 3 + 1;
+      ctx.moveTo(0, Math.random() * height);
+      ctx.lineTo(width, Math.random() * height);
+      ctx.stroke();
+    }
+
+    return canvas.toBuffer('image/png');
+  }
+
+  private parseWavData(buffer: Buffer): { fmt: Buffer; pcm: Buffer } {
+    if (buffer.toString('ascii', 0, 4) !== 'RIFF' || buffer.toString('ascii', 8, 12) !== 'WAVE') {
+      throw new Error('Not a valid WAV file');
+    }
+    let offset = 12;
+    let fmt: Buffer | null = null;
+    let pcm: Buffer | null = null;
+    while (offset < buffer.length - 8) {
+      const chunkId = buffer.toString('ascii', offset, offset + 4);
+      const chunkSize = buffer.readUInt32LE(offset + 4);
+      if (chunkId === 'fmt ') {
+        fmt = buffer.subarray(offset + 8, offset + 8 + chunkSize);
+      } else if (chunkId === 'data') {
+        pcm = buffer.subarray(offset + 8, offset + 8 + chunkSize);
+      }
+      offset += 8 + chunkSize + (chunkSize % 2);
+    }
+    if (!fmt || !pcm) throw new Error('Missing fmt or data chunk in WAV');
+    return { fmt, pcm };
+  }
+
+  private buildWav(fmt: Buffer, pcmChunks: Buffer[]): Buffer {
+    const pcm = Buffer.concat(pcmChunks);
+    const fmtChunk = Buffer.alloc(8 + fmt.length);
+    fmtChunk.write('fmt ', 0);
+    fmtChunk.writeUInt32LE(fmt.length, 4);
+    fmt.copy(fmtChunk, 8);
+    const dataChunk = Buffer.alloc(8 + pcm.length);
+    dataChunk.write('data', 0);
+    dataChunk.writeUInt32LE(pcm.length, 4);
+    pcm.copy(dataChunk, 8);
+    const riffHeader = Buffer.alloc(12);
+    riffHeader.write('RIFF', 0);
+    riffHeader.writeUInt32LE(4 + fmtChunk.length + dataChunk.length, 4);
+    riffHeader.write('WAVE', 8);
+    return Buffer.concat([riffHeader, fmtChunk, dataChunk]);
+  }
+
+  private async renderCaptchaAudio(code: string): Promise<Buffer> {
+    const soundsDir = join(process.cwd(), 'config', 'sounds');
+    let fmt: Buffer | null = null;
+    const pcmChunks: Buffer[] = [];
+    for (const char of code) {
+      const raw = await readFile(join(soundsDir, `${char.toUpperCase()}.wav`));
+      const parsed = this.parseWavData(raw);
+      if (!fmt) fmt = parsed.fmt;
+      pcmChunks.push(parsed.pcm);
+    }
+    if (!fmt) throw new Error('No audio data');
+    return this.buildWav(fmt, pcmChunks);
+  }
+
+  private async runCaptchaStep(
+    user: User,
+    channel: DMChannel,
+    step: Extract<Step, { kind: 'captcha' }>,
+    color: `#${string}`,
+    index: number,
+    total: number
+  ): Promise<string> {
+    const maxAttempts = step.maxAttempts ?? 3;
+    const code = this.generateCaptchaCode();
+    const imageBuffer = this.renderCaptchaImage(code);
+    const files: AttachmentBuilder[] = [new AttachmentBuilder(imageBuffer, { name: 'captcha.png' })];
+
+    try {
+      const audioBuffer = await this.renderCaptchaAudio(code);
+      files.push(new AttachmentBuilder(audioBuffer, { name: 'captcha.wav' }));
+    } catch (err) {
+      console.error('[Captcha] Failed to render audio — falling back to image-only:', err);
+    }
+
+    await channel.send({ embeds: [this.embed(step, color, index, total)], files });
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const collected = await channel.awaitMessages({ filter: (m) => m.author.id === user.id, max: 1 });
+      const message = collected.first() as Message<false> | undefined;
+
+      if (!message) throw new FlowCancelled(step, 'aborted');
+
+      if (message.content.trim().toUpperCase() === code) {
+        await channel.send(`> ✅ **Captcha passed.**`);
+        return code;
+      }
+
+      if (attempt < maxAttempts) {
+        await channel.send(`❌ Incorrect. ${maxAttempts - attempt} attempt(s) remaining.`);
+      }
+    }
+
+    throw new FlowCancelled(step, 'invalid');
   }
 }

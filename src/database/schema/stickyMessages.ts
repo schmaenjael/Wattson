@@ -1,10 +1,10 @@
-import { integer, pgTable, serial, text } from 'drizzle-orm/pg-core';
+import { integer, pgTable, text } from 'drizzle-orm/pg-core';
 
 import { stickyLevelEnum } from './enums';
 import { createdAt, snowflake, updatedAt } from './shared';
 
 export const stickyMessages = pgTable('sticky_messages', {
-  id: serial().primaryKey(),
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
   channelId: snowflake().notNull().unique(),
   message: text().notNull(),
   level: stickyLevelEnum().notNull().default('info'),

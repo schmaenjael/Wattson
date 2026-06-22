@@ -1,8 +1,8 @@
 import { and, eq, isNotNull, isNull, lt, or, type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
 
-import { getDb } from '../client';
-import { modmails } from '../schema/modmails';
-import { ModmailStatus } from '../schema/enums';
+import { getDb } from '~/database/client';
+import { modmails } from '~/database/schema/modmails';
+import { ModmailStatus } from '~/database/schema/enums';
 
 export type Modmail = InferSelectModel<typeof modmails>;
 type ModmailInsert = Omit<InferInsertModel<typeof modmails>, 'id' | 'createdAt' | 'lastActivityAt'>;
@@ -105,4 +105,9 @@ export const resetModmailFromStale = async (id: number): Promise<void> => {
 export const setModmailSummary = async (id: number, summary: string): Promise<void> => {
   const db = getDb();
   await db.update(modmails).set({ summary }).where(eq(modmails.id, id));
+};
+
+export const setModmailChannelMessage = async (id: number, channelMessageId: string): Promise<void> => {
+  const db = getDb();
+  await db.update(modmails).set({ channelMessageId }).where(eq(modmails.id, id));
 };

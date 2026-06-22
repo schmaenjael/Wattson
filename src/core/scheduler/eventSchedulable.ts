@@ -72,14 +72,14 @@ const announceEvent = async (client: Client, settings: Awaited<ReturnType<typeof
       logger.info({ eventId: event.id }, 'Event announced');
 
       if (event.cronPattern) {
-        const existing = await findNextRepeatInstance(event.id);
+        const rootId = event.parentEventId ?? event.id;
+        const existing = await findNextRepeatInstance(rootId);
         if (!existing) {
           try {
-            const nextDate = new Cron(event.cronPattern).nextRun(event.scheduledAt);
+            const nextDate = new Cron(event.cronPattern).nextRun(new Date(event.scheduledAt.getTime() + 1));
             if (!nextDate) {
               continue;
             }
-            const rootId = event.parentEventId ?? event.id;
             await createEvent({
               creatorId: event.creatorId,
               name: event.name,
@@ -151,7 +151,7 @@ const weeklyDigest = async (client: Client, settings: Awaited<ReturnType<typeof 
 };
 
 export const eventSchedulable = new Schedulable({
-  name: 'event-sweeper',
+  name: 'event-schedulable',
   feature: AppFeature.Events,
   description: 'Announces upcoming events and sends weekly digests.',
   defaultCron: '*/10 * * * *',

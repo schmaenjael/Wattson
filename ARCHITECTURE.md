@@ -187,26 +187,20 @@ src/
     │       ├── purge.ts            # /purge <n> messages
     │       └── rolemapping.ts      # /rolemapping add|remove|list
     │
-    ├── events/                     # auto-discovered; one file per event, flat within category
-    │   ├── general/
-    │   │   ├── reactionAdd.ts      # starboard trigger
-    │   │   ├── forumRoleSync.ts    # GuildMemberUpdate → add members to mapped forum threads on role gain
-    │   │   └── welcome.ts          # GuildMemberAdd → starts verification flow
-    │   ├── moderation/
-    │   │   ├── gdprAction.ts       # button handler for GDPR deletion approval
-    │   │   ├── reportAction.ts     # button handler for report resolution
-    │   │   └── verificationAction.ts # button handler for verification approve/reject
-    │   ├── surveillance/
-    │   │   ├── memberRemove.ts     # GuildMemberRemove → audit log
-    │   │   ├── messageCreate.ts    # automod + harm detection on new messages
-    │   │   ├── messageDelete.ts    # audit log
-    │   │   ├── messageUpdate.ts    # audit log
-    │   │   └── userUpdate.ts       # username change tracking
-    │   └── system/
-    │       ├── commands.ts         # InteractionCreate → slash/context menu dispatch + usePermissions
-    │       ├── buttonInteractions.ts # InteractionCreate → button dispatch (court votes, etc.)
-    │       ├── guildCreate.ts      # leave any guild that isn't GUILD_ID
-    │       └── ready.ts            # ClientReady → leave wrong guilds, start ban sweeper, log boot
+    ├── events/                     # auto-discovered; flat — exactly ONE file per Discord gateway event
+    │   ├── interactionCreate.ts    # config-driven router: slash/context/autocomplete + button/select/modal
+    │   │                           #   routes[] dispatch to provider handlers; rights[] enforced per route
+    │   ├── guildMemberAdd.ts       # fan-out → inviteTracking + welcome providers
+    │   ├── guildMemberUpdate.ts    # fan-out → antihoist + forumRoles + surveillance providers
+    │   ├── messageReactionAdd.ts   # fan-out → starboard + analytics + sticky providers
+    │   ├── messageCreate.ts        # fan-out → antispam, autoslowmode, sticky, automod, analytics
+    │   ├── messageUpdate.ts        # fan-out → surveillance edit report + automod
+    │   ├── messageDelete.ts        # surveillance audit log
+    │   ├── memberRemove.ts         # GuildMemberRemove → audit log
+    │   ├── voiceStateUpdate.ts     # voice activity analytics
+    │   ├── inviteCreate.ts / inviteDelete.ts  # invite cache maintenance
+    │   ├── guildCreate.ts          # leave any guild that isn't GUILD_ID
+    │   └── ready.ts                # ClientReady → leave wrong guilds, start schedulers, log boot
     │
     └── providers/                  # domain services; isolated, injected, swappable
         ├── automod/
@@ -274,25 +268,45 @@ export default new Command<ApplicationCommandType.ChatInput>({
 
 ## Event contract
 
-Same shape as commands but parameterised on `keyof ClientEvents`.
+Same shape as commands but parameterised on `keyof ClientEvents`. **Exactly one file per Discord
+gateway event, flat in `src/core/events/`.** An event file contains **no business logic** — it only
+calls provider methods. There are two archetypes:
+
+**Fan-out** — when several features react to the same gateway event, the handler calls each provider
+in order:
 
 ```ts
 export default new Event({
   type: Events.GuildMemberAdd,
-  feature: AppFeature.Welcome,
+  feature: AppFeature.System,
   middleware: [],
-  async executeCommand(event, client, member) {
-    // … implementation
+  async executeCommand(_event, client, member) {
+    await trackMemberJoin(member);   // inviteTracking provider
+    await welcomeMember(client, member); // welcome provider
   },
 });
 ```
 
-**Where it belongs:** `src/core/events/<category>/<name>.ts`
+**Dispatch** — `interactionCreate.ts` declares `routes[]` instead of an `executeCommand` body. The
+`Event` model builds a `Map` keyed by `kind` + the first `:`-segment of the `customId` and dispatches
+the matched provider handler. Optional `rights[]` are enforced (OR semantics; `ManageGuild` always
+passes) before the handler runs:
 
-- `general/` — member-facing events (joins, reactions).
-- `moderation/` — button handlers for moderation UIs (report/verification/GDPR approval panels).
-- `surveillance/` — passive logging (message edits/deletes, member removes, username changes).
-- `system/` — infrastructure (interaction routing, guild enforcement, ready hook).
+```ts
+export default new Event({
+  type: Events.InteractionCreate,
+  feature: AppFeature.System,
+  middleware: [usePermissions],
+  routes: [
+    { kind: 'command', handler: dispatchCommand },
+    { kind: 'autocomplete', handler: dispatchAutocomplete },
+    { kind: 'button', name: 'court_vote', rights: [Permission.Moderation, Permission.Administration], handler: handleCourtVote },
+    { kind: 'modal', name: 'suggestion', handler: handleSuggestionModal },
+  ],
+});
+```
+
+**Where it belongs:** `src/core/events/<gatewayEventName>.ts` (e.g. `messageReactionAdd.ts`).
 
 ---
 
@@ -312,10 +326,13 @@ middleware: [fn1, fn2, fn3]
 
 | Function         | File                           | What it checks                                                                                                                                                |
 | ---------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `usePermissions` | `middleware/usePermissions.ts` | Runs on `InteractionCreate` event. Cross-references `member.roles` against `settings.role{Permission}Id` columns. ManageGuild bypasses as bootstrap fallback. |
+| `usePermissions` | `middleware/usePermissions.ts` | Runs on `InteractionCreate` event for slash/context commands. Cross-references `member.roles` against `settings.role{Permission}Id` columns via `permissionCore.ts`. ManageGuild bypasses as bootstrap fallback (AND semantics). |
 | `useAdmin`       | `middleware/useAdmin.ts`       | Checks `settings.roleAdministrationId` or ManageGuild. Used directly in command's `middleware: [useAdmin]`.                                                   |
 
-**Permission → settings column mapping** (inside `usePermissions.ts`):
+Route-level `rights[]` on interaction routes reuse the same role columns via
+`memberHasAnyPermission` (OR semantics; `ManageGuild` always passes), also in `permissionCore.ts`.
+
+**Permission → settings column mapping** (inside `middleware/permissionCore.ts`):
 
 | Permission       | Column                 |
 | ---------------- | ---------------------- |
@@ -325,19 +342,32 @@ middleware: [fn1, fn2, fn3]
 | `Moderation`     | `roleModerationId`     |
 | `Administration` | `roleAdministrationId` |
 
-**How to add a new permission gate:** add it to `Permission` enum in `UserRole.ts`, add a `role<Name>Id` column to the `settings` schema, wire it in `ROLE_COLUMN_BY_PERMISSION` in `usePermissions.ts`.
+**How to add a new permission gate:** add it to `Permission` enum in `Permission.ts`, add a `role<Name>Id` column to the `settings` schema, wire it in `ROLE_COLUMN_BY_PERMISSION` in `middleware/permissionCore.ts`.
 
 ---
 
-## Button interactions
+## Interaction routing
 
-All button interactions (not just court votes) pass through `src/core/events/system/buttonInteractions.ts`. The event fires on every `InteractionCreate`; it exits immediately if `!interaction.isButton()`.
+All interactions — slash/context commands, autocomplete, buttons, select menus, modals — pass through
+the single `src/core/events/interactionCreate.ts` and its `routes[]` config. The `Event` model
+(`models/Event.ts`) resolves the interaction kind, computes the route key (`kind` for command/
+autocomplete; `kind:firstCustomIdSegment` for component/modal), looks it up in the route `Map`,
+enforces any `rights`, and calls the matched handler.
 
-**Routing pattern:** the `customId` encodes the domain and parameters, e.g. `court_vote:42:ban`. The handler splits on `:` to extract them.
+**Routing pattern:** the `customId` encodes domain and parameters, e.g. `court_vote:42:ban`. The
+top-level route matches on the first segment (`court_vote`); the provider handler sub-routes on the
+remaining segments — also via a `Record<string, handler>` map or `switch`, so every routing level
+has the same shape regardless of handler count.
 
-**Adding a new button handler:** add a branch to `buttonInteractions.ts` matching your `customId` prefix. Keep each domain's logic in a provider file; import it there. Do not put long logic directly in the event handler.
+**Adding a new interaction handler:**
 
-**Other button handlers** live in `src/core/events/moderation/` (report/verification/GDPR panels) — these are separate event files that each listen to `InteractionCreate` and check their own `customId` prefixes.
+1. Put the logic in a provider as an exported `handle…(client, interaction)` function. If the domain
+   has multiple actions under one `customId` prefix, sub-route inside the provider with a map/switch.
+2. Register one route in `interactionCreate.ts`: `{ kind, name: '<prefix>', rights?: [...], handler }`.
+3. Use route-level `rights` when **every** action under the prefix needs the same gate (gdpr, report,
+   appeal, court). When actions differ (e.g. public votes alongside mod-only approvals, or a modal that
+   must `showModal` as its sole first response), omit `rights` and gate inside the provider using
+   `memberHasAnyPermission` from `middleware/permissionCore.ts`.
 
 ---
 
@@ -392,26 +422,28 @@ The TypeScript enum is used everywhere in application code; the pgEnum is used o
 
 ### Tables reference
 
-| Table                 | Purpose                                                                                                                                                        |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `users`               | Snowflake ID + username cache. Must exist before any FK reference. Always `upsertUser()` before inserting moderation records.                                  |
-| `username_history`    | Append-only log of username changes.                                                                                                                           |
-| `warnings`            | Moderation warnings. `revokedAt`/`revokedBy` nullable — revocation doesn't delete.                                                                             |
-| `bans`                | Bans with `active` flag and optional `expiresAt`. `banSweeper.ts` polls for expired active bans.                                                               |
-| `reports`             | User-filed reports with `ReportStatus` (open/resolved/dismissed).                                                                                              |
-| `court_cases`         | Judicial thread records. Statuses: open → finalizing → resolved/dismissed/escalated. Stores `threadId`, `verdict`, `summary` (LLM-generated), `voteMessageId`. |
-| `court_votes`         | One row per moderator per case. Unique on `(case_id, moderator_id)` — supports vote changes via upsert.                                                        |
-| `audit_log`           | Append-only event stream. `eventType` from `AuditEventType` enum, `payload` is `jsonb`.                                                                        |
-| `rules`               | Server rules with category, title, content, example. Displayed paginated in verification and via `/rules`.                                                     |
-| `settings`            | Singleton row (id=1). All runtime config.                                                                                                                      |
-| `slur_patterns`       | Regex patterns for automod. `severity`: warn/ban/review.                                                                                                       |
-| `slur_violations`     | Log of automod triggers per user per pattern.                                                                                                                  |
-| `starboard_entries`   | Tracks which messages have been posted to starboard (prevents duplicates).                                                                                     |
-| `external_posts`      | Queue/log for cross-platform posts (BSKY/Instagram/Haiilo). Status: queued/posted/failed.                                                                      |
-| `languages`           | Spoken language options for verification. `group`: european/world. `showInMenu` controls whether it appears in the select menu.                                |
-| `role_mappings`       | Maps verification answer values (country/language/pronouns) to Discord role IDs. Managed via `/rolemapping`.                                                   |
-| `forum_role_mappings` | Maps Discord role IDs to forum thread channel IDs. On role assignment, bot calls `thread.members.add()` for each mapped thread. Managed via `/config forum`.   |
-| `countries`           | Country options for verification.                                                                                                                              |
+| Table                   | Purpose                                                                                                                                                                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `users`                 | Snowflake ID + username cache. Must exist before any FK reference. Always `upsertUser()` before inserting moderation records.                                                                                                   |
+| `username_history`      | Append-only log of username changes.                                                                                                                                                                                            |
+| `warnings`              | Moderation warnings. `revokedAt`/`revokedBy` nullable — revocation doesn't delete.                                                                                                                                              |
+| `bans`                  | Bans with `active` flag and optional `expiresAt`. `banSweeper.ts` polls for expired active bans.                                                                                                                                |
+| `reports`               | User-filed reports with `ReportStatus` (open/resolved/dismissed).                                                                                                                                                               |
+| `court_cases`           | Judicial thread records. Statuses: open → finalizing → resolved/dismissed/escalated. Stores `threadId`, `verdict`, `summary` (LLM-generated), `voteMessageId`.                                                                  |
+| `court_votes`           | One row per moderator per case. Unique on `(case_id, moderator_id)` — supports vote changes via upsert.                                                                                                                         |
+| `audit_log`             | Append-only event stream. `eventType` from `AuditEventType` enum, `payload` is `jsonb`.                                                                                                                                         |
+| `rules`                 | Server rules with category, title, content, example. Displayed paginated in verification and via `/rules`.                                                                                                                      |
+| `settings`              | Singleton row (id=1). All runtime config.                                                                                                                                                                                       |
+| `slur_patterns`         | Regex patterns for automod. `severity`: warn/ban/review.                                                                                                                                                                        |
+| `slur_violations`       | Log of automod triggers per user per pattern.                                                                                                                                                                                   |
+| `starboard_entries`     | Tracks which messages have been posted to starboard (prevents duplicates).                                                                                                                                                      |
+| `external_posts`        | Queue/log for cross-platform posts (BSKY/Instagram/Haiilo). Status: queued/posted/failed.                                                                                                                                       |
+| `languages`             | Spoken language options for verification. `group`: european/world. `showInMenu` controls whether it appears in the select menu.                                                                                                 |
+| `role_mappings`         | Maps verification answer values (country/language/pronouns) to Discord role IDs. Managed via `/rolemapping`.                                                                                                                    |
+| `forum_role_mappings`   | Maps Discord role IDs to forum thread channel IDs. On role assignment, bot calls `thread.members.add()` for each mapped thread. Managed via `/config forum`.                                                                    |
+| `countries`             | Country options for verification.                                                                                                                                                                                               |
+| `member_activity_daily` | Per-user, per-UTC-day activity buckets (`messageCount`, `voiceSeconds`, `reactionCount`). Composite PK `(userId, day)`. Written by the analytics flush job, never per-event. Existence of a row = "member was active that day". |
+| `stat_channels`         | Maps a `StatChannelType` (PK) to a voice channel ID whose name is refreshed daily with the live stat value. Managed via `/config statchannel`.                                                                                  |
 
 ### Repositories (`src/database/repositories/`)
 
@@ -568,12 +600,21 @@ Enabled via `settings.featureHarmDetectionEnabled`. Alert channel configured via
 
 ### Charts (`providers/charts/`)
 
-Uses `chartjs-node-canvas` to render Chart.js bar charts to PNG `Buffer` server-side. Two functions:
+Uses `chartjs-node-canvas` to render Chart.js charts to PNG `Buffer` server-side. Functions:
 
 - `renderVerificationsChart(data, months)` — approved vs rejected verifications per month.
 - `renderModerationChart(data, months)` — warnings / bans / reports per month.
+- `renderEngagementChart(data, days)` — daily messages (bars) and active members (line, secondary axis) from `member_activity_daily`.
 
 Background color `#2B2D31` (Discord dark theme). Dataset colors follow Volt Europa brand palette.
+
+### Analytics (`providers/analytics/`)
+
+Write-behind buffer for member activity. Event handlers in `events/analytics/` (`messageCreate`, `voiceStateUpdate`, `messageReactionAdd`) mutate in-memory `Map`s only — no per-event DB writes. Voice time is session-based: `startVoiceSession`/`endVoiceSession` track open sessions (seeded on `ClientReady` for members already in voice), and `checkpointVoiceSessions()` settles open sessions on each flush so long sessions aren't lost. `flushAnalytics()` (checkpoint → drain → single batched increment-upsert into `member_activity_daily`) is invoked by `analyticsSchedulable` every 5 minutes and on `SIGTERM`/`SIGINT`. Hard-crash loss is bounded by the flush interval — an accepted tradeoff for analytics.
+
+### Stat channels (`providers/statChannels/`)
+
+`STAT_CHANNEL_LABELS` / `STAT_CHANNEL_CHOICES` (shared by `/config` and the schedulable) and `computeStatValue(guild, statType)` for the five stat types (all members, active members in the last 30 days, total roles, text channels, yesterday's message total). Consumed by `statChannelsSchedulable`.
 
 ### Starboard (`providers/starboard/`)
 
@@ -595,6 +636,11 @@ BSKY, Instagram, and Haiilo are **interface-only stubs**. They implement `Extern
 `src/core/scheduler/banSweeper.ts` — started in the `ClientReady` event handler. Polls `bans` table every 60 seconds for rows where `active = true AND expiresAt <= NOW()`. For each: lifts the Discord-side ban via `guild.bans.remove()`, then `deactivateBan()` in DB. Logs counts.
 
 Single-process, single-server assumption. If the bot ever runs multi-process, this needs to move to a proper distributed scheduler.
+
+Recurring jobs are `Schedulable` instances registered in `loaders/loadSchedulables.ts` (cron via Croner; overridable per job via `/config schedulable`, runnable on demand via `/config run`). Analytics jobs:
+
+- `analytics-schedulable` (`*/5 * * * *`) — flushes the in-memory activity buffer to `member_activity_daily`.
+- `stat-channels-schedulable` (`0 1 * * *`, 01:00 daily) — renames each configured stat voice channel to `"Label: value"`. Per-channel try/catch (the client uses `rejectOnRateLimit`), and skips `setName` when the name is unchanged to conserve the channel-rename rate limit.
 
 ---
 

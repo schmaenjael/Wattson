@@ -1,7 +1,7 @@
 import { eq, type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
 
-import { getDb } from '../client';
-import { lockedChannels } from '../schema/lockedChannels';
+import { getDb } from '~/database/client';
+import { lockedChannels } from '~/database/schema/lockedChannels';
 
 export type LockedChannel = InferSelectModel<typeof lockedChannels>;
 type LockedChannelInsert = Omit<InferInsertModel<typeof lockedChannels>, 'lockedAt' | 'previousSlowmode'> & { previousSlowmode: number };

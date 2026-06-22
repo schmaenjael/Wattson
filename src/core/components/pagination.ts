@@ -9,7 +9,7 @@ import {
   InteractionDeferReplyOptions,
   BaseMessageOptions,
 } from 'discord.js';
-import { BotException } from '../models';
+import { BotException } from '~/core/models';
 import { ErrorEmbed } from './Error';
 import { Colors } from '~/settings';
 

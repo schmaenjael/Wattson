@@ -1,8 +1,8 @@
 import { and, desc, eq, or, type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
 
-import { getDb } from '../client';
-import { courtCases } from '../schema/courtCases';
-import { CourtStatus } from '../schema/enums';
+import { getDb } from '~/database/client';
+import { courtCases } from '~/database/schema/courtCases';
+import { CourtStatus } from '~/database/schema/enums';
 
 export type CourtCase = InferSelectModel<typeof courtCases>;
 export type NewCourtCase = Omit<InferInsertModel<typeof courtCases>, 'id' | 'openedAt' | 'closedAt' | 'closedBy' | 'verdict' | 'status'>;

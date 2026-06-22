@@ -3,7 +3,7 @@ import { AuditEventType, deactivateBan, listExpiredActiveBans, recordAuditEvent 
 import { Schedulable } from '~/core/models/Schedulable';
 
 export const banSchedulable = new Schedulable({
-  name: 'ban-sweeper',
+  name: 'ban-schedulable',
   feature: AppFeature.Ban,
   description: 'Lifts expired bans and records audit events.',
   defaultCron: '* * * * *',
@@ -21,6 +21,10 @@ export const banSchedulable = new Schedulable({
 
     let lifted = 0;
     for (const ban of rows) {
+      if (!ban.targetUserId) {
+        await deactivateBan(ban.id);
+        continue;
+      }
       try {
         await guild.bans.remove(ban.targetUserId, 'Automatic unban — ban expired');
         await deactivateBan(ban.id);

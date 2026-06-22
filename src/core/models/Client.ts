@@ -16,6 +16,7 @@ export class Client extends _Client {
         GatewayIntentBits.GuildMessageReactions,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.GuildModeration,
+        GatewayIntentBits.GuildVoiceStates,
         GatewayIntentBits.Guilds,
         GatewayIntentBits.MessageContent,
       ],

@@ -1,8 +1,8 @@
 import { count, eq, type InferSelectModel } from 'drizzle-orm';
 
-import { getDb } from '../client';
-import { courtVotes } from '../schema/courtVotes';
-import { CourtVoteOption } from '../schema/enums';
+import { getDb } from '~/database/client';
+import { courtVotes } from '~/database/schema/courtVotes';
+import { CourtVoteOption } from '~/database/schema/enums';
 
 export type CourtVote = InferSelectModel<typeof courtVotes>;
 

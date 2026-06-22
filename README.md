@@ -59,7 +59,8 @@ src/utilities/                 Logger (Pino), duration parser, misc helpers
 - [x] **Rules** — centralised `/rules` command; managed via database
 - [x] **Sticky messages** — per-channel re-posting after N messages; info/warning levels; `❓` reaction triggers a DM with full extended explanation; managed via `/sticky set|remove|list`
 - [x] **Modmail** — `/modmail open` for private mod contact; categorised, closeable, stale-detection
-- [x] **Statistics** — `/stats joins|moderation|activity` with chart generation
+- [x] **Statistics** — `/stats joins|moderation|activity|engagement|invites` plus `/stats chart verifications|moderation|engagement`; engagement covers messages, voice time, reactions, and active members tracked via a low-write in-memory buffer
+- [x] **Member activity tracking** — message counts, voice-channel time, and reactions buffered in memory and flushed every 5 minutes (no per-event DB writes); powers engagement stats and the active-member count
 - [x] **Ping** — `/ping`
 - [x] **Forum role sync** — auto-adds members to configured forum threads when they receive a mapped role
 
@@ -77,6 +78,7 @@ src/utilities/                 Logger (Pino), duration parser, misc helpers
 
 - [x] **`/config`** — paginated guild settings viewer + per-feature on/off toggles, surveillance channel assignment, starboard config, automod thresholds
 - [x] **Forum role sync** — `/config forum add|remove|list` maps Discord forum thread channels to roles; members are auto-added to mapped threads when the role is assigned (retroactive sync on configure)
+- [x] **Stat channels** — `/config statchannel` maps a stat (all members, active members, total roles, text channels, messages today) to a voice channel; its name is refreshed daily at 01:00 to `Stat name: number` by the `stat-channels-schedulable` job
 
 ### Non-Functional
 
@@ -94,7 +96,7 @@ src/utilities/                 Logger (Pino), duration parser, misc helpers
 
 - [Bun](https://bun.sh/) ≥ 1.2.8
 - PostgreSQL 15+ (or Docker — see below)
-- An Ollama instance running a compatible model (default: `llama3.2:3b`)
+- An Ollama instance running a compatible model (default: `granite3.2:8b`)
 - A Discord application with a bot token (created at [discord.dev](https://discord.dev))
 
 ### 1. Clone and install

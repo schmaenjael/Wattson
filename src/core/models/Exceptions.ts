@@ -3,8 +3,8 @@ import { Client, TextChannel } from 'discord.js';
 import { getSettings } from '~/database';
 import { Colors } from '~/settings';
 import { Logger } from '~/utilities';
-import { ErrorEmbed } from '../components/Error';
-import { baseLocale } from '../locales';
+import { ErrorEmbed } from '~/core/components/Error';
+import { baseLocale } from '~/core/locales';
 
 export class BotException extends Error {
   private readonly client: Client;

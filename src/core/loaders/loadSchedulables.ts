@@ -11,8 +11,22 @@ import { muteSchedulable } from '~/core/scheduler/muteSchedulable';
 import { modmailSchedulable } from '~/core/scheduler/modmailSchedulable';
 import { eventSchedulable } from '~/core/scheduler/eventSchedulable';
 import { verificationSchedulable } from '~/core/scheduler/verificationSchedulable';
+import { suggestionSchedulable } from '~/core/scheduler/suggestionSchedulable';
+import { warningSchedulable } from '~/core/scheduler/warningSchedulable';
+import { analyticsSchedulable } from '~/core/scheduler/analyticsSchedulable';
+import { statChannelsSchedulable } from '~/core/scheduler/statChannelsSchedulable';
 
-const ALL_SCHEDULABLES: Schedulable[] = [banSchedulable, muteSchedulable, modmailSchedulable, eventSchedulable, verificationSchedulable];
+const ALL_SCHEDULABLES: Schedulable[] = [
+  banSchedulable,
+  muteSchedulable,
+  modmailSchedulable,
+  eventSchedulable,
+  verificationSchedulable,
+  suggestionSchedulable,
+  warningSchedulable,
+  analyticsSchedulable,
+  statChannelsSchedulable,
+];
 
 const registry = new Collection<string, Schedulable>();
 

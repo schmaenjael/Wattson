@@ -135,6 +135,17 @@ type RootTranslation = {
 				ALREADY_VERIFIED: string
 			}
 			QUESTIONS: {
+				CAPTCHA: {
+					/**
+					 * �​�​ ​A​r​e​ ​y​o​u​ ​h​u​m​a​n​?
+					 */
+					TITLE: string
+					/**
+					 * T​y​p​e​ ​t​h​e​ ​c​h​a​r​a​c​t​e​r​s​ ​s​h​o​w​n​ ​i​n​ ​t​h​e​ ​i​m​a​g​e​ ​b​e​l​o​w​.​ ​T​h​i​s​ ​h​e​l​p​s​ ​u​s​ ​k​e​e​p​ ​b​o​t​s​ ​o​u​t​.​ ​
+				​I​f​ ​y​o​u​ ​h​a​v​e​ ​a​ ​d​i​s​a​b​i​l​i​t​y​ ​t​h​a​t​ ​p​r​e​v​e​n​t​s​ ​y​o​u​ ​f​r​o​m​ ​c​o​m​p​l​e​t​i​n​g​ ​t​h​i​s​ ​c​a​p​t​c​h​a​,​ ​p​l​e​a​s​e​ ​u​s​e​ ​`​`​/​m​o​d​m​a​i​l​ ​o​p​e​n​`​`​ ​t​o​ ​r​e​q​u​e​s​t​ ​h​e​l​p​.
+					 */
+					DESCRIPTION: string
+				}
 				QUESTION_ICEBREAKER: {
 					/**
 					 * I​f​ ​y​o​u​ ​c​o​u​l​d​ ​t​e​l​e​p​o​r​t​ ​a​n​y​w​h​e​r​e​ ​i​n​ ​E​u​r​o​p​e​ ​r​i​g​h​t​ ​n​o​w​,​ ​w​h​e​r​e​ ​w​o​u​l​d​ ​y​o​u​ ​g​o​?
@@ -562,6 +573,191 @@ type RootTranslation = {
 			 */
 			DM_DENIED_DESCRIPTION: string
 		}
+		APPEAL: {
+			/**
+			 * �​�​ ​B​a​n​ ​A​p​p​e​a​l
+			 */
+			EMBED_TITLE: string
+			/**
+			 * <​@​{​u​s​e​r​I​d​}​>​ ​h​a​s​ ​s​u​b​m​i​t​t​e​d​ ​a​ ​b​a​n​ ​a​p​p​e​a​l​.
+			 * @param {string} userId
+			 */
+			EMBED_DESCRIPTION: RequiredParams<'userId'>
+			/**
+			 * �​�​ ​A​p​p​e​l​l​a​n​t
+			 */
+			FIELD_APPELLANT: string
+			/**
+			 * �​�​ ​A​c​c​o​u​n​t​ ​C​r​e​a​t​e​d
+			 */
+			FIELD_ACCOUNT_CREATED: string
+			/**
+			 * �​�​ ​E​-​M​a​i​l
+			 */
+			FIELD_EMAIL: string
+			/**
+			 * ⚖​️​ ​W​h​y​ ​I​ ​s​h​o​u​l​d​ ​b​e​ ​u​n​b​a​n​n​e​d
+			 */
+			FIELD_REASON: string
+			/**
+			 * �​�​ ​A​d​d​i​t​i​o​n​a​l​ ​I​n​f​o​r​m​a​t​i​o​n
+			 */
+			FIELD_ADDITIONAL: string
+			/**
+			 * �​�​ ​O​r​i​g​i​n​a​l​ ​B​a​n​ ​R​e​a​s​o​n
+			 */
+			FIELD_ORIGINAL_BAN: string
+			/**
+			 * �​�​ ​B​a​n​n​e​d
+			 */
+			FIELD_BANNED: string
+			/**
+			 * �​�​️​ ​A​p​p​r​o​v​a​l​s
+			 */
+			FIELD_APPROVALS: string
+			/**
+			 * A​p​p​r​o​v​e​ ​(​{​v​o​t​e​C​o​u​n​t​}​/​{​t​h​r​e​s​h​o​l​d​}​)
+			 * @param {number} threshold
+			 * @param {number} voteCount
+			 */
+			BUTTON_APPROVE: RequiredParams<'threshold' | 'voteCount'>
+			/**
+			 * D​e​n​y
+			 */
+			BUTTON_DENY: string
+			/**
+			 * A​p​p​e​a​l​ ​#​{​a​p​p​e​a​l​I​d​}
+			 * @param {number} appealId
+			 */
+			FOOTER: RequiredParams<'appealId'>
+			/**
+			 * T​h​i​s​ ​a​p​p​e​a​l​ ​i​s​ ​n​o​ ​l​o​n​g​e​r​ ​v​a​l​i​d​.​ ​Y​o​u​r​ ​b​a​n​ ​m​a​y​ ​h​a​v​e​ ​a​l​r​e​a​d​y​ ​b​e​e​n​ ​r​e​s​o​l​v​e​d​ ​o​r​ ​a​n​ ​a​p​p​e​a​l​ ​a​l​r​e​a​d​y​ ​f​i​l​e​d​.
+			 */
+			SUBMIT_INVALID: string
+			/**
+			 * T​h​e​ ​a​p​p​e​a​l​ ​s​y​s​t​e​m​ ​i​s​ ​n​o​t​ ​c​o​n​f​i​g​u​r​e​d​.​ ​P​l​e​a​s​e​ ​c​o​n​t​a​c​t​ ​t​h​e​ ​m​o​d​e​r​a​t​i​o​n​ ​t​e​a​m​ ​d​i​r​e​c​t​l​y​.
+			 */
+			NOT_CONFIGURED: string
+			/**
+			 * T​h​e​ ​a​p​p​e​a​l​ ​c​h​a​n​n​e​l​ ​i​s​ ​u​n​a​v​a​i​l​a​b​l​e​.​ ​P​l​e​a​s​e​ ​c​o​n​t​a​c​t​ ​t​h​e​ ​m​o​d​e​r​a​t​i​o​n​ ​t​e​a​m​ ​d​i​r​e​c​t​l​y​.
+			 */
+			CHANNEL_UNAVAILABLE: string
+			/**
+			 * ✅​ ​Y​o​u​r​ ​a​p​p​e​a​l​ ​h​a​s​ ​b​e​e​n​ ​s​u​b​m​i​t​t​e​d​ ​s​u​c​c​e​s​s​f​u​l​l​y​.​ ​T​h​e​ ​m​o​d​e​r​a​t​i​o​n​ ​t​e​a​m​ ​w​i​l​l​ ​r​e​v​i​e​w​ ​i​t​ ​a​n​d​ ​y​o​u​ ​w​i​l​l​ ​b​e​ ​n​o​t​i​f​i​e​d​ ​h​e​r​e​ ​v​i​a​ ​D​M​ ​o​n​c​e​ ​a​ ​d​e​c​i​s​i​o​n​ ​h​a​s​ ​b​e​e​n​ ​m​a​d​e​.
+			 */
+			SUBMITTED: string
+			/**
+			 * A​p​p​e​a​l​ ​r​e​c​o​r​d​ ​n​o​t​ ​f​o​u​n​d​.
+			 */
+			RECORD_NOT_FOUND: string
+			/**
+			 * T​h​i​s​ ​a​p​p​e​a​l​ ​h​a​s​ ​a​l​r​e​a​d​y​ ​b​e​e​n​ ​r​e​s​o​l​v​e​d​.
+			 */
+			ALREADY_RESOLVED: string
+			/**
+			 * B​a​n​ ​r​e​c​o​r​d​ ​n​o​t​ ​f​o​u​n​d​.
+			 */
+			BAN_NOT_FOUND: string
+			/**
+			 * Y​o​u​ ​h​a​v​e​ ​a​l​r​e​a​d​y​ ​v​o​t​e​d​ ​t​o​ ​a​p​p​r​o​v​e​ ​t​h​i​s​ ​a​p​p​e​a​l​.
+			 */
+			ALREADY_VOTED: string
+			/**
+			 * ✅​ ​V​o​t​e​ ​r​e​c​o​r​d​e​d​.​ ​{​v​o​t​e​C​o​u​n​t​}​/​{​t​h​r​e​s​h​o​l​d​}​ ​a​p​p​r​o​v​a​l​s​ ​n​e​e​d​e​d​.
+			 * @param {number} threshold
+			 * @param {number} voteCount
+			 */
+			VOTE_RECORDED: RequiredParams<'threshold' | 'voteCount'>
+			/**
+			 * ✅​ ​B​a​n​ ​A​p​p​e​a​l​ ​—​ ​G​r​a​n​t​e​d
+			 */
+			GRANTED_TITLE: string
+			/**
+			 * ✅​ ​O​u​t​c​o​m​e
+			 */
+			OUTCOME_GRANTED_LABEL: string
+			/**
+			 * A​p​p​e​a​l​ ​g​r​a​n​t​e​d​ ​a​f​t​e​r​ ​*​*​{​v​o​t​e​C​o​u​n​t​}​*​*​ ​m​o​d​e​r​a​t​o​r​ ​v​o​t​e​s​.​ ​F​i​n​a​l​ ​v​o​t​e​ ​b​y​ ​<​@​{​u​s​e​r​I​d​}​>​.
+			 * @param {string} userId
+			 * @param {number} voteCount
+			 */
+			OUTCOME_GRANTED_VALUE: RequiredParams<'userId' | 'voteCount'>
+			/**
+			 * ✅​ ​A​p​p​e​a​l​ ​g​r​a​n​t​e​d​.
+			 */
+			GRANTED_REPLY: string
+			/**
+			 * ✅​ ​A​p​p​e​a​l​ ​g​r​a​n​t​e​d​.​ ​<​@​{​u​s​e​r​I​d​}​>​ ​h​a​s​ ​b​e​e​n​ ​u​n​b​a​n​n​e​d​.
+			 * @param {string} userId
+			 */
+			GRANTED_REPLY_UNBANNED: RequiredParams<'userId'>
+			/**
+			 * ❌​ ​B​a​n​ ​A​p​p​e​a​l​ ​—​ ​D​e​n​i​e​d
+			 */
+			DENIED_TITLE: string
+			/**
+			 * ❌​ ​O​u​t​c​o​m​e
+			 */
+			OUTCOME_DENIED_LABEL: string
+			/**
+			 * A​p​p​e​a​l​ ​d​e​n​i​e​d​ ​b​y​ ​<​@​{​u​s​e​r​I​d​}​>​.​ ​B​a​n​ ​r​e​m​a​i​n​s​ ​i​n​ ​e​f​f​e​c​t​.
+			 * @param {string} userId
+			 */
+			OUTCOME_DENIED_VALUE: RequiredParams<'userId'>
+			/**
+			 * ❌​ ​A​p​p​e​a​l​ ​d​e​n​i​e​d​.
+			 */
+			DENIED_REPLY: string
+			/**
+			 * ❌​ ​A​p​p​e​a​l​ ​d​e​n​i​e​d​.​ ​B​a​n​ ​o​n​ ​<​@​{​u​s​e​r​I​d​}​>​ ​r​e​m​a​i​n​s​ ​i​n​ ​e​f​f​e​c​t​.
+			 * @param {string} userId
+			 */
+			DENIED_REPLY_REMAINS: RequiredParams<'userId'>
+			/**
+			 * ✅​ ​B​a​n​ ​A​p​p​e​a​l​ ​G​r​a​n​t​e​d
+			 */
+			DM_GRANTED_TITLE: string
+			/**
+			 * Y​o​u​r​ ​b​a​n​ ​a​p​p​e​a​l​ ​h​a​s​ ​b​e​e​n​ ​r​e​v​i​e​w​e​d​ ​a​n​d​ ​*​*​a​p​p​r​o​v​e​d​*​*​ ​b​y​ ​t​h​e​ ​m​o​d​e​r​a​t​i​o​n​ ​t​e​a​m​.​
+		​
+		​Y​o​u​ ​h​a​v​e​ ​b​e​e​n​ ​u​n​b​a​n​n​e​d​ ​a​n​d​ ​m​a​y​ ​r​e​j​o​i​n​ ​t​h​e​ ​s​e​r​v​e​r​.
+			 */
+			DM_GRANTED_DESCRIPTION: string
+			/**
+			 * ❌​ ​B​a​n​ ​A​p​p​e​a​l​ ​D​e​n​i​e​d
+			 */
+			DM_DENIED_TITLE: string
+			/**
+			 * Y​o​u​r​ ​b​a​n​ ​a​p​p​e​a​l​ ​h​a​s​ ​b​e​e​n​ ​r​e​v​i​e​w​e​d​ ​a​n​d​ ​*​*​d​e​n​i​e​d​*​*​ ​b​y​ ​t​h​e​ ​m​o​d​e​r​a​t​i​o​n​ ​t​e​a​m​.​
+		​
+		​Y​o​u​r​ ​b​a​n​ ​r​e​m​a​i​n​s​ ​i​n​ ​e​f​f​e​c​t​.
+			 */
+			DM_DENIED_DESCRIPTION: string
+			/**
+			 * Y​o​u​ ​d​o​ ​n​o​t​ ​h​a​v​e​ ​a​n​ ​a​c​t​i​v​e​ ​a​p​p​e​a​l​a​b​l​e​ ​b​a​n​,​ ​o​r​ ​y​o​u​r​ ​a​p​p​e​a​l​ ​h​a​s​ ​a​l​r​e​a​d​y​ ​b​e​e​n​ ​s​u​b​m​i​t​t​e​d​.
+			 */
+			NO_APPEALABLE_BAN: string
+			/**
+			 * B​a​n​ ​A​p​p​e​a​l
+			 */
+			MODAL_TITLE: string
+			/**
+			 * Y​o​u​r​ ​e​-​m​a​i​l​ ​a​d​d​r​e​s​s
+			 */
+			MODAL_EMAIL_LABEL: string
+			/**
+			 * W​h​y​ ​s​h​o​u​l​d​ ​y​o​u​ ​b​e​ ​u​n​b​a​n​n​e​d​?
+			 */
+			MODAL_REASON_LABEL: string
+			/**
+			 * Y​o​u​ ​c​a​n​ ​w​r​i​t​e​ ​h​e​r​e​ ​w​h​y​ ​y​o​u​ ​s​h​o​u​l​d​ ​b​e​ ​u​n​b​a​n​n​e​d​.​ ​T​h​i​s​ ​c​a​n​ ​b​e​ ​e​i​t​h​e​r​ ​1​)​ ​h​o​w​ ​y​o​u​ ​t​h​i​n​k​ ​t​h​e​ ​b​a​n​ ​i​s​ ​u​n​j​u​s​t​i​f​i​e​d​ ​a​n​d​ ​w​r​o​n​g​ ​o​r​ ​2​)​ ​t​h​a​t​ ​y​o​u​ ​c​h​a​n​g​e​d​ ​y​o​u​r​ ​v​i​e​w​s​.​ ​P​l​e​a​s​e​ ​e​l​a​b​o​r​a​t​e​ ​u​s​i​n​g​ ​c​o​n​v​i​n​c​i​n​g​ ​a​r​g​u​m​e​n​t​s​.
+			 */
+			MODAL_REASON_PLACEHOLDER: string
+			/**
+			 * A​n​y​t​h​i​n​g​ ​e​l​s​e​ ​y​o​u​ ​w​a​n​t​ ​t​o​ ​t​e​l​l​ ​u​s​?
+			 */
+			MODAL_OTHER_LABEL: string
+		}
 	}
 	EVENT: {
 		COMMAND_CREATE: {
@@ -866,6 +1062,17 @@ export type TranslationFunctions = {
 				ALREADY_VERIFIED: () => LocalizedString
 			}
 			QUESTIONS: {
+				CAPTCHA: {
+					/**
+					 * 🤖 Are you human?
+					 */
+					TITLE: () => LocalizedString
+					/**
+					 * Type the characters shown in the image below. This helps us keep bots out. 
+				If you have a disability that prevents you from completing this captcha, please use ``/modmail open`` to request help.
+					 */
+					DESCRIPTION: () => LocalizedString
+				}
 				QUESTION_ICEBREAKER: {
 					/**
 					 * If you could teleport anywhere in Europe right now, where would you go?
@@ -1284,6 +1491,180 @@ export type TranslationFunctions = {
 			 * The moderation team has reviewed your data deletion request and denied it. No data was modified.
 			 */
 			DM_DENIED_DESCRIPTION: () => LocalizedString
+		}
+		APPEAL: {
+			/**
+			 * 📬 Ban Appeal
+			 */
+			EMBED_TITLE: () => LocalizedString
+			/**
+			 * <@{userId}> has submitted a ban appeal.
+			 */
+			EMBED_DESCRIPTION: (arg: { userId: string }) => LocalizedString
+			/**
+			 * 👤 Appellant
+			 */
+			FIELD_APPELLANT: () => LocalizedString
+			/**
+			 * 📅 Account Created
+			 */
+			FIELD_ACCOUNT_CREATED: () => LocalizedString
+			/**
+			 * 📧 E-Mail
+			 */
+			FIELD_EMAIL: () => LocalizedString
+			/**
+			 * ⚖️ Why I should be unbanned
+			 */
+			FIELD_REASON: () => LocalizedString
+			/**
+			 * 💬 Additional Information
+			 */
+			FIELD_ADDITIONAL: () => LocalizedString
+			/**
+			 * 🔨 Original Ban Reason
+			 */
+			FIELD_ORIGINAL_BAN: () => LocalizedString
+			/**
+			 * 🕐 Banned
+			 */
+			FIELD_BANNED: () => LocalizedString
+			/**
+			 * 🗳️ Approvals
+			 */
+			FIELD_APPROVALS: () => LocalizedString
+			/**
+			 * Approve ({voteCount}/{threshold})
+			 */
+			BUTTON_APPROVE: (arg: { threshold: number, voteCount: number }) => LocalizedString
+			/**
+			 * Deny
+			 */
+			BUTTON_DENY: () => LocalizedString
+			/**
+			 * Appeal #{appealId}
+			 */
+			FOOTER: (arg: { appealId: number }) => LocalizedString
+			/**
+			 * This appeal is no longer valid. Your ban may have already been resolved or an appeal already filed.
+			 */
+			SUBMIT_INVALID: () => LocalizedString
+			/**
+			 * The appeal system is not configured. Please contact the moderation team directly.
+			 */
+			NOT_CONFIGURED: () => LocalizedString
+			/**
+			 * The appeal channel is unavailable. Please contact the moderation team directly.
+			 */
+			CHANNEL_UNAVAILABLE: () => LocalizedString
+			/**
+			 * ✅ Your appeal has been submitted successfully. The moderation team will review it and you will be notified here via DM once a decision has been made.
+			 */
+			SUBMITTED: () => LocalizedString
+			/**
+			 * Appeal record not found.
+			 */
+			RECORD_NOT_FOUND: () => LocalizedString
+			/**
+			 * This appeal has already been resolved.
+			 */
+			ALREADY_RESOLVED: () => LocalizedString
+			/**
+			 * Ban record not found.
+			 */
+			BAN_NOT_FOUND: () => LocalizedString
+			/**
+			 * You have already voted to approve this appeal.
+			 */
+			ALREADY_VOTED: () => LocalizedString
+			/**
+			 * ✅ Vote recorded. {voteCount}/{threshold} approvals needed.
+			 */
+			VOTE_RECORDED: (arg: { threshold: number, voteCount: number }) => LocalizedString
+			/**
+			 * ✅ Ban Appeal — Granted
+			 */
+			GRANTED_TITLE: () => LocalizedString
+			/**
+			 * ✅ Outcome
+			 */
+			OUTCOME_GRANTED_LABEL: () => LocalizedString
+			/**
+			 * Appeal granted after **{voteCount}** moderator votes. Final vote by <@{userId}>.
+			 */
+			OUTCOME_GRANTED_VALUE: (arg: { userId: string, voteCount: number }) => LocalizedString
+			/**
+			 * ✅ Appeal granted.
+			 */
+			GRANTED_REPLY: () => LocalizedString
+			/**
+			 * ✅ Appeal granted. <@{userId}> has been unbanned.
+			 */
+			GRANTED_REPLY_UNBANNED: (arg: { userId: string }) => LocalizedString
+			/**
+			 * ❌ Ban Appeal — Denied
+			 */
+			DENIED_TITLE: () => LocalizedString
+			/**
+			 * ❌ Outcome
+			 */
+			OUTCOME_DENIED_LABEL: () => LocalizedString
+			/**
+			 * Appeal denied by <@{userId}>. Ban remains in effect.
+			 */
+			OUTCOME_DENIED_VALUE: (arg: { userId: string }) => LocalizedString
+			/**
+			 * ❌ Appeal denied.
+			 */
+			DENIED_REPLY: () => LocalizedString
+			/**
+			 * ❌ Appeal denied. Ban on <@{userId}> remains in effect.
+			 */
+			DENIED_REPLY_REMAINS: (arg: { userId: string }) => LocalizedString
+			/**
+			 * ✅ Ban Appeal Granted
+			 */
+			DM_GRANTED_TITLE: () => LocalizedString
+			/**
+			 * Your ban appeal has been reviewed and **approved** by the moderation team.
+	
+		You have been unbanned and may rejoin the server.
+			 */
+			DM_GRANTED_DESCRIPTION: () => LocalizedString
+			/**
+			 * ❌ Ban Appeal Denied
+			 */
+			DM_DENIED_TITLE: () => LocalizedString
+			/**
+			 * Your ban appeal has been reviewed and **denied** by the moderation team.
+	
+		Your ban remains in effect.
+			 */
+			DM_DENIED_DESCRIPTION: () => LocalizedString
+			/**
+			 * You do not have an active appealable ban, or your appeal has already been submitted.
+			 */
+			NO_APPEALABLE_BAN: () => LocalizedString
+			/**
+			 * Ban Appeal
+			 */
+			MODAL_TITLE: () => LocalizedString
+			/**
+			 * Your e-mail address
+			 */
+			MODAL_EMAIL_LABEL: () => LocalizedString
+			/**
+			 * Why should you be unbanned?
+			 */
+			MODAL_REASON_LABEL: () => LocalizedString
+			/**
+			 * You can write here why you should be unbanned. This can be either 1) how you think the ban is unjustified and wrong or 2) that you changed your views. Please elaborate using convincing arguments.
+			 */
+			MODAL_REASON_PLACEHOLDER: () => LocalizedString
+			/**
+			 * Anything else you want to tell us?
+			 */
+			MODAL_OTHER_LABEL: () => LocalizedString
 		}
 	}
 	EVENT: {

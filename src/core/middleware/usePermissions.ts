@@ -1,20 +1,11 @@
-import { Events, Interaction, MessageFlags, PermissionFlagsBits } from 'discord.js';
+import { Events, Interaction, MessageFlags } from 'discord.js';
 
 import { Client } from '~/core/models';
 import type { MiddlewareFunction } from '~/core/types';
-import { getSettings, Settings } from '~/database';
-import { Permission } from '~/core/models';
+import { getSettings } from '~/database';
 import { L } from '~/core/locales';
 import { ProcessExitCode } from '~/settings';
-
-const ROLE_COLUMN_BY_PERMISSION: Record<Permission, keyof Settings> = {
-  [Permission.Unregistered]: 'roleUnregisteredId',
-  [Permission.Community]: 'roleCommunityId',
-  [Permission.Member]: 'roleMemberId',
-  [Permission.EventManager]: 'roleEventManagerId',
-  [Permission.Moderation]: 'roleModerationId',
-  [Permission.Administration]: 'roleAdministrationId',
-};
+import { memberHasAllPermissions } from '~/core/middleware/permissionCore';
 
 const replyNoPerm = async (interaction: Interaction) => {
   if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
@@ -37,7 +28,7 @@ const replyWrongContext = async (interaction: Interaction) => {
 /**
  * Runs on the central InteractionCreate event and enforces the dispatched
  * command's own `requiredPermissions`. Attached as middleware on
- * src/core/events/system/commands.ts so it fires once per interaction.
+ * src/core/events/interactionCreate.ts so it fires once per interaction.
  */
 export const usePermissions: MiddlewareFunction<typeof Events.InteractionCreate> = async (_event, client: Client, interaction: Interaction) => {
   if (!interaction.isChatInputCommand() && !interaction.isContextMenuCommand()) return { status: ProcessExitCode.OK };
@@ -66,19 +57,7 @@ export const usePermissions: MiddlewareFunction<typeof Events.InteractionCreate>
     return { status: ProcessExitCode.NOPERM };
   }
 
-  // Bootstrap fallback: allow ManageGuild only when the admin role hasn't been configured yet
-  if (!settings.roleAdministrationId && member.permissions.has(PermissionFlagsBits.ManageGuild)) {
-    return { status: ProcessExitCode.OK };
-  }
-
-  const memberRoleIds = new Set(member.roles.cache.keys());
-
-  const missing = required.filter((permission) => {
-    const roleId = settings[ROLE_COLUMN_BY_PERMISSION[permission]] as string | null;
-    return !roleId || !memberRoleIds.has(roleId);
-  });
-
-  if (missing.length > 0) {
+  if (!memberHasAllPermissions(member, settings, required)) {
     await replyNoPerm(interaction);
     return { status: ProcessExitCode.NOPERM };
   }

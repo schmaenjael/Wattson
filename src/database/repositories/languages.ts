@@ -1,8 +1,8 @@
 import { and, asc, eq, type InferSelectModel } from 'drizzle-orm';
 
-import { getDb } from '../client';
-import { languages } from '../schema/languages';
-import { LanguageGroup } from '../schema/enums';
+import { getDb } from '~/database/client';
+import { languages } from '~/database/schema/languages';
+import { LanguageGroup } from '~/database/schema/enums';
 
 export type Language = InferSelectModel<typeof languages>;
 export type LanguageOption = { label: string; value: string };

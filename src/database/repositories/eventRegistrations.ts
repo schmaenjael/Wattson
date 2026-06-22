@@ -1,7 +1,7 @@
 import { and, count, eq, type InferSelectModel } from 'drizzle-orm';
 
-import { getDb } from '../client';
-import { eventRegistrations } from '../schema/eventRegistrations';
+import { getDb } from '~/database/client';
+import { eventRegistrations } from '~/database/schema/eventRegistrations';
 
 export type EventRegistration = InferSelectModel<typeof eventRegistrations>;
 

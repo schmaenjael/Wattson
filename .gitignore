@@ -35,3 +35,6 @@ AIDER_*
 
 # RAG Knowledge base
 config/knowledge/*.txt
+
+# Graphify
+/graphify-out

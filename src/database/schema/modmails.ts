@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { integer, jsonb, pgTable, timestamp, uniqueIndex, varchar } from 'drizzle-orm/pg-core';
+import { check, integer, jsonb, pgTable, timestamp, uniqueIndex, varchar } from 'drizzle-orm/pg-core';
 
 import { modmailCategoryEnum, modmailStatusEnum, ModmailStatus } from './enums';
 import { createdAt, REASON_LENGTH, SNOWFLAKE_LENGTH } from './shared';
@@ -11,9 +11,7 @@ export const modmails = pgTable(
   'modmails',
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
-    userId: varchar({ length: SNOWFLAKE_LENGTH })
-      .notNull()
-      .references(() => users.id),
+    userId: varchar({ length: SNOWFLAKE_LENGTH }).references(() => users.id, { onDelete: 'set null' }),
     threadId: varchar({ length: SNOWFLAKE_LENGTH }).notNull(),
     category: modmailCategoryEnum().notNull(),
     reason: varchar({ length: REASON_LENGTH }).notNull(),
@@ -26,11 +24,13 @@ export const modmails = pgTable(
     staleNotifiedAt: timestamp({ withTimezone: true }),
     staleMessageId: varchar({ length: SNOWFLAKE_LENGTH }),
     staleDmMessageId: varchar({ length: SNOWFLAKE_LENGTH }),
+    channelMessageId: varchar({ length: SNOWFLAKE_LENGTH }),
     closeAction: jsonb().$type<{ type: string; payload: Record<string, unknown> } | null>(),
   },
   (t) => [
     uniqueIndex('modmails_one_active_per_user')
       .on(t.userId)
       .where(sql`${t.status} IN ('open', 'stale_pending')`),
+    check('modmails_reason_nonempty', sql`length(${t.reason}) > 0`),
   ]
 );

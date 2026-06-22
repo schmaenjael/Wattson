@@ -1,7 +1,9 @@
-import { boolean, check, integer, pgTable, timestamp, varchar } from 'drizzle-orm/pg-core';
+import { boolean, check, integer, jsonb, pgTable, timestamp, varchar } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 import { SNOWFLAKE_LENGTH } from './shared';
+
+export type StarboardEmojiTier = { threshold: number; emoji: string };
 
 /**
  * Singleton settings table. Exactly one row with id=1.
@@ -39,14 +41,21 @@ export const settings = pgTable(
     featureWarnAutoMuteEnabled: boolean().notNull().default(false),
     warnAutoMuteBaseMinutes: integer().notNull().default(60),
 
-    // Starboard appearance — comma-separated "threshold:emoji" pairs e.g. "1:⭐,5:🌟,10:💫,25:🌠"
-    starboardEmojiTiers: varchar({ length: 512 }).notNull().default('1:⭐,5:🌟,10:💫,25:🌠'),
+    // Starboard appearance — array of {threshold, emoji} tiers sorted ascending by threshold
+    starboardEmojiTiers: jsonb()
+      .$type<StarboardEmojiTier[]>()
+      .notNull()
+      .default([
+        { threshold: 1, emoji: '⭐' },
+        { threshold: 5, emoji: '🌟' },
+        { threshold: 10, emoji: '💫' },
+        { threshold: 25, emoji: '🌠' },
+      ]),
 
     // Harm detection
     featureHarmDetectionEnabled: boolean().notNull().default(false),
 
     // Profanity filter (file-based, configured via PROFANITY_LIST_PATH env var)
-    // severity >= badWordDeleteThreshold → immediate delete, no LLM; severity < threshold → always LLM context check
     featureBadWordsEnabled: boolean().notNull().default(true),
     badWordDeleteThreshold: integer().notNull().default(4),
 
@@ -63,8 +72,8 @@ export const settings = pgTable(
     antiSpamMaxMessages: integer().notNull().default(5),
     antiSpamWindowMs: integer().notNull().default(10000),
 
-    // React command defaults
-    reactDefaultEmojis: varchar({ length: 512 }).notNull().default('👍,👎'),
+    // React command defaults — array of emoji strings
+    reactDefaultEmojis: jsonb().$type<string[]>().notNull().default(['👍', '👎']),
 
     // Invite tracking
     featureInviteTrackingEnabled: boolean().notNull().default(false),
@@ -83,6 +92,27 @@ export const settings = pgTable(
     // Events
     eventAnnouncementChannelId: varchar({ length: SNOWFLAKE_LENGTH }),
     lastEventDigestAt: timestamp({ withTimezone: true }),
+
+    // Suggestions
+    suggestionChannelId: varchar({ length: SNOWFLAKE_LENGTH }),
+    suggestionApprovalChannelId: varchar({ length: SNOWFLAKE_LENGTH }),
+    suggestionVoteThreshold: integer().notNull().default(10),
+    suggestionVoteDurationHours: integer().notNull().default(72),
   },
-  (t) => [check('settings_singleton', sql`${t.id} = 1`)]
+  (t) => [
+    check('settings_singleton', sql`${t.id} = 1`),
+    check(
+      'settings_positive_thresholds',
+      sql`${t.starboardThreshold} > 0
+        AND ${t.starboardExternalThreshold} > 0
+        AND ${t.warnAutoEscalateCount} > 0
+        AND ${t.warnAutoEscalateWindowDays} > 0
+        AND ${t.warnAutoMuteBaseMinutes} > 0
+        AND ${t.antiSpamMaxMessages} > 0
+        AND ${t.antiSpamWindowMs} > 0
+        AND ${t.appealVoteThreshold} > 0
+        AND ${t.suggestionVoteThreshold} > 0
+        AND ${t.suggestionVoteDurationHours} > 0`
+    ),
+  ]
 );

@@ -1,5 +1,7 @@
 # Wattson — Claude Rules
 
+Hint: If bun is not installed, execute 1:1 the bun scripts with npx
+
 ALWAYS: Check if a fitting MCP connection exists and rely on the information provided from there.
 ALWAYS: Execute bun run script:lint and bun run script:format after every prompt!
 ALWAYS: Execute bun run build after every prompt to check for TSC errors!
@@ -24,6 +26,9 @@ NEVER: Execute bun run db:\* commands. Always leave it to the operator.
 - Verbose explicit typing -> prefer `InferSelectModel<>` / `InferInsertModel<>` over hand-written interfaces
 - Path aliases: `~/` = `src/`, `@/` = repo root
 - No comments unless WHY is non-obvious
+- Flat commands and events hierarchy
+- An Event File ONLY ever calls the methods of different features and doesnt contain any business logic itself, its just the handler and directs the tasks to the providers.
+-
 
 ## Project Structure
 
@@ -33,7 +38,7 @@ src/
   core/
     commands/        # flat per category subfolder; one file per command
     components/      # Discord UI builders (PascalCase files)
-    events/          # flat per category subfolder; one file per event
+    events/          # flat; one file per event
     loaders/         # startup-only wiring
     locales/         # typesafe-i18n generated + hand-edited translations
     middleware/      # reusable MiddlewareFunction<T> exports
@@ -73,15 +78,39 @@ export default new Command<ApplicationCommandType.ChatInput>({
 
 ## Events
 
-Pattern mirrors commands: `new Event({ type, feature, middleware, executeCommand })`.
+Exactly ONE file per Discord gateway event, flat in `src/core/events/`. Events contain NO business logic — they only call provider methods. Two archetypes:
 
+- **Fan-out** (multiple features react to one gateway event): `executeCommand` calls each provider in order, e.g. `messageReactionAdd.ts`, `guildMemberAdd.ts`, `guildMemberUpdate.ts`.
+
+  ```ts
+  new Event({ type, feature, middleware, async executeCommand(event, client, ...args) { await providerA(...); await providerB(...); } });
+  ```
+
+- **Dispatch** (`interactionCreate.ts`): declare `routes[]` instead of `executeCommand`. The `Event` model dispatches by `kind` + first `:`-segment of the `customId` to a provider handler.
+
+  ```ts
+  new Event({
+    type: Events.InteractionCreate,
+    feature: AppFeature.System,
+    middleware: [usePermissions],
+    routes: [
+      { kind: 'button', name: 'court_vote', rights: [Permission.Moderation, Permission.Administration], handler: handleCourtVote },
+      { kind: 'modal', name: 'suggestion', handler: handleSuggestionModal },
+    ],
+  });
+  ```
+
+- Route `kind`: `command | autocomplete | button | select | modal`. `name` = customId prefix (omit for command/autocomplete).
+- Route `rights[]`: OR semantics, `ManageGuild` always passes. Use ONLY when every action under the prefix needs the same gate. Otherwise gate inside the provider with `memberHasAnyPermission` (e.g. public votes mixed with mod approvals, or modals that must `showModal` first).
+- Provider handlers sub-route remaining customId segments with a `Record<string, handler>` map or `switch` — same shape at every routing level.
 - `middleware` array of `MiddlewareFunctionEvent<T>` -> non-OK status short-circuits handler
 
 ## Middleware
 
 - Return type: `Promise<MiddlewareResult>` = `{ status: ProcessExitCode, payload?: unknown }`
 - `ProcessExitCode.OK` = pass; anything else = short-circuit + caller returns early
-- Permission middleware lives on InteractionCreate event (`src/core/events/system/commands.ts`), not per-command
+- Permission middleware (`usePermissions`) lives on the InteractionCreate event (`src/core/events/interactionCreate.ts`), not per-command. AND semantics for command `requiredPermissions`.
+- Shared role-resolution core in `src/core/middleware/permissionCore.ts` (`memberHasAllPermissions` = AND for commands; `memberHasAnyPermission` = OR for route `rights`)
 - Command-specific guards go in command's own `middleware: []` array
 
 ## Database
@@ -136,3 +165,13 @@ Pattern mirrors commands: `new Event({ type, feature, middleware, executeCommand
 
 - Always report issues found plus a recommendation to fix
 - Aggressive folder/component restructuring is OK when there is a clearly better alternative
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).

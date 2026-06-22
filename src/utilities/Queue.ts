@@ -2,11 +2,13 @@ export type QueueTask<T> = () => Promise<T>;
 
 export class AsyncQueue<T = void> {
   private readonly maxSize: number;
+  private readonly onError: ((err: unknown) => void) | undefined;
   private readonly queue: QueueTask<T>[] = [];
   private processing = false;
 
-  constructor(maxSize = 500) {
+  constructor(maxSize = 500, onError?: (err: unknown) => void) {
     this.maxSize = maxSize;
+    this.onError = onError;
   }
 
   enqueue(task: QueueTask<T>): boolean {
@@ -30,8 +32,8 @@ export class AsyncQueue<T = void> {
       const task = this.queue.shift()!;
       try {
         await task();
-      } catch {
-        // individual task failures must not stop the queue
+      } catch (err) {
+        this.onError?.(err);
       }
     }
     this.processing = false;

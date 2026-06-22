@@ -22,7 +22,7 @@ services:
       - BOT_PASSWORD=${BOT_PASSWORD:?err}
       - HATE_SPEECH_DETECTOR_ENDPOINT=${HATE_SPEECH_DETECTOR_ENDPOINT:-http://hate-speech-detector:8000}
       - OLLAMA_ENDPOINT=${OLLAMA_ENDPOINT:-http://ollama:11434}
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2:3b}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-granite3.2:8b}
       - RAG_ENDPOINT=${RAG_ENDPOINT:-http://rag:8080}
     depends_on:
       postgres:
@@ -51,7 +51,7 @@ services:
       - RAG_DB_USER=${RAG_DB_USER:?err}
       - RAG_DB_PASSWORD=${RAG_DB_PASSWORD:?err}
       - OLLAMA_ENDPOINT=${OLLAMA_ENDPOINT:-http://ollama:11434}
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2:3b}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-granite3.2:8b}
       - CHUNK_SIZE=500
       - CHUNK_OVERLAP=50
       - SIMILARITY_THRESHOLD=0.7
@@ -86,7 +86,7 @@ services:
       context: .
       dockerfile: services/ollama/Dockerfile
       args:
-        MODEL_NAME: ${OLLAMA_MODEL:-llama3.2:3b}
+        MODEL_NAME: ${OLLAMA_MODEL:-granite3.2:8b}
     container_name: ollama
     ports:
       - '11434:11434'

@@ -1,12 +1,13 @@
-import { and, count, desc, eq, gt, gte, isNull, or, type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
+import { and, count, desc, eq, gt, gte, isNotNull, isNull, lte, or, type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
 
-import { getDb } from '../client';
-import { warnings } from '../schema/warnings';
+import { getDb } from '~/database/client';
+import { warnings } from '~/database/schema/warnings';
+import { ModerationStatus } from '~/database/schema/enums';
 
 export const WARNING_DEFAULT_EXPIRY_DAYS = 30;
 
 export type Warning = InferSelectModel<typeof warnings>;
-export type NewWarning = Omit<InferInsertModel<typeof warnings>, 'id' | 'createdAt' | 'revokedAt' | 'revokedBy'>;
+export type NewWarning = Omit<InferInsertModel<typeof warnings>, 'id' | 'createdAt' | 'status' | 'revokedAt' | 'revokedBy'>;
 
 export const insertWarning = async (input: NewWarning): Promise<Warning> => {
   const db = getDb();
@@ -35,7 +36,13 @@ export const countActiveWarnings = async (targetUserId: string): Promise<number>
   const [{ c }] = await db
     .select({ c: count() })
     .from(warnings)
-    .where(and(eq(warnings.targetUserId, targetUserId), isNull(warnings.revokedAt), or(isNull(warnings.expiresAt), gt(warnings.expiresAt, now))));
+    .where(
+      and(
+        eq(warnings.targetUserId, targetUserId),
+        eq(warnings.status, ModerationStatus.Active),
+        or(isNull(warnings.expiresAt), gt(warnings.expiresAt, now))
+      )
+    );
   return Number(c);
 };
 
@@ -48,7 +55,7 @@ export const countActiveWarningsSince = async (targetUserId: string, since: Date
     .where(
       and(
         eq(warnings.targetUserId, targetUserId),
-        isNull(warnings.revokedAt),
+        eq(warnings.status, ModerationStatus.Active),
         gte(warnings.createdAt, since),
         or(isNull(warnings.expiresAt), gt(warnings.expiresAt, now))
       )
@@ -58,7 +65,11 @@ export const countActiveWarningsSince = async (targetUserId: string, since: Date
 
 export const revokeWarning = async (id: number, revokedBy: string): Promise<Warning | undefined> => {
   const db = getDb();
-  const [row] = await db.update(warnings).set({ revokedAt: new Date(), revokedBy }).where(eq(warnings.id, id)).returning();
+  const [row] = await db
+    .update(warnings)
+    .set({ status: ModerationStatus.Lifted, revokedAt: new Date(), revokedBy })
+    .where(eq(warnings.id, id))
+    .returning();
   return row;
 };
 
@@ -72,4 +83,17 @@ export const deleteWarningsForUser = async (targetUserId: string): Promise<numbe
   const db = getDb();
   const result = await db.delete(warnings).where(eq(warnings.targetUserId, targetUserId)).returning();
   return result.length;
+};
+
+export const updateWarningStatus = async (id: number, status: ModerationStatus): Promise<void> => {
+  const db = getDb();
+  await db.update(warnings).set({ status }).where(eq(warnings.id, id));
+};
+
+export const listExpiredActiveWarnings = async (now: Date = new Date()): Promise<Warning[]> => {
+  const db = getDb();
+  return db
+    .select()
+    .from(warnings)
+    .where(and(eq(warnings.status, ModerationStatus.Active), isNotNull(warnings.expiresAt), lte(warnings.expiresAt, now)));
 };

@@ -3,7 +3,7 @@ import { AuditEventType, deactivateMute, getSettings, listExpiredActiveMutes, re
 import { Schedulable } from '~/core/models/Schedulable';
 
 export const muteSchedulable = new Schedulable({
-  name: 'mute-sweeper',
+  name: 'mute-schedulable',
   feature: AppFeature.Mute,
   description: 'Removes the muted role from members whose mute has expired.',
   defaultCron: '* * * * *',
@@ -26,6 +26,10 @@ export const muteSchedulable = new Schedulable({
 
     let lifted = 0;
     for (const mute of rows) {
+      if (!mute.targetUserId) {
+        await deactivateMute(mute.id);
+        continue;
+      }
       try {
         const member = await guild.members.fetch(mute.targetUserId).catch(() => null);
         if (member) {

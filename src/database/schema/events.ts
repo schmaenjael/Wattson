@@ -1,12 +1,13 @@
-import { index, integer, pgTable, serial, timestamp, varchar } from 'drizzle-orm/pg-core';
+import { index, integer, pgTable, timestamp, varchar } from 'drizzle-orm/pg-core';
 
-import { SNOWFLAKE_LENGTH } from './shared';
+import { SNOWFLAKE_LENGTH, createdAt } from './shared';
+import { users } from './users';
 
 export const events = pgTable(
   'events',
   {
-    id: serial().primaryKey(),
-    creatorId: varchar({ length: SNOWFLAKE_LENGTH }).notNull(),
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    creatorId: varchar({ length: SNOWFLAKE_LENGTH }).references(() => users.id, { onDelete: 'set null' }),
     name: varchar({ length: 128 }).notNull(),
     description: varchar({ length: 2048 }).notNull(),
     scheduledAt: timestamp({ withTimezone: true }).notNull(),
@@ -16,7 +17,7 @@ export const events = pgTable(
     parentEventId: integer(),
     announcedAt: timestamp({ withTimezone: true }),
     cancelledAt: timestamp({ withTimezone: true }),
-    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    createdAt: createdAt(),
   },
   (t) => [
     index('events_scheduled_at_idx').on(t.scheduledAt),

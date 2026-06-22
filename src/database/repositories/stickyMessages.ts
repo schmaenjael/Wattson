@@ -1,8 +1,8 @@
 import { eq } from 'drizzle-orm';
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 
-import { getDb } from '../client';
-import { stickyMessages } from '../schema';
+import { getDb } from '~/database/client';
+import { stickyMessages } from '~/database/schema';
 
 export type StickyMessage = InferSelectModel<typeof stickyMessages>;
 export type NewStickyMessage = Omit<InferInsertModel<typeof stickyMessages>, 'id' | 'createdAt' | 'updatedAt' | 'lastMessageId'>;

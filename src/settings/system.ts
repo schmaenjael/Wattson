@@ -48,7 +48,6 @@ export enum AppFeature {
   Database = 'Database',
   Rules = 'Rules',
   GdprDeletion = 'GdprDeletion',
-  VolterExport = 'VolterExport',
   LinkFilter = 'LinkFilter',
   Profanity = 'Profanity',
   Sticky = 'Sticky',
@@ -69,6 +68,8 @@ export enum AppFeature {
   VolterVerification = 'VolterVerification',
   VerificationSweeper = 'VerificationSweeper',
   Scheduler = 'Scheduler',
+  Suggestions = 'Suggestions',
+  Analytics = 'Analytics',
 }
 
 export enum LogNamespace {
@@ -98,7 +99,6 @@ export const appFeatureMap: { [K in AppFeature]: { category: Categories; namespa
   [AppFeature.Database]: { category: SystemCategories.Database, namespace: LogNamespace.Database, color: Colors.Yellow },
   [AppFeature.Welcome]: { category: AbilityCategories.Utility, namespace: LogNamespace.Utility, color: Colors.Purple },
   [AppFeature.GdprDeletion]: { category: AbilityCategories.Moderation, namespace: LogNamespace.Moderation, color: Colors.Red },
-  [AppFeature.VolterExport]: { category: AbilityCategories.Moderation, namespace: LogNamespace.Moderation, color: Colors.Purple },
   [AppFeature.LinkFilter]: { category: AbilityCategories.Moderation, namespace: LogNamespace.Moderation, color: Colors.Red },
   [AppFeature.Profanity]: { category: AbilityCategories.Moderation, namespace: LogNamespace.Moderation, color: Colors.Red },
   [AppFeature.Sticky]: { category: AbilityCategories.Moderation, namespace: LogNamespace.Moderation, color: Colors.Blue },
@@ -119,6 +119,8 @@ export const appFeatureMap: { [K in AppFeature]: { category: Categories; namespa
   [AppFeature.VolterVerification]: { category: AbilityCategories.Utility, namespace: LogNamespace.Utility, color: Colors.Purple },
   [AppFeature.VerificationSweeper]: { category: AbilityCategories.Surveillance, namespace: LogNamespace.Surveillance, color: Colors.Purple },
   [AppFeature.Scheduler]: { category: SystemCategories.System, namespace: LogNamespace.System, color: Colors.Yellow },
+  [AppFeature.Suggestions]: { category: AbilityCategories.Utility, namespace: LogNamespace.Utility, color: Colors.Green },
+  [AppFeature.Analytics]: { category: AbilityCategories.Surveillance, namespace: LogNamespace.Surveillance, color: Colors.Blue },
 } as const;
 
 export const MOD_LIST_PAGE_SIZE = 10;

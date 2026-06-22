@@ -1,4 +1,4 @@
-import { integer, pgTable, serial, unique, varchar } from 'drizzle-orm/pg-core';
+import { integer, pgTable, unique, varchar } from 'drizzle-orm/pg-core';
 
 import { courtVoteOptionEnum, CourtVoteOption } from './enums';
 import { createdAt, SNOWFLAKE_LENGTH } from './shared';
@@ -8,13 +8,11 @@ import { users } from './users';
 export const courtVotes = pgTable(
   'court_votes',
   {
-    id: serial().primaryKey(),
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
     caseId: integer()
       .notNull()
-      .references(() => courtCases.id),
-    moderatorId: varchar({ length: SNOWFLAKE_LENGTH })
-      .notNull()
-      .references(() => users.id),
+      .references(() => courtCases.id, { onDelete: 'cascade' }),
+    moderatorId: varchar({ length: SNOWFLAKE_LENGTH }).references(() => users.id, { onDelete: 'set null' }),
     vote: courtVoteOptionEnum().notNull().$type<CourtVoteOption>(),
     votedAt: createdAt(),
   },

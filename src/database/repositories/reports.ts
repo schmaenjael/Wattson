@@ -1,8 +1,8 @@
 import { count, desc, eq, or, type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
 
-import { getDb } from '../client';
-import { reports } from '../schema/reports';
-import { ReportStatus } from '../schema/enums';
+import { getDb } from '~/database/client';
+import { reports } from '~/database/schema/reports';
+import { ReportStatus } from '~/database/schema/enums';
 
 export type Report = InferSelectModel<typeof reports>;
 export type NewReport = Omit<InferInsertModel<typeof reports>, 'id' | 'status' | 'createdAt' | 'resolvedAt' | 'resolvedBy'>;

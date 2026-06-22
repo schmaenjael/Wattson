@@ -1,9 +1,9 @@
 import { and, desc, eq, inArray, type InferSelectModel } from 'drizzle-orm';
 import type { Snowflake } from 'discord.js';
 
-import { getDb } from '../client';
-import { auditLog } from '../schema/auditLog';
-import type { AuditEventType } from '../schema/enums';
+import { getDb } from '~/database/client';
+import { auditLog } from '~/database/schema/auditLog';
+import type { AuditEventType } from '~/database/schema/enums';
 
 export type AuditLogRecord = InferSelectModel<typeof auditLog>;
 

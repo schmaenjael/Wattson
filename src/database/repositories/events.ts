@@ -1,7 +1,7 @@
 import { and, asc, count, gt, gte, isNull, lte, eq, type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
 
-import { getDb } from '../client';
-import { events } from '../schema/events';
+import { getDb } from '~/database/client';
+import { events } from '~/database/schema/events';
 
 export type Event = InferSelectModel<typeof events>;
 export type NewEvent = Omit<InferInsertModel<typeof events>, 'id' | 'createdAt'>;

@@ -16,9 +16,10 @@ import { buildKeepOpenRow, buildModmailSummaryEmbed } from '~/core/components/Mo
 import { fetchModmailSummary } from '~/core/providers/modmail/summarizer';
 import { dispatchCloseAction } from '~/core/providers/modmail/closeActions';
 import { Schedulable } from '~/core/models/Schedulable';
+import { attempt } from '~/utilities';
 
 export const modmailSchedulable = new Schedulable({
-  name: 'modmail-sweeper',
+  name: 'modmail-schedulable',
   feature: AppFeature.Modmail,
   description: 'Sends inactivity reminders, stale warnings, and auto-closes expired modmails.',
   defaultCron: '0 * * * *',
@@ -35,7 +36,7 @@ export const modmailSchedulable = new Schedulable({
     const pendingReminders = await listModmailsPendingReminder();
     for (const modmail of pendingReminders) {
       try {
-        const user = await client.users.fetch(modmail.userId).catch(() => null);
+        const user = modmail.userId ? await client.users.fetch(modmail.userId).catch(() => null) : null;
         if (user) {
           const dmChannel = await user.createDM().catch(() => null);
           await dmChannel
@@ -50,6 +51,8 @@ export const modmailSchedulable = new Schedulable({
               ],
             })
             .catch(() => null);
+        } else {
+          logger.warn({ modmailId: modmail.id, userId: modmail.userId }, 'Could not fetch user for inactivity reminder DM.');
         }
         await setReminderSent(modmail.id);
         logger.info({ modmailId: modmail.id }, 'Sent 7-day inactivity reminder.');
@@ -69,19 +72,24 @@ export const modmailSchedulable = new Schedulable({
           .setTimestamp();
         const keepOpenRow = buildKeepOpenRow(modmail.id);
 
+        const [thread, user] = await Promise.all([
+          guild.channels.fetch(modmail.threadId).catch(() => null),
+          modmail.userId ? client.users.fetch(modmail.userId).catch(() => null) : Promise.resolve(null),
+        ]);
+
         let threadMsgId: string | null = null;
-        const thread = await guild.channels.fetch(modmail.threadId).catch(() => null);
         if (thread?.isThread()) {
           const msg = await thread.send({ embeds: [staleEmbed], components: [keepOpenRow] }).catch(() => null);
           threadMsgId = msg?.id ?? null;
         }
 
         let dmMsgId: string | null = null;
-        const user = await client.users.fetch(modmail.userId).catch(() => null);
         if (user) {
           const dmChannel = await user.createDM().catch(() => null);
           const msg = await dmChannel?.send({ embeds: [staleEmbed], components: [keepOpenRow] }).catch(() => null);
           dmMsgId = msg?.id ?? null;
+        } else {
+          logger.warn({ modmailId: modmail.id, userId: modmail.userId }, 'Could not fetch user for stale warning DM.');
         }
 
         await setModmailStalePending(modmail.id, threadMsgId, dmMsgId);
@@ -96,7 +104,11 @@ export const modmailSchedulable = new Schedulable({
     for (const modmail of expired) {
       try {
         await closeModmail(modmail.id);
-        await recordAuditEvent({ eventType: AuditEventType.ModmailStaleClosed, targetUserId: modmail.userId, payload: { modmailId: modmail.id } });
+        await recordAuditEvent({
+          eventType: AuditEventType.ModmailStaleClosed,
+          targetUserId: modmail.userId ?? undefined,
+          payload: { modmailId: modmail.id },
+        });
 
         const closedEmbed = new EmbedBuilder()
           .setColor(Colors.Red)
@@ -104,7 +116,11 @@ export const modmailSchedulable = new Schedulable({
           .setDescription('This modmail was automatically closed after 30 days with no response to the stale warning.')
           .setTimestamp();
 
-        const thread = await guild.channels.fetch(modmail.threadId).catch(() => null);
+        const [thread, user] = await Promise.all([
+          guild.channels.fetch(modmail.threadId).catch(() => null),
+          modmail.userId ? client.users.fetch(modmail.userId).catch(() => null) : Promise.resolve(null),
+        ]);
+
         if (thread?.isThread()) {
           const summary = await fetchModmailSummary(client, modmail.threadId);
           if (summary) {
@@ -118,14 +134,11 @@ export const modmailSchedulable = new Schedulable({
           if (summary) {
             await thread.send({ embeds: [buildModmailSummaryEmbed(summary, modmail.id)] }).catch(() => null);
           }
-          try {
+          await attempt(async () => {
             await thread.setArchived(true);
-          } catch {
-            /* archive is best-effort */
-          }
+          });
         }
 
-        const user = await client.users.fetch(modmail.userId).catch(() => null);
         if (user) {
           const dmChannel = await user.createDM().catch(() => null);
           if (modmail.staleDmMessageId) {
@@ -133,6 +146,8 @@ export const modmailSchedulable = new Schedulable({
             await msg?.edit({ components: [] }).catch(() => null);
           }
           await dmChannel?.send({ embeds: [closedEmbed] }).catch(() => null);
+        } else {
+          logger.warn({ modmailId: modmail.id, userId: modmail.userId }, 'Could not fetch user for auto-close DM.');
         }
 
         await dispatchCloseAction(client, modmail);

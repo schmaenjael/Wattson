@@ -1,4 +1,4 @@
-import type { BaseTranslation } from '../i18n-types.js';
+import type { BaseTranslation } from '~/core/locales';
 
 const en = {
   SYSTEM: {
@@ -48,6 +48,11 @@ const en = {
         ALREADY_VERIFIED: '✅ You are already verified and have full server access.',
       },
       QUESTIONS: {
+        CAPTCHA: {
+          TITLE: '🤖 Are you human?',
+          DESCRIPTION:
+            'Type the characters shown in the image below. This helps us keep bots out. \nIf you have a disability that prevents you from completing this captcha, please use ``/modmail open`` to request help.',
+        },
         QUESTION_ICEBREAKER: {
           TITLE: 'If you could teleport anywhere in Europe right now, where would you go?',
           DESCRIPTION: "Hmmm... I think I'd visit the Kravica Waterfalls..! What about you?",
@@ -188,6 +193,53 @@ const en = {
       DM_BAN_NOTICE: 'As part of this process, you have been permanently banned from the server.',
       DM_DENIED_TITLE: 'Data Deletion Request Denied',
       DM_DENIED_DESCRIPTION: 'The moderation team has reviewed your data deletion request and denied it. No data was modified.',
+    },
+    APPEAL: {
+      EMBED_TITLE: '📬 Ban Appeal',
+      EMBED_DESCRIPTION: '<@{userId:string}> has submitted a ban appeal.',
+      FIELD_APPELLANT: '👤 Appellant',
+      FIELD_ACCOUNT_CREATED: '📅 Account Created',
+      FIELD_EMAIL: '📧 E-Mail',
+      FIELD_REASON: '⚖️ Why I should be unbanned',
+      FIELD_ADDITIONAL: '💬 Additional Information',
+      FIELD_ORIGINAL_BAN: '🔨 Original Ban Reason',
+      FIELD_BANNED: '🕐 Banned',
+      FIELD_APPROVALS: '🗳️ Approvals',
+      BUTTON_APPROVE: 'Approve ({voteCount:number}/{threshold:number})',
+      BUTTON_DENY: 'Deny',
+      FOOTER: 'Appeal #{appealId:number}',
+      SUBMIT_INVALID: 'This appeal is no longer valid. Your ban may have already been resolved or an appeal already filed.',
+      NOT_CONFIGURED: 'The appeal system is not configured. Please contact the moderation team directly.',
+      CHANNEL_UNAVAILABLE: 'The appeal channel is unavailable. Please contact the moderation team directly.',
+      SUBMITTED:
+        '✅ Your appeal has been submitted successfully. The moderation team will review it and you will be notified here via DM once a decision has been made.',
+      RECORD_NOT_FOUND: 'Appeal record not found.',
+      ALREADY_RESOLVED: 'This appeal has already been resolved.',
+      BAN_NOT_FOUND: 'Ban record not found.',
+      ALREADY_VOTED: 'You have already voted to approve this appeal.',
+      VOTE_RECORDED: '✅ Vote recorded. {voteCount:number}/{threshold:number} approvals needed.',
+      GRANTED_TITLE: '✅ Ban Appeal — Granted',
+      OUTCOME_GRANTED_LABEL: '✅ Outcome',
+      OUTCOME_GRANTED_VALUE: 'Appeal granted after **{voteCount:number}** moderator votes. Final vote by <@{userId:string}>.',
+      GRANTED_REPLY: '✅ Appeal granted.',
+      GRANTED_REPLY_UNBANNED: '✅ Appeal granted. <@{userId:string}> has been unbanned.',
+      DENIED_TITLE: '❌ Ban Appeal — Denied',
+      OUTCOME_DENIED_LABEL: '❌ Outcome',
+      OUTCOME_DENIED_VALUE: 'Appeal denied by <@{userId:string}>. Ban remains in effect.',
+      DENIED_REPLY: '❌ Appeal denied.',
+      DENIED_REPLY_REMAINS: '❌ Appeal denied. Ban on <@{userId:string}> remains in effect.',
+      DM_GRANTED_TITLE: '✅ Ban Appeal Granted',
+      DM_GRANTED_DESCRIPTION:
+        'Your ban appeal has been reviewed and **approved** by the moderation team.\n\nYou have been unbanned and may rejoin the server.',
+      DM_DENIED_TITLE: '❌ Ban Appeal Denied',
+      DM_DENIED_DESCRIPTION: 'Your ban appeal has been reviewed and **denied** by the moderation team.\n\nYour ban remains in effect.',
+      NO_APPEALABLE_BAN: 'You do not have an active appealable ban, or your appeal has already been submitted.',
+      MODAL_TITLE: 'Ban Appeal',
+      MODAL_EMAIL_LABEL: 'Your e-mail address',
+      MODAL_REASON_LABEL: 'Why should you be unbanned?',
+      MODAL_REASON_PLACEHOLDER:
+        'You can write here why you should be unbanned. This can be either 1) how you think the ban is unjustified and wrong or 2) that you changed your views. Please elaborate using convincing arguments.',
+      MODAL_OTHER_LABEL: 'Anything else you want to tell us?',
     },
   },
   EVENT: {

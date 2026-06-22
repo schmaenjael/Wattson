@@ -62,6 +62,29 @@ export enum ModmailStatus {
 }
 export const modmailStatusEnum = pgEnum('modmail_status', Object.values(ModmailStatus) as [string, ...string[]]);
 
+export enum SuggestionStatus {
+  Open = 'open',
+  InConsideration = 'in_consideration',
+  Accepted = 'accepted',
+  Declined = 'declined',
+}
+export const suggestionStatusEnum = pgEnum('suggestion_status', Object.values(SuggestionStatus) as [string, ...string[]]);
+
+export enum SuggestionVoteDirection {
+  Up = 'up',
+  Down = 'down',
+}
+export const suggestionVoteDirectionEnum = pgEnum('suggestion_vote_direction', Object.values(SuggestionVoteDirection) as [string, ...string[]]);
+
+export enum StatChannelType {
+  AllMembers = 'all_members',
+  ActiveMembers = 'active_members',
+  TotalRoles = 'total_roles',
+  TextChannels = 'text_channels',
+  MessagesToday = 'messages_today',
+}
+export const statChannelTypeEnum = pgEnum('stat_channel_type', Object.values(StatChannelType) as [string, ...string[]]);
+
 export enum AuditEventType {
   // Member lifecycle
   MemberJoined = 'member_joined',
@@ -102,10 +125,6 @@ export enum AuditEventType {
   DataDeletionDenied = 'data_deletion_denied',
   DataDeletionExecuted = 'data_deletion_executed',
   VerificationRestarted = 'verification_restarted',
-  // Volter export
-  VolterExportRequested = 'volter_export_requested',
-  VolterExportApproved = 'volter_export_approved',
-  VolterExportDenied = 'volter_export_denied',
   ModmailOpened = 'modmail_opened',
   ModmailClosed = 'modmail_closed',
   ModmailStaleClosed = 'modmail_stale_closed',
@@ -166,3 +185,10 @@ export enum StickyLevel {
   Warning = 'warning',
 }
 export const stickyLevelEnum = pgEnum('sticky_level', Object.values(StickyLevel) as [string, ...string[]]);
+
+export enum ModerationStatus {
+  Active = 'active',
+  Expired = 'expired',
+  Lifted = 'lifted',
+}
+export const moderationStatusEnum = pgEnum('moderation_status', Object.values(ModerationStatus) as [string, ...string[]]);

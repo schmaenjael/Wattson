@@ -1,8 +1,8 @@
 import { and, eq, asc } from 'drizzle-orm';
 
-import { getDb } from '../client';
-import { countries } from '../schema/countries';
-import { Continents } from '../schema/enums';
+import { getDb } from '~/database/client';
+import { countries } from '~/database/schema/countries';
+import { Continents } from '~/database/schema/enums';
 import { CategorizedChoiceOption, ChoiceOption } from '~/core/providers/verification';
 
 export const getVerificationCountryOptions = async (): Promise<CategorizedChoiceOption[]> => {

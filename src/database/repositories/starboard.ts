@@ -1,9 +1,9 @@
 import { count, eq, type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
 
-import { getDb } from '../client';
-import { starboardEntries } from '../schema/starboardEntries';
-import { externalPosts } from '../schema/externalPosts';
-import { ExternalPlatform, ExternalPostStatus } from '../schema/enums';
+import { getDb } from '~/database/client';
+import { starboardEntries } from '~/database/schema/starboardEntries';
+import { externalPosts } from '~/database/schema/externalPosts';
+import { ExternalPlatform, ExternalPostStatus } from '~/database/schema/enums';
 
 export type StarboardEntry = InferSelectModel<typeof starboardEntries>;
 export type NewStarboardEntry = InferInsertModel<typeof starboardEntries>;

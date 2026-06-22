@@ -1,8 +1,8 @@
 import { eq, type InferSelectModel } from 'drizzle-orm';
 import type { Snowflake, User } from 'discord.js';
 
-import { getDb } from '../client';
-import { users } from '../schema/users';
+import { getDb } from '~/database/client';
+import { users } from '~/database/schema/users';
 
 export type UserRecord = InferSelectModel<typeof users>;
 

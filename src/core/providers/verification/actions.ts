@@ -4,6 +4,7 @@ import { Client } from '~/core/models';
 import { AppFeature, appFeatureMap } from '~/settings';
 import { getSettings, getRoleMappingsForAnswers, RoleMappingType } from '~/database';
 import type { ChoiceOption, FlowAnswer, FlowAnswers, Step } from './flow';
+import { attempt } from '~/utilities';
 
 const toStringArray = (answer: FlowAnswer | undefined): string[] => {
   if (!answer) return [];
@@ -42,9 +43,6 @@ export const buildApprovalAnswerFields = (
     } else if (key === 'pronouns') {
       const codes = Array.isArray(raw) ? raw : [raw];
       value = codes.map((c) => withCode(PRONOUN_LABELS[c], c)).join(', ') || '—';
-    } else if (key === 'chapter_country') {
-      const code = typeof raw === 'string' ? raw : '';
-      value = withCode(countryLabelMap.get(code), code) || '—';
     } else {
       value = Array.isArray(raw) ? raw.join(', ') : raw;
     }
@@ -83,7 +81,7 @@ export const postWelcomeEmbed = async (client: Client, member: GuildMember): Pro
   const createdAt = `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`;
   const joinedAt = `<t:${Math.floor((member.joinedTimestamp ?? Date.now()) / 1000)}:R>`;
 
-  try {
+  await attempt(async () => {
     await welcomeChannel.send({
       embeds: [
         new EmbedBuilder()
@@ -99,9 +97,7 @@ export const postWelcomeEmbed = async (client: Client, member: GuildMember): Pro
           .setTimestamp(),
       ],
     });
-  } catch {
-    /* best-effort */
-  }
+  });
 };
 
 export const createChoiceMenu = (

@@ -37,6 +37,7 @@ export const buildVerificationFlow = async (locale: Locale, color: `#${string}`)
   const rulePages = buildRulePages(rules, color);
 
   return new Flow()
+    .step({ kind: 'captcha', key: 'captcha', prompt: () => ({ title: Q.CAPTCHA.TITLE(), description: Q.CAPTCHA.DESCRIPTION() }) })
     .step({
       kind: 'text',
       key: 'icebreaker',

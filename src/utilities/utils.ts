@@ -15,3 +15,22 @@ export const measurePerformance = <T extends (...args: any[]) => any>(target: T,
 };
 
 export const toTitleCase = (str: string) => str.replace(/\w\S*/g, (text) => text.charAt(0).toUpperCase() + text.substring(1).toLowerCase());
+
+export const chunkText = (text: string, maxLen: number): string[] => {
+  if (text.length <= maxLen) return [text];
+  const chunks: string[] = [];
+  let start = 0;
+  while (start < text.length) {
+    if (start + maxLen >= text.length) {
+      chunks.push(text.slice(start));
+      break;
+    }
+    const end = start + maxLen;
+    const lastNewline = text.lastIndexOf('\n', end);
+    const lastSpace = text.lastIndexOf(' ', end);
+    const breakAt = lastNewline > start ? lastNewline : lastSpace > start ? lastSpace : end;
+    chunks.push(text.slice(start, breakAt));
+    start = breakAt + (text[breakAt] === '\n' || text[breakAt] === ' ' ? 1 : 0);
+  }
+  return chunks;
+};

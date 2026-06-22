@@ -1,4 +1,4 @@
-import type { BaseTranslation } from '../i18n-types.js';
+import type { BaseTranslation } from '~/core/locales';
 
 const de = {
   SYSTEM: {
@@ -49,6 +49,7 @@ const de = {
         ALREADY_VERIFIED: '✅ Du bist bereits verifiziert und hast vollen Zugang zum Server.',
       },
       QUESTIONS: {
+        CAPTCHA: { TITLE: '🤖 Bist du ein Mensch?', DESCRIPTION: 'Gib die Zeichen aus dem Bild unten ein. Das hilft uns, Bots fernzuhalten.' },
         QUESTION_ICEBREAKER: {
           TITLE: 'Wenn du dich gerade irgendwo in Europa hinbeamen könntest – wohin ginge die Reise?',
           DESCRIPTION: 'Hmm... ich glaub, ich würd zu den Kravica-Wasserfällen düsen! Und du?',
@@ -189,6 +190,53 @@ const de = {
       DM_BAN_NOTICE: 'Im Rahmen dieses Prozesses wurdest du dauerhaft vom Server gebannt.',
       DM_DENIED_TITLE: 'Datenlöschungsantrag abgelehnt',
       DM_DENIED_DESCRIPTION: 'Das Moderationsteam hat deinen Datenlöschungsantrag geprüft und abgelehnt. Es wurden keine Daten verändert.',
+    },
+    APPEAL: {
+      EMBED_TITLE: '📬 Bann-Einspruch',
+      EMBED_DESCRIPTION: '<@{userId:string}> hat einen Bann-Einspruch eingereicht.',
+      FIELD_APPELLANT: '👤 Einspruchsteller',
+      FIELD_ACCOUNT_CREATED: '📅 Konto erstellt',
+      FIELD_EMAIL: '📧 E-Mail',
+      FIELD_REASON: '⚖️ Warum ich entbannt werden sollte',
+      FIELD_ADDITIONAL: '💬 Zusätzliche Informationen',
+      FIELD_ORIGINAL_BAN: '🔨 Ursprünglicher Bann-Grund',
+      FIELD_BANNED: '🕐 Gebannt',
+      FIELD_APPROVALS: '🗳️ Zustimmungen',
+      BUTTON_APPROVE: 'Annehmen ({voteCount:number}/{threshold:number})',
+      BUTTON_DENY: 'Ablehnen',
+      FOOTER: 'Einspruch #{appealId:number}',
+      SUBMIT_INVALID: 'Dieser Einspruch ist nicht mehr gültig. Dein Bann wurde möglicherweise bereits aufgehoben oder es wurde bereits ein Einspruch eingereicht.',
+      NOT_CONFIGURED: 'Das Einspruchssystem ist nicht konfiguriert. Bitte kontaktiere das Moderationsteam direkt.',
+      CHANNEL_UNAVAILABLE: 'Der Einspruchskanal ist nicht verfügbar. Bitte kontaktiere das Moderationsteam direkt.',
+      SUBMITTED:
+        '✅ Dein Einspruch wurde erfolgreich eingereicht. Das Moderationsteam wird ihn prüfen und du wirst hier per DM benachrichtigt, sobald eine Entscheidung getroffen wurde.',
+      RECORD_NOT_FOUND: 'Einspruchs-Datensatz nicht gefunden.',
+      ALREADY_RESOLVED: 'Dieser Einspruch wurde bereits bearbeitet.',
+      BAN_NOT_FOUND: 'Bann-Datensatz nicht gefunden.',
+      ALREADY_VOTED: 'Du hast bereits für die Annahme dieses Einspruchs gestimmt.',
+      VOTE_RECORDED: '✅ Stimme erfasst. {voteCount:number}/{threshold:number} Zustimmungen erforderlich.',
+      GRANTED_TITLE: '✅ Bann-Einspruch — Angenommen',
+      OUTCOME_GRANTED_LABEL: '✅ Ergebnis',
+      OUTCOME_GRANTED_VALUE: 'Einspruch nach **{voteCount:number}** Moderator-Stimmen angenommen. Letzte Stimme von <@{userId:string}>.',
+      GRANTED_REPLY: '✅ Einspruch angenommen.',
+      GRANTED_REPLY_UNBANNED: '✅ Einspruch angenommen. <@{userId:string}> wurde entbannt.',
+      DENIED_TITLE: '❌ Bann-Einspruch — Abgelehnt',
+      OUTCOME_DENIED_LABEL: '❌ Ergebnis',
+      OUTCOME_DENIED_VALUE: 'Einspruch von <@{userId:string}> abgelehnt. Der Bann bleibt bestehen.',
+      DENIED_REPLY: '❌ Einspruch abgelehnt.',
+      DENIED_REPLY_REMAINS: '❌ Einspruch abgelehnt. Der Bann von <@{userId:string}> bleibt bestehen.',
+      DM_GRANTED_TITLE: '✅ Bann-Einspruch angenommen',
+      DM_GRANTED_DESCRIPTION:
+        'Dein Bann-Einspruch wurde vom Moderationsteam geprüft und **angenommen**.\n\nDu wurdest entbannt und kannst dem Server wieder beitreten.',
+      DM_DENIED_TITLE: '❌ Bann-Einspruch abgelehnt',
+      DM_DENIED_DESCRIPTION: 'Dein Bann-Einspruch wurde vom Moderationsteam geprüft und **abgelehnt**.\n\nDein Bann bleibt bestehen.',
+      NO_APPEALABLE_BAN: 'Du hast keinen aktiven, anfechtbaren Bann, oder dein Einspruch wurde bereits eingereicht.',
+      MODAL_TITLE: 'Bann-Einspruch',
+      MODAL_EMAIL_LABEL: 'Deine E-Mail-Adresse',
+      MODAL_REASON_LABEL: 'Warum solltest du entbannt werden?',
+      MODAL_REASON_PLACEHOLDER:
+        'Hier kannst du schreiben, warum du entbannt werden solltest. Entweder 1) warum du den Bann für ungerechtfertigt und falsch hältst oder 2) dass sich deine Ansichten geändert haben. Bitte begründe dies mit überzeugenden Argumenten.',
+      MODAL_OTHER_LABEL: 'Möchtest du uns noch etwas mitteilen?',
     },
   },
   EVENT: {

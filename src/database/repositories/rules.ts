@@ -1,7 +1,7 @@
 import { asc, type InferSelectModel } from 'drizzle-orm';
 
-import { getDb } from '../client';
-import { rules } from '../schema/rules';
+import { getDb } from '~/database/client';
+import { rules } from '~/database/schema/rules';
 
 export type Rule = InferSelectModel<typeof rules>;
 

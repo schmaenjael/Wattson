@@ -10,6 +10,10 @@ import type {
   SlashCommandSubcommandsOnlyBuilder,
   ContextMenuCommandBuilder,
   AutocompleteInteraction,
+  ButtonInteraction,
+  AnySelectMenuInteraction,
+  ModalSubmitInteraction,
+  Interaction as DiscordInteraction,
   ClientEvents,
 } from 'discord.js';
 
@@ -70,12 +74,63 @@ interface Interaction {
   dmOnly?: boolean;
 }
 
+/**
+ * Declarative interaction dispatch for the central InteractionCreate event.
+ * Each route is matched by `kind` plus, for component/modal routes, the first
+ * `:`-segment of the customId (`name`). `rights` are enforced (OR semantics)
+ * before the handler runs. The matched provider handler is the only logic
+ * entrypoint — events stay free of business logic.
+ */
+export type InteractionRouteKind = 'command' | 'autocomplete' | 'button' | 'select' | 'modal';
+
+interface CommandRoute {
+  kind: 'command';
+  handler: (client: Client, interaction: DiscordInteraction) => Promise<void>;
+}
+
+interface AutocompleteRoute {
+  kind: 'autocomplete';
+  handler: (client: Client, interaction: AutocompleteInteraction) => Promise<void>;
+}
+
+interface ButtonRoute {
+  kind: 'button';
+  name: string;
+  rights?: Permission[];
+  handler: (client: Client, interaction: ButtonInteraction) => Promise<void>;
+}
+
+interface SelectRoute {
+  kind: 'select';
+  name: string;
+  rights?: Permission[];
+  handler: (client: Client, interaction: AnySelectMenuInteraction) => Promise<void>;
+}
+
+interface ModalRoute {
+  kind: 'modal';
+  name: string;
+  rights?: Permission[];
+  handler: (client: Client, interaction: ModalSubmitInteraction) => Promise<void>;
+}
+
+export type InteractionRoute = CommandRoute | AutocompleteRoute | ButtonRoute | SelectRoute | ModalRoute;
+
+/**
+ * Fan-out handler for non-interaction gateway events. Each provider entrypoint receives the client
+ * plus the raw event args and self-guards (own feature-flag / bot checks). The Event runs them in
+ * declared order but isolates failures, so one throwing provider does not block the others.
+ */
+export type EventHandler<T extends keyof ClientEvents> = (client: Client, ...args: ClientEvents[T]) => Promise<void> | void;
+
 export interface EventOptions<T extends keyof ClientEvents> extends Interaction {
   type: T;
   once?: boolean;
   middleware?: Array<MiddlewareFunctionEvent<T>>;
   afterware?: Array<AfterwareFunctionEvent<T>>;
-  executeCommand(event: Event<T>, client: Client, ...args: ClientEvents[T]): Promise<unknown>;
+  routes?: InteractionRoute[];
+  handlers?: Array<EventHandler<T>>;
+  executeCommand?(event: Event<T>, client: Client, ...args: ClientEvents[T]): Promise<unknown>;
 }
 
 export interface MiddlewareResult {

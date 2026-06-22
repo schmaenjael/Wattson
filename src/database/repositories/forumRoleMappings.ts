@@ -1,7 +1,7 @@
 import { and, eq, type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
 
-import { getDb } from '../client';
-import { forumRoleMappings } from '../schema/forumRoleMappings';
+import { getDb } from '~/database/client';
+import { forumRoleMappings } from '~/database/schema/forumRoleMappings';
 
 export type ForumRoleMapping = InferSelectModel<typeof forumRoleMappings>;
 export type ForumRoleMappingInsert = Omit<InferInsertModel<typeof forumRoleMappings>, 'id'>;

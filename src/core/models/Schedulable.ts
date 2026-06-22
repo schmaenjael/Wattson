@@ -1,10 +1,10 @@
 import { Cron } from 'croner';
 import { EmbedBuilder, TextChannel } from 'discord.js';
 
-import { AppFeature, appFeatureMap } from '~/settings';
+import { AppFeature, appFeatureMap, Colors } from '~/settings';
 import { getSettings } from '~/database';
 import { Client } from './Client';
-import { Logger } from '~/utilities';
+import { attempt, Logger } from '~/utilities';
 
 export type SchedulableOptions = {
   name: string;
@@ -48,16 +48,13 @@ export class Schedulable {
       const startedAt = Date.now();
       this.logger.info(`Schedulable [${this.options.name}] tick started.`);
 
-      let summary: string | void;
-      try {
-        summary = await this.options.execute(client, this.logger);
-      } catch (err) {
-        this.logger.error(Object(err), `Schedulable [${this.options.name}] tick failed.`);
-        await this.postNotification(client, null, Date.now() - startedAt, err as Error);
-        return;
-      }
-
-      await this.postNotification(client, summary ?? null, Date.now() - startedAt, null);
+      attempt(
+        async () => await this.options.execute(client, this.logger),
+        async (err) => {
+          this.logger.error(Object(err), `Schedulable [${this.options.name}] tick failed.`);
+          await this.postNotification(client, null, Date.now() - startedAt, err as Error);
+        }
+      );
     });
   }
 
@@ -84,12 +81,19 @@ export class Schedulable {
 
       const color = appFeatureMap[this.options.feature].color;
       const embed = new EmbedBuilder()
-        .setColor(error ? '#EF4444' : color)
+        .setColor(error ? Colors.Red : color)
         .setTitle(`${error ? '❌' : '✅'} Schedulable: ${this.options.name}`)
         .addFields(
           { name: 'Cron', value: `\`${this.activeCron}\``, inline: true },
           { name: 'Duration', value: `${durationMs}ms`, inline: true },
-          { name: 'Next run', value: this.job?.nextRun() ? `<t:${Math.floor(this.job.nextRun()!.getTime() / 1000)}:R>` : '—', inline: true }
+          {
+            name: 'Next run',
+            value: (() => {
+              const nr = this.job?.nextRun() ?? null;
+              return nr ? `<t:${Math.floor(nr.getTime() / 1000)}:R>` : '—';
+            })(),
+            inline: true,
+          }
         )
         .setTimestamp();
 

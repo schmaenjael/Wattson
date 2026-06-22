@@ -1,12 +1,14 @@
 import { EmbedBuilder } from 'discord.js';
 
-import { AppFeature } from '~/settings';
+import { AppFeature, Colors } from '~/settings';
 import {
   deleteVerification,
   getSettings,
   listAllVerifications,
-  listExpiredVerifications,
+  listExpiredPendingKickNotice,
+  listExpiredPastKickDeadline,
   listVerificationsExpiringSoon,
+  setKickNotified,
   setReverificationNotified,
 } from '~/database';
 import { getLogtoUser } from '~/core/providers/logto';
@@ -16,7 +18,7 @@ import { Logger } from '~/utilities';
 const REVERIFY_WARN_DAYS = 7;
 
 export const verificationSchedulable = new Schedulable({
-  name: 'verification-sweeper',
+  name: 'verification-schedulable',
   feature: AppFeature.VerificationSweeper,
   description: 'Reverification DMs, Volt role expiry, and LogTo suspension checks.',
   defaultCron: '0 0 * * *',
@@ -34,7 +36,8 @@ export const verificationSchedulable = new Schedulable({
     };
 
     let dmsSent = 0;
-    let rolesRevoked = 0;
+    let kickNoticesSent = 0;
+    let kicked = 0;
     let suspended = 0;
 
     const expiringSoon = await listVerificationsExpiringSoon(REVERIFY_WARN_DAYS).catch(() => []);
@@ -56,7 +59,7 @@ export const verificationSchedulable = new Schedulable({
               .setDescription(
                 `Your Volt membership verification expires <t:${Math.floor(row.expiresAt.getTime() / 1000)}:R>.\n\nUse \`/verify volter\` in the server to re-verify within **${REVERIFY_WARN_DAYS} days** to keep your Volt member status.`
               )
-              .setColor('#7C3AED'),
+              .setColor(Colors.Purple),
           ],
         });
         await setReverificationNotified(row.discordUserId);
@@ -67,27 +70,51 @@ export const verificationSchedulable = new Schedulable({
       }
     }
 
-    const expired = await listExpiredVerifications().catch(() => []);
-    for (const row of expired) {
+    const pendingNotice = await listExpiredPendingKickNotice().catch(() => []);
+    for (const row of pendingNotice) {
       try {
         const member = await guild.members.fetch(row.discordUserId).catch(() => null);
-        if (member && settings.roleMemberId) {
-          await member.roles.remove(settings.roleMemberId, 'Volt verification expired').catch(() => null);
+        if (!member) {
+          continue;
+        }
+        const dm = await member.createDM().catch(() => null);
+        if (!dm) {
+          logger.warn({ discordUserId: row.discordUserId }, 'Could not open DM for kick notice.');
+          continue;
+        }
+        await dm.send({
+          content:
+            'Your Volt verification expired. Do you still hold Volt membership? Re-verify with `/verify volter` within 7 days or you will be removed from the server.',
+        });
+        await setKickNotified(row.discordUserId);
+        logger.info({ discordUserId: row.discordUserId }, 'Kick notice DM sent.');
+        kickNoticesSent++;
+      } catch (err) {
+        logger.warn(Object(err), `Failed to send kick notice DM to ${row.discordUserId}.`);
+      }
+    }
+
+    const pastDeadline = await listExpiredPastKickDeadline().catch(() => []);
+    for (const row of pastDeadline) {
+      try {
+        const member = await guild.members.fetch(row.discordUserId).catch(() => null);
+        if (member) {
+          await member.kick('Volt verification expired — no re-verification after 7-day notice').catch(() => null);
         }
         await deleteVerification(row.discordUserId);
         await log(
           new EmbedBuilder()
-            .setTitle('⚠️ Volt Role Removed — Verification Expired')
-            .setDescription(`<@${row.discordUserId}> did not re-verify their Volt membership in time.`)
+            .setTitle('🚫 Member Kicked — Volt Verification Expired')
+            .setDescription(`<@${row.discordUserId}> was removed after failing to re-verify within 7 days of expiry notice.`)
             .addFields({ name: 'Discord ID', value: row.discordUserId, inline: true })
-            .setColor('#EF4444')
+            .setColor(Colors.Red)
             .setTimestamp(),
-          `Volt verification expired — role removed for ${row.discordUserId}`
+          `Volt verification expired — member kicked: ${row.discordUserId}`
         );
-        logger.info({ discordUserId: row.discordUserId }, 'Volt verification expired — role removed.');
-        rolesRevoked++;
+        logger.info({ discordUserId: row.discordUserId }, 'Volt verification expired — member kicked.');
+        kicked++;
       } catch (err) {
-        logger.error(Object(err), `Failed to process expiry for ${row.discordUserId}.`);
+        logger.error(Object(err), `Failed to kick ${row.discordUserId}.`);
       }
     }
 
@@ -108,7 +135,7 @@ export const verificationSchedulable = new Schedulable({
             .setTitle('⛔ Volt Role Removed — Account Suspended')
             .setDescription(`<@${row.discordUserId}>'s LogTo account has been suspended.`)
             .addFields({ name: 'Discord ID', value: row.discordUserId, inline: true })
-            .setColor('#DC2626')
+            .setColor(Colors.Red)
             .setTimestamp(),
           `LogTo account suspended — Volt role removed for ${row.discordUserId}`
         );
@@ -119,9 +146,9 @@ export const verificationSchedulable = new Schedulable({
       }
     }
 
-    if (dmsSent === 0 && rolesRevoked === 0 && suspended === 0) {
+    if (dmsSent === 0 && kickNoticesSent === 0 && kicked === 0 && suspended === 0) {
       return;
     }
-    return `DMs sent: ${dmsSent}, roles revoked: ${rolesRevoked}, suspended: ${suspended}.`;
+    return `Reverify DMs: ${dmsSent}, kick notices: ${kickNoticesSent}, kicked: ${kicked}, suspended: ${suspended}.`;
   },
 });
