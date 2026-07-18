@@ -14,12 +14,13 @@ interface ReportEmbedParams {
 }
 
 export class ReportEmbed extends BaseEmbed<ReportEmbedParams> {
-  render(): EmbedBuilder {
-    const { color, locale } = this.required;
+  protected branded = true;
+
+  protected build(): EmbedBuilder {
+    const { locale } = this.required;
     const { authorName, authorIcon, authorId, targetChannel, reporterId, targetUrl } = this.required;
 
-    const embed = new EmbedBuilder()
-      .setColor(color)
+    return new EmbedBuilder()
       .setTitle(L[locale].MODERATION.REPORT.EMBED_TITLE())
       .setAuthor({ name: authorName.slice(0, 256), iconURL: authorIcon || undefined })
       .addFields(
@@ -28,8 +29,6 @@ export class ReportEmbed extends BaseEmbed<ReportEmbedParams> {
         { name: `${L[locale].MODERATION.REPORT.EMBED_REPORTER()}`, value: `<@${reporterId}>` },
         { name: `${L[locale].MODERATION.REPORT.EMBED_REPORTED_MESSAGE()}`, value: `${targetUrl}` }
       );
-
-    return this.withBranding(embed);
   }
 }
 
@@ -39,21 +38,19 @@ interface ReportReceivedEmbedParams {
 }
 
 export class ReportReceivedEmbed extends BaseEmbed<ReportReceivedEmbedParams> {
+  protected branded = true;
   public readonly attachments: AttachmentBuilder[] = [assets.volt['256x256'].file];
   public readonly flags = MessageFlags.Ephemeral;
 
-  render(): EmbedBuilder {
-    const { color, locale } = this.required;
+  protected build(): EmbedBuilder {
+    const { locale } = this.required;
     const { authorId, targetUrl } = this.required;
 
-    const embed = new EmbedBuilder()
-      .setColor(color)
+    return new EmbedBuilder()
       .setTitle(L[locale].MODERATION.REPORT.EMBED_TITLE())
       .addFields(
         { name: `${L[locale].MODERATION.COMMAND_REPORT.EMBED_REPORTED_MESSAGE()}`, value: `${targetUrl}` },
         { name: `${L[locale].MODERATION.COMMAND_REPORT.EMBED_REPORTED_USER()}`, value: `<@${authorId}>` }
       );
-
-    return this.withBranding(embed);
   }
 }

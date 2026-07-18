@@ -107,10 +107,10 @@ Exactly ONE file per Discord gateway event, flat in `src/core/events/`. Events c
 
 ## Components
 
-- Every embed is a `BaseEmbed` subclass (`src/core/components/BaseEmbed.ts`, extends `Component`) implementing `render(): EmbedBuilder`. No standalone `build*Embed()` functions.
+- Every embed is a `BaseEmbed` subclass (`src/core/components/BaseEmbed.ts`, extends `Component`) implementing `protected build(): EmbedBuilder` — content only (title/description/fields/footer). `BaseEmbed.render()` is a template method, not overridden: it applies `.setColor(this.required.color)` and `.setTimestamp()` to every embed, then branding if the subclass opts in. No standalone `build*Embed()` functions.
 - Construct + render at the call site: `new XxxEmbed({ ...params }).render()`. Read `attachments`/`flags` off the instance where needed.
-- Domain params are the class's `TRequired`. `Component` also requires `color` + `locale`; when an embed computes its own color/owns its locale, the subclass constructor derives them and forwards to `super({ ...params, color, locale })` (use `baseLocale` for embeds with hard-coded copy).
-- `withBranding(embed)` (protected on `BaseEmbed`) applies the standard Wattson footer (`L[locale].GENERAL.WATTSON_IN_SERVICE()` + volt logo icon) and `.setTimestamp()`. Use it ONLY for embeds that carry the Wattson footer; embeds with their own footer (or none) set their footer/timestamp directly.
+- Domain params are the class's `TRequired`. `Component` also requires `color` + `locale`; when an embed computes its own color/owns its locale, the subclass constructor derives them and forwards to `super({ ...params, color, locale })` (use `baseLocale` for embeds with hard-coded copy). Don't re-set color in `build()` — the base already applies `this.required.color`.
+- Branding (the standard Wattson footer: `L[locale].GENERAL.WATTSON_IN_SERVICE()` + volt logo icon) is opt-in: set `protected branded = true` on the subclass. Embeds with their own footer (or none) leave it `false` (the default) and set their own footer directly in `build()`; the base always sets the timestamp regardless.
 - Action rows and buttons are NOT embeds: keep them as exported helper functions (e.g. `buildSuggestionVoteRow`, `buildAppealVoteRow`, `buildKeepOpenRow`) returning `ActionRowBuilder`/`ButtonBuilder`.
 
 ## Middleware

@@ -9,18 +9,16 @@ interface ErrorEmbedParams {
 }
 
 export class ErrorEmbed extends BaseEmbed<ErrorEmbedParams> {
+  protected branded = true;
   public readonly flags = MessageFlags.Ephemeral;
   public readonly attachments: AttachmentBuilder[] = [assets.volt['256x256'].file];
 
-  render(): EmbedBuilder {
-    const { color, locale, error } = this.required;
+  protected build(): EmbedBuilder {
+    const { locale, error } = this.required;
 
-    const embed = new EmbedBuilder()
-      .setColor(color)
+    return new EmbedBuilder()
       .setTitle(L[locale].SYSTEM.ERROR.EMBED_TITLE())
       .setDescription(`> *${L[locale].SYSTEM.ERROR.EMBED_DESCRIPTION()}*`)
       .addFields({ name: `${L[locale].SYSTEM.ERROR.EMBED_MESSAGE()}`, value: `${error.toString()}`.slice(0, 1024) });
-
-    return this.withBranding(embed);
   }
 }

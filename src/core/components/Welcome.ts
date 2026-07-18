@@ -23,19 +23,16 @@ interface ApprovalEmbedParams {
 export class ApprovalEmbed extends BaseEmbed<ApprovalEmbedParams> {
   public attachments: AttachmentBuilder[] = [assets.volt['256x256'].file];
 
-  render(): EmbedBuilder {
-    const { color } = this.required;
+  protected build(): EmbedBuilder {
     const { username, userId, discordJoinDate, accountCreationDate, answers } = this.required;
 
     const embed = new EmbedBuilder()
-      .setColor(color)
       .setTitle(`Verification request — ${username}`)
       .addFields(
         { name: 'User', value: `<@${userId}>`, inline: true },
         { name: 'Account created', value: `<t:${Math.floor(accountCreationDate / 1000)}:R>`, inline: true },
         { name: 'Joined server', value: `<t:${Math.floor(discordJoinDate / 1000)}:R>`, inline: true }
-      )
-      .setTimestamp();
+      );
 
     for (const { key, answer } of answers) {
       embed.addFields({ name: key, value: answer || '—' });

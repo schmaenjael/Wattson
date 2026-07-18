@@ -26,11 +26,10 @@ export class AppealEmbed extends BaseEmbed<AppealEmbedParams> {
     super({ ...params, color: Colors.Blue, locale: baseLocale });
   }
 
-  render(): EmbedBuilder {
+  protected build(): EmbedBuilder {
     const { userId, accountCreatedTs, avatarUrl, email, reason, other, banReason, banCreatedAt, appealId, voteCount, threshold } = this.required;
 
     const embed = new EmbedBuilder()
-      .setColor(Colors.Blue)
       .setTitle(T.EMBED_TITLE())
       .setDescription(T.EMBED_DESCRIPTION({ userId }))
       .setThumbnail(avatarUrl)
@@ -52,7 +51,7 @@ export class AppealEmbed extends BaseEmbed<AppealEmbedParams> {
       { name: T.FIELD_APPROVALS(), value: `${voteCount}/${threshold}`, inline: true }
     );
 
-    return embed.setFooter({ text: T.FOOTER({ appealId }) }).setTimestamp();
+    return embed.setFooter({ text: T.FOOTER({ appealId }) });
   }
 }
 

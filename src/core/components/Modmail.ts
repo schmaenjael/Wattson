@@ -37,11 +37,10 @@ export class ModmailOpenThreadEmbed extends BaseEmbed<{ modmail: Modmail; user: 
     super({ ...params, color: CATEGORY_COLORS[params.modmail.category as ModmailCategory], locale: baseLocale });
   }
 
-  render(): EmbedBuilder {
+  protected build(): EmbedBuilder {
     const { modmail, user } = this.required;
 
     return new EmbedBuilder()
-      .setColor(CATEGORY_COLORS[modmail.category as ModmailCategory])
       .setTitle(`📬 New Modmail — #${modmail.id}`)
       .setDescription(`**${CATEGORY_LABELS[modmail.category as ModmailCategory]}**`)
       .addFields(
@@ -53,8 +52,7 @@ export class ModmailOpenThreadEmbed extends BaseEmbed<{ modmail: Modmail; user: 
         { name: 'Opened', value: `${discordTimestamp(modmail.createdAt, 'F')}`, inline: true }
       )
       .setThumbnail(user.displayAvatarURL())
-      .setFooter({ text: 'Reply via /modmail message · /modmail attach · /modmail close' })
-      .setTimestamp();
+      .setFooter({ text: 'Reply via /modmail message · /modmail attach · /modmail close' });
   }
 }
 
@@ -63,11 +61,10 @@ export class UserDmGuideEmbed extends BaseEmbed<{ modmail: Modmail }> {
     super({ ...params, color: CATEGORY_COLORS[params.modmail.category as ModmailCategory], locale: baseLocale });
   }
 
-  render(): EmbedBuilder {
+  protected build(): EmbedBuilder {
     const { modmail } = this.required;
 
     return new EmbedBuilder()
-      .setColor(CATEGORY_COLORS[modmail.category as ModmailCategory])
       .setTitle(`📬 Modmail #${modmail.id} Opened`)
       .setDescription(
         'Your modmail has been received. The moderation team will review and respond shortly.\n\n' +
@@ -82,8 +79,7 @@ export class UserDmGuideEmbed extends BaseEmbed<{ modmail: Modmail }> {
         { name: 'Modmail ID', value: `#${modmail.id}`, inline: true },
         { name: 'Reason', value: modmail.reason }
       )
-      .setFooter({ text: 'Replies will arrive here in your DMs.' })
-      .setTimestamp();
+      .setFooter({ text: 'Replies will arrive here in your DMs.' });
   }
 }
 
@@ -92,11 +88,10 @@ export class VerificationFollowUpUserDmEmbed extends BaseEmbed<{ modmail: Modmai
     super({ ...params, color: CATEGORY_COLORS[ModmailCategory.VerificationFollowUp], locale: baseLocale });
   }
 
-  render(): EmbedBuilder {
+  protected build(): EmbedBuilder {
     const { modmail } = this.required;
 
     return new EmbedBuilder()
-      .setColor(CATEGORY_COLORS[ModmailCategory.VerificationFollowUp])
       .setTitle(`📬 Modmail #${modmail.id} — Verification Question`)
       .setDescription(
         'The moderation team has opened a conversation about your server verification application.\n\n' +
@@ -106,50 +101,33 @@ export class VerificationFollowUpUserDmEmbed extends BaseEmbed<{ modmail: Modmai
           '`/modmail close` — Close this conversation\n\n' +
           '⚠️ All communication must happen via these commands. Do not contact moderators directly about your application.'
       )
-      .setFooter({ text: 'After this conversation closes, the team will make a final decision on your application.' })
-      .setTimestamp();
+      .setFooter({ text: 'After this conversation closes, the team will make a final decision on your application.' });
   }
 }
 
-export class ModmailClosedByUserEmbed extends BaseEmbed<{ user: User }> {
-  constructor(params: { user: User }) {
+type ModmailClosedEmbedParams = { variant: 'user' | 'mod'; actor: User } | { variant: 'dm' };
+
+/** Collapses the 3 former ModmailClosedBy{User,Mod}/Dm embeds — same shape, differ by title/description/actor. */
+export class ModmailClosedEmbed extends BaseEmbed<ModmailClosedEmbedParams> {
+  constructor(params: ModmailClosedEmbedParams) {
     super({ ...params, color: Colors.Red, locale: baseLocale });
   }
 
-  render(): EmbedBuilder {
-    const { user } = this.required;
+  protected build(): EmbedBuilder {
+    const params = this.required;
 
-    return new EmbedBuilder().setColor(Colors.Red).setTitle('🔒 Modmail Closed').setDescription(`Closed by the user <@${user.id}>.`).setTimestamp();
-  }
-}
-
-export class ModmailClosedByModEmbed extends BaseEmbed<{ mod: User }> {
-  constructor(params: { mod: User }) {
-    super({ ...params, color: Colors.Red, locale: baseLocale });
-  }
-
-  render(): EmbedBuilder {
-    const { mod } = this.required;
+    if (params.variant === 'user') {
+      return new EmbedBuilder().setTitle('🔒 Modmail Closed').setDescription(`Closed by the user <@${params.actor.id}>.`);
+    }
+    if (params.variant === 'mod') {
+      return new EmbedBuilder()
+        .setTitle('🔒 Modmail Closed by Moderator')
+        .setDescription(`Closed by <@${params.actor.id}> — ${params.actor.username}.`);
+    }
 
     return new EmbedBuilder()
-      .setColor(Colors.Red)
-      .setTitle('🔒 Modmail Closed by Moderator')
-      .setDescription(`Closed by <@${mod.id}> — ${mod.username}.`)
-      .setTimestamp();
-  }
-}
-
-export class ModmailClosedDmEmbed extends BaseEmbed<object> {
-  constructor() {
-    super({ color: Colors.Red, locale: baseLocale });
-  }
-
-  render(): EmbedBuilder {
-    return new EmbedBuilder()
-      .setColor(Colors.Red)
       .setTitle('🔒 Your Modmail Was Closed')
-      .setDescription('A moderator has closed your modmail. If you need further assistance, open a new one with `/modmail open`.')
-      .setTimestamp();
+      .setDescription('A moderator has closed your modmail. If you need further assistance, open a new one with `/modmail open`.');
   }
 }
 
@@ -158,11 +136,10 @@ export class ModmailShowEmbed extends BaseEmbed<{ modmail: Modmail; user: User |
     super({ ...params, color: CATEGORY_COLORS[params.modmail.category as ModmailCategory], locale: baseLocale });
   }
 
-  render(): EmbedBuilder {
+  protected build(): EmbedBuilder {
     const { modmail, user } = this.required;
 
     const embed = new EmbedBuilder()
-      .setColor(CATEGORY_COLORS[modmail.category as ModmailCategory])
       .setTitle(`Modmail #${modmail.id}`)
       .addFields(
         { name: 'Status', value: STATUS_LABELS[modmail.status as ModmailStatus], inline: true },
@@ -184,7 +161,7 @@ export class ModmailShowEmbed extends BaseEmbed<{ modmail: Modmail; user: User |
       embed.addFields({ name: 'Last Activity', value: `${discordTimestamp(modmail.lastActivityAt, 'R')}`, inline: true });
     }
 
-    return embed.setTimestamp();
+    return embed;
   }
 }
 
@@ -193,15 +170,13 @@ export class ModmailSummaryEmbed extends BaseEmbed<{ summary: string; modmailId:
     super({ ...params, color: Colors.Blurple, locale: baseLocale });
   }
 
-  render(): EmbedBuilder {
+  protected build(): EmbedBuilder {
     const { summary, modmailId } = this.required;
 
     return new EmbedBuilder()
-      .setColor(Colors.Blurple)
       .setTitle(`📋 Modmail #${modmailId} — Conversation Summary`)
       .setDescription(summary)
-      .setFooter({ text: 'AI-generated summary — may not be fully accurate.' })
-      .setTimestamp();
+      .setFooter({ text: 'AI-generated summary — may not be fully accurate.' });
   }
 }
 
@@ -211,12 +186,10 @@ export class ModmailChannelEmbed extends BaseEmbed<{ modmail: Modmail; user: Use
     super({ ...params, color: isClosed ? Colors.Red : CATEGORY_COLORS[params.modmail.category as ModmailCategory], locale: baseLocale });
   }
 
-  render(): EmbedBuilder {
+  protected build(): EmbedBuilder {
     const { modmail, user } = this.required;
-    const isClosed = modmail.status === ModmailStatus.Closed;
 
     const embed = new EmbedBuilder()
-      .setColor(isClosed ? Colors.Red : CATEGORY_COLORS[modmail.category as ModmailCategory])
       .setTitle(`📬 Modmail #${modmail.id}`)
       .setDescription(`**${CATEGORY_LABELS[modmail.category as ModmailCategory]}**`)
       .addFields(
@@ -235,7 +208,7 @@ export class ModmailChannelEmbed extends BaseEmbed<{ modmail: Modmail; user: Use
       embed.addFields({ name: 'Closed', value: `${discordTimestamp(modmail.closedAt, 'R')}`, inline: true });
     }
 
-    return embed.setTimestamp();
+    return embed;
   }
 }
 
@@ -244,11 +217,10 @@ export class ModmailThreadTutorialEmbed extends BaseEmbed<{ modmail: Modmail }> 
     super({ ...params, color: Colors.Yellow, locale: baseLocale });
   }
 
-  render(): EmbedBuilder {
+  protected build(): EmbedBuilder {
     const { modmail } = this.required;
 
     return new EmbedBuilder()
-      .setColor(Colors.Yellow)
       .setTitle('📖 How to use Modmail')
       .setDescription(
         'This thread is your direct line to the moderation team.\n\n' +
@@ -261,8 +233,7 @@ export class ModmailThreadTutorialEmbed extends BaseEmbed<{ modmail: Modmail }> 
           '`/modmail attach` — Send an attachment to the user\n' +
           '`/modmail close` — Close this modmail'
       )
-      .setFooter({ text: `Modmail #${modmail.id} · ${CATEGORY_LABELS[modmail.category as ModmailCategory]}` })
-      .setTimestamp();
+      .setFooter({ text: `Modmail #${modmail.id} · ${CATEGORY_LABELS[modmail.category as ModmailCategory]}` });
   }
 }
 

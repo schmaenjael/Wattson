@@ -17,9 +17,7 @@ import {
 } from '~/database';
 import {
   ModmailChannelEmbed,
-  ModmailClosedByModEmbed,
-  ModmailClosedByUserEmbed,
-  ModmailClosedDmEmbed,
+  ModmailClosedEmbed,
   ModmailOpenThreadEmbed,
   ModmailSummaryEmbed,
   ModmailThreadTutorialEmbed,
@@ -150,7 +148,7 @@ export const finalizeModmailClose = async (client: Client, modmail: Modmail, clo
     }
 
     await thread.send({
-      embeds: [closedBy === 'user' ? new ModmailClosedByUserEmbed({ user: closer }).render() : new ModmailClosedByModEmbed({ mod: closer }).render()],
+      embeds: [new ModmailClosedEmbed(closedBy === 'user' ? { variant: 'user', actor: closer } : { variant: 'mod', actor: closer }).render()],
     });
 
     if (summary) {
@@ -169,6 +167,6 @@ export const finalizeModmailClose = async (client: Client, modmail: Modmail, clo
 
   if (closedBy === 'mod' && targetUser) {
     const dmChannel = await targetUser.createDM().catch(() => null);
-    await dmChannel?.send({ embeds: [new ModmailClosedDmEmbed().render()] }).catch(() => null);
+    await dmChannel?.send({ embeds: [new ModmailClosedEmbed({ variant: 'dm' }).render()] }).catch(() => null);
   }
 };

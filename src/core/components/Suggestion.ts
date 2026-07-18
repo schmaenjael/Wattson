@@ -57,13 +57,12 @@ export class SuggestionEmbed extends BaseEmbed<SuggestionEmbedParams> {
     super({ ...params, color: STATUS_COLORS[params.suggestion.status as SuggestionStatus], locale: baseLocale });
   }
 
-  render(): EmbedBuilder {
+  protected build(): EmbedBuilder {
     const { suggestion, author, declineReason, tally = ZERO_TALLY } = this.required;
     const status = suggestion.status as SuggestionStatus;
     const net = tally.upvotes - tally.downvotes;
 
     const embed = new EmbedBuilder()
-      .setColor(STATUS_COLORS[status])
       .setTitle(`💡 ${suggestion.title}`)
       .setDescription(suggestion.description.slice(0, 4096))
       .addFields(
@@ -71,8 +70,7 @@ export class SuggestionEmbed extends BaseEmbed<SuggestionEmbedParams> {
         { name: 'Status', value: STATUS_LABELS[status], inline: true },
         { name: 'Votes', value: `${SUGGESTION_UPVOTE} ${tally.upvotes} · ${SUGGESTION_DOWNVOTE} ${tally.downvotes} · net **${net}**`, inline: true }
       )
-      .setFooter({ text: `Suggestion #${suggestion.id}` })
-      .setTimestamp();
+      .setFooter({ text: `Suggestion #${suggestion.id}` });
 
     if (author) {
       embed.setThumbnail(author.displayAvatarURL());
@@ -97,11 +95,10 @@ export class SuggestionApprovalEmbed extends BaseEmbed<SuggestionApprovalEmbedPa
     super({ ...params, color: Colors.Yellow, locale: baseLocale });
   }
 
-  render(): EmbedBuilder {
+  protected build(): EmbedBuilder {
     const { suggestion, tally = ZERO_TALLY } = this.required;
 
     return new EmbedBuilder()
-      .setColor(Colors.Yellow)
       .setTitle(`🗳️ Suggestion Approval — #${suggestion.id}`)
       .setDescription(`**${suggestion.title}**\n\n${suggestion.description.slice(0, 3800)}`)
       .addFields(
@@ -112,8 +109,7 @@ export class SuggestionApprovalEmbed extends BaseEmbed<SuggestionApprovalEmbedPa
           inline: true,
         }
       )
-      .setFooter({ text: `Suggestion #${suggestion.id} · reached the vote threshold` })
-      .setTimestamp();
+      .setFooter({ text: `Suggestion #${suggestion.id} · reached the vote threshold` });
   }
 }
 

@@ -11,14 +11,13 @@ interface PingEmbedParams {
 }
 
 export class PingEmbed extends BaseEmbed<PingEmbedParams> {
+  protected branded = true;
   public attachments: AttachmentBuilder[] = [assets.volt['256x256'].file];
 
-  render(): EmbedBuilder {
-    const { color, locale } = this.required;
-    const { serviceLatency, serviceUptime, apiLatency } = this.required;
+  protected build(): EmbedBuilder {
+    const { locale, serviceLatency, serviceUptime, apiLatency } = this.required;
 
-    const embed = new EmbedBuilder()
-      .setColor(color)
+    return new EmbedBuilder()
       .setTitle(L[locale].UTIL.COMMAND_PING.EMBED_TITLE())
       .setDescription(`> *${L[locale].UTIL.COMMAND_PING.EMBED_DESCRIPTION()}*`)
       .addFields(
@@ -26,7 +25,5 @@ export class PingEmbed extends BaseEmbed<PingEmbedParams> {
         { name: `⏰ ${L[locale].SYSTEM.STATUS.SERVICE_UPTIME()}`, value: `${serviceUptime}s` },
         { name: `👩‍💻 ${L[locale].SYSTEM.STATUS.API_LATENCY()}`, value: `${apiLatency}ms` }
       );
-
-    return this.withBranding(embed);
   }
 }

@@ -14,15 +14,12 @@ interface RulesEmbedParams {
 export class RulesEmbed extends BaseEmbed<RulesEmbedParams> {
   public attachments: AttachmentBuilder[] = [assets.volt['banner'].file, assets.volt['256x256'].file];
 
-  render(): EmbedBuilder {
-    const { color } = this.required;
+  protected build(): EmbedBuilder {
     const { title, fieldList, footerText } = this.required;
 
     const embed = new EmbedBuilder()
       .setTitle(title)
       .setImage(assets.volt['banner'].url)
-      .setColor(color)
-      .setTimestamp()
       .setFooter({ text: footerText, iconURL: assets.volt['256x256'].url });
 
     fieldList
@@ -42,17 +39,15 @@ type RuleHeaderEmbedParams = object;
 export class RuleHeaderEmbed extends BaseEmbed<RuleHeaderEmbedParams> {
   public attachments: AttachmentBuilder[] = [];
 
-  public render(): EmbedBuilder {
-    const { color, locale } = this.required;
+  protected build(): EmbedBuilder {
+    const { locale } = this.required;
 
     return new EmbedBuilder()
       .setTitle(`Volt Europa - Server Rules 💜`)
-      .setColor(color)
       .setDescription(
         [`> *${L[locale].UTIL.COMMAND_RULES.EMBED_HEADER_DESCRIPTION_1()}*`, `> *${L[locale].UTIL.COMMAND_RULES.EMBED_HEADER_DESCRIPTION_2()}*`].join(
           '\n'
         )
-      )
-      .setTimestamp();
+      );
   }
 }

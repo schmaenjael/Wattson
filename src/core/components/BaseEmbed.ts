@@ -10,14 +10,24 @@ import { assets } from '~/settings';
 import { L } from '~/core/locales';
 
 /**
- * Shared base for every embed builder. Subclasses implement {@link render} and may
- * route their embed through {@link withBranding} to apply the standard Wattson footer
- * (volt logo + "in service" caption) and timestamp.
+ * Shared base for every embed builder. Subclasses implement {@link build} with their own
+ * title/description/fields; {@link render} applies color and timestamp to every embed, and
+ * branding (the standard Wattson footer: volt logo + "in service" caption) to embeds that
+ * opt in via `protected branded = true`.
  */
 export abstract class BaseEmbed<TRequired = unknown, TOptional = unknown> extends Component<TRequired, TOptional> {
-  protected withBranding(embed: EmbedBuilder): EmbedBuilder {
+  protected branded = false;
+
+  public render(): EmbedBuilder {
+    const embed = this.build().setColor(this.required.color).setTimestamp();
+    return this.branded ? this.applyBranding(embed) : embed;
+  }
+
+  protected abstract build(): EmbedBuilder;
+
+  private applyBranding(embed: EmbedBuilder): EmbedBuilder {
     const { locale } = this.required;
 
-    return embed.setFooter({ text: L[locale].GENERAL.WATTSON_IN_SERVICE(), iconURL: assets.volt['256x256'].url }).setTimestamp();
+    return embed.setFooter({ text: L[locale].GENERAL.WATTSON_IN_SERVICE(), iconURL: assets.volt['256x256'].url });
   }
 }
