@@ -306,6 +306,15 @@ export default new Event({
 
 **Where it belongs:** `src/core/events/<gatewayEventName>.ts` (e.g. `messageReactionAdd.ts`).
 
+**High-volume queued dispatch (`MessageCreate`)** is the one exception to the plain-`handlers[]`
+shape: `core/models/MessagePipeline.ts` wraps a bounded `AsyncQueue` around a sequence of provider
+calls (`sticky.onMessage` → `autoslowmode.enforce` → `antispam.recordAndAct` → `runAutomod`), each
+step isolated with try/catch the same way `Event.execute`'s `handlers[]` loop isolates fan-out
+handlers — a throwing step doesn't block the rest. It lives beside `Event`/`Command`/`Schedulable`
+in `core/models/` (a dispatch mechanism, not a domain provider) and exports a single
+`onMessageCreate(client, message)` entrypoint that `events/messageCreate.ts` lists in its
+`handlers[]` like any other provider function.
+
 ---
 
 ## Middleware system
@@ -587,6 +596,14 @@ Pluggable provider switched via `settings.automodProvider`:
 - `ollama` — sends the message to Ollama for semantic classification. Requires `settings.ollamaModel`.
 
 `getAutomodProvider()` is cached per `provider:model` key. Call `invalidateAutomodProvider()` after changing settings.
+
+### Surveillance (`providers/antispam/`, `providers/autoslowmode/`, `providers/sticky/`)
+
+Each owns its full side effects — window/counter state, the Discord action, and the audit/log write — behind one entrypoint called by `MessagePipeline`, not just a verdict the caller has to act on:
+
+- `antispam.recordAndAct(client, message, settings, logger)` — rolling per-user-per-channel message-rate window; mutes + audits on trip. Returns `true` when triggered (the pipeline stops there — automod doesn't also run on that message).
+- `autoslowmode.enforce(client, message, settings, logger)` — per-channel rate window driving a tiered step-up/step-down/restore state machine; sets `rateLimitPerUser` and records the lock. No-op outside guild text channels or under an existing manual lock.
+- `sticky.onMessage(message, logger)` — bumps the channel's repost counter; reposts (fire-and-forget) once the configured interval is reached.
 
 ### Harm detection (`providers/harm/`)
 

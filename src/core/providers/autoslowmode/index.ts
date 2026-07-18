@@ -1,4 +1,9 @@
+import { ChannelType, Colors, EmbedBuilder, type Guild, type Message, type TextChannel } from 'discord.js';
+
+import { AuditEventType, findLockedChannel, lockChannel, recordAuditEvent, unlockChannel, upsertUser, type Settings } from '~/database';
+import type { Client } from '~/core/models';
 import { getConfig } from '~/config';
+import { Logger } from '~/utilities';
 
 interface ChannelState {
   level: number;
@@ -14,7 +19,7 @@ export type SlowmodeAction =
   | { type: 'restore' }
   | null;
 
-export function recordAndCheckSlowmode(channelId: string, threshold: number, windowMs: number): SlowmodeAction {
+function recordAndCheckSlowmode(channelId: string, threshold: number, windowMs: number): SlowmodeAction {
   const { autoSlowmodeTiers, autoSlowmodeStepDownFactor } = getConfig().config.thresholds;
   const now = Date.now();
   const cutoff = now - windowMs;
@@ -49,6 +54,143 @@ export function recordAndCheckSlowmode(channelId: string, threshold: number, win
   return null;
 }
 
-export function clearChannelSlowmodeState(channelId: string): void {
+function clearChannelSlowmodeState(channelId: string): void {
   channelStates.delete(channelId);
+}
+
+async function applyAutoSlowmodeAction(
+  action: SlowmodeAction,
+  channel: TextChannel,
+  guild: Guild,
+  client: Client,
+  settings: Settings,
+  logger: ReturnType<typeof Logger.getInstance>
+): Promise<void> {
+  if (!action) return;
+
+  if (action.type === 'step_up') {
+    if (action.level === 1) {
+      const previousSlowmode = channel.rateLimitPerUser ?? 0;
+      await upsertUser({ id: client.user!.id, username: client.user!.username });
+      await channel.setRateLimitPerUser(action.slowmodeSeconds).catch(() => null);
+      await lockChannel({
+        channelId: channel.id,
+        moderatorId: client.user!.id,
+        reason: 'Auto-slowmode: message rate threshold exceeded',
+        previousSlowmode,
+      });
+      await channel
+        .send({
+          embeds: [
+            new EmbedBuilder()
+              .setColor(Colors.Yellow)
+              .setTitle('🐌 Auto-slowmode Activated')
+              .setDescription(`High message volume detected. Slowmode set to **${action.slowmodeSeconds}s**.`)
+              .setTimestamp(),
+          ],
+        })
+        .catch(() => null);
+    } else {
+      await channel.setRateLimitPerUser(action.slowmodeSeconds).catch(() => null);
+    }
+    await logger.log({
+      level: 'info',
+      message: `Auto-slowmode step up level ${action.level} in ${channel.id}`,
+      data: { channelId: channel.id, slowmodeSeconds: action.slowmodeSeconds, level: action.level },
+      target: 'surveillance',
+      internalEmbed: new EmbedBuilder()
+        .setColor(Colors.Yellow)
+        .setTitle('🐌 Auto-slowmode — Stepped Up')
+        .addFields(
+          { name: 'Channel', value: `<#${channel.id}>`, inline: true },
+          { name: 'Level', value: `${action.level}/${getConfig().config.thresholds.autoSlowmodeTiers.length}`, inline: true },
+          { name: 'Slowmode', value: `${action.slowmodeSeconds}s`, inline: true }
+        )
+        .setTimestamp(),
+    });
+    await recordAuditEvent({
+      eventType: AuditEventType.ChannelLocked,
+      payload: { channelId: channel.id, slowmode: action.slowmodeSeconds, level: action.level, source: 'auto' },
+    });
+    return;
+  }
+
+  if (action.type === 'step_down') {
+    await channel.setRateLimitPerUser(action.slowmodeSeconds).catch(() => null);
+    await logger.log({
+      level: 'info',
+      message: `Auto-slowmode step down level ${action.level} in ${channel.id}`,
+      data: { channelId: channel.id, slowmodeSeconds: action.slowmodeSeconds, level: action.level },
+      target: 'surveillance',
+      internalEmbed: new EmbedBuilder()
+        .setColor(Colors.Yellow)
+        .setTitle('🐌 Auto-slowmode — Stepped Down')
+        .addFields(
+          { name: 'Channel', value: `<#${channel.id}>`, inline: true },
+          { name: 'Level', value: `${action.level}/${getConfig().config.thresholds.autoSlowmodeTiers.length}`, inline: true },
+          { name: 'Slowmode', value: `${action.slowmodeSeconds}s`, inline: true }
+        )
+        .setTimestamp(),
+    });
+    await recordAuditEvent({
+      eventType: AuditEventType.ChannelLocked,
+      payload: { channelId: channel.id, slowmode: action.slowmodeSeconds, level: action.level, source: 'auto' },
+    });
+    return;
+  }
+
+  if (action.type === 'restore') {
+    const lock = await findLockedChannel(channel.id);
+    const previousSlowmode = lock?.previousSlowmode ?? 0;
+    await channel.setRateLimitPerUser(previousSlowmode).catch(() => null);
+    await unlockChannel(channel.id);
+    clearChannelSlowmodeState(channel.id);
+    await channel
+      .send({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(Colors.Green)
+            .setTitle('✅ Auto-slowmode Removed')
+            .setDescription(`Message volume normalized. Slowmode restored to **${previousSlowmode}s**.`)
+            .setTimestamp(),
+        ],
+      })
+      .catch(() => null);
+    await logger.log({
+      level: 'info',
+      message: `Auto-slowmode removed from ${channel.id}`,
+      data: { channelId: channel.id, previousSlowmode },
+      target: 'surveillance',
+      internalEmbed: new EmbedBuilder()
+        .setColor(Colors.Green)
+        .setTitle('✅ Auto-slowmode Removed')
+        .addFields({ name: 'Channel', value: `<#${channel.id}>`, inline: true }, { name: 'Restored to', value: `${previousSlowmode}s`, inline: true })
+        .setTimestamp(),
+    });
+    await recordAuditEvent({ eventType: AuditEventType.ChannelUnlocked, payload: { channelId: channel.id, previousSlowmode, source: 'auto' } });
+  }
+}
+
+/**
+ * Records the message toward the channel's rate window and applies whatever slowmode action
+ * results (step up, step down, restore). No-op outside guild text channels, when the feature is
+ * disabled, or when the channel is already under a manual (non-auto) lock.
+ */
+export async function enforce(
+  client: Client,
+  message: Message<true>,
+  settings: Settings,
+  logger: ReturnType<typeof Logger.getInstance>
+): Promise<void> {
+  if (!settings.featureAutoSlowmodeEnabled || message.channel.type !== ChannelType.GuildText) return;
+
+  const channel = message.channel;
+  const action = recordAndCheckSlowmode(channel.id, settings.autoSlowmodeThreshold, settings.autoSlowmodeWindowMs);
+  if (!action) return;
+
+  const existingLock = await findLockedChannel(channel.id);
+  const isManualLock = existingLock !== null && existingLock.moderatorId !== client.user?.id;
+  if (isManualLock) return;
+
+  await applyAutoSlowmodeAction(action, channel, message.guild, client, settings, logger);
 }

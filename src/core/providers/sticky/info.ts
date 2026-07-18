@@ -2,8 +2,7 @@ import { EmbedBuilder, MessageReaction, PartialMessageReaction, PartialUser, Tex
 
 import { Client } from '~/core/models';
 import { getStickyByLastMessageId } from '~/database';
-
-const STICKY_COLOR = { info: '#82D0F4', warning: '#FDC220' } as const;
+import { STICKY_COLOR } from './constants';
 
 /** DMs the channel's extended sticky explanation when a user reacts with ❓ on the sticky message. */
 export const sendStickyInfo = async (
