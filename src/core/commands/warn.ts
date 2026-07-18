@@ -1,17 +1,16 @@
 import { ApplicationCommandType, EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
 
-import { getConfig } from '~/config';
 import { Command, Permission, BotException } from '~/core/models';
 import { logModAction } from '~/core/middleware';
 import { AppFeature, appFeatureMap, MOD_LIST_PAGE_SIZE } from '~/settings';
 import { Logger, validateModerationTarget, discordTimestamp } from '~/utilities';
+import { applyWarnAutoMute } from '~/core/providers/automod';
 import {
   AuditEventType,
   countActiveWarnings,
   countActiveWarningsSince,
   findWarningById,
   getSettings,
-  insertMute,
   insertWarning,
   listWarningsForUser,
   recordAuditEvent,
@@ -20,19 +19,6 @@ import {
   WARNING_DEFAULT_EXPIRY_DAYS,
   type Warning,
 } from '~/database';
-
-const computeAutoMuteMinutes = (activeCount: number, baseMinutes: number): number => {
-  if (activeCount <= 1) return 0;
-  if (activeCount === 2) return Math.max(Math.round(baseMinutes / 4), 5);
-  const { muteCapMinutes } = getConfig().config.thresholds;
-  return Math.min(Math.round(baseMinutes * Math.pow(2, activeCount - 3)), muteCapMinutes);
-};
-
-const formatMuteDuration = (minutes: number): string => {
-  if (minutes < 60) return `${minutes}m`;
-  if (minutes < 60 * 24) return `${Math.round(minutes / 60)}h`;
-  return `${Math.round(minutes / 60 / 24)}d`;
-};
 
 const statusBadge = (w: Warning, now: Date): string => {
   if (w.revokedAt) return '⚪ revoked';
@@ -163,56 +149,16 @@ export default new Command<ApplicationCommandType.ChatInput>({
         escalationNote = `\n\n⚠️ **Auto-escalation threshold reached** (${windowCount} active warnings in the last ${settings.warnAutoEscalateWindowDays} days). Consider a ban or court case.`;
       }
 
-      if (settings.featureWarnAutoMuteEnabled && settings.roleMutedId) {
-        const muteMinutes = computeAutoMuteMinutes(activeCount, settings.warnAutoMuteBaseMinutes);
-        if (muteMinutes > 0) {
-          const member = await interaction.guild!.members.fetch(target.id).catch(() => null);
-          if (member && !member.roles.cache.has(settings.roleMutedId)) {
-            const muteExpiresAt = new Date(Date.now() + muteMinutes * 60 * 1000);
-            const durationLabel = formatMuteDuration(muteMinutes);
-            await upsertUser({ id: client.user!.id, username: client.user!.username });
-            await member.roles.add(settings.roleMutedId, `[warn auto-mute] ${activeCount} active warnings`).catch(() => null);
-            const autoMute = await insertMute({
-              targetUserId: target.id,
-              moderatorId: client.user!.id,
-              reason: `Warn auto-mute: ${activeCount} active warnings`,
-              expiresAt: muteExpiresAt,
-            });
-            await recordAuditEvent({
-              eventType: AuditEventType.MuteIssued,
-              actorUserId: client.user!.id,
-              targetUserId: target.id,
-              payload: { muteId: autoMute.id, reason: autoMute.reason, expiresAt: muteExpiresAt.toISOString() },
-            });
-            await logger.log({
-              level: 'info',
-              message: `Auto-mute #${autoMute.id} applied to ${target.id}`,
-              data: { muteId: autoMute.id, targetId: target.id, activeCount },
-              target: 'moderation',
-              internalEmbed: new EmbedBuilder()
-                .setColor(appFeatureMap[command.options.feature].color)
-                .setTitle(`Auto-mute #${autoMute.id}`)
-                .addFields(
-                  { name: 'Target', value: `<@${target.id}>`, inline: true },
-                  { name: 'Active warnings', value: `${activeCount}`, inline: true },
-                  { name: 'Duration', value: durationLabel, inline: true },
-                  { name: 'Expires', value: `${discordTimestamp(muteExpiresAt, 'F')}`, inline: true }
-                )
-                .setTimestamp(),
-              publicEmbed: new EmbedBuilder()
-                .setColor(appFeatureMap[command.options.feature].color)
-                .setTitle('🔇 Member Muted (Automod)')
-                .addFields(
-                  { name: 'User', value: `<@${target.id}>` },
-                  { name: 'Duration', value: durationLabel },
-                  { name: 'Reason', value: `Warn auto-mute: ${activeCount} active warnings` }
-                )
-                .setTimestamp(),
-            });
-            escalationNote += `\n\n🔇 **Auto-muted** for ${durationLabel} (${activeCount} active warnings, expires ${discordTimestamp(muteExpiresAt, 'R')}).`;
-          }
-        }
-      }
+      const autoMuteNote = await applyWarnAutoMute(
+        client,
+        interaction.guild!,
+        target,
+        activeCount,
+        settings,
+        logger,
+        appFeatureMap[command.options.feature].color
+      );
+      if (autoMuteNote) escalationNote += autoMuteNote;
 
       await interaction.reply({
         content: `Warned <@${target.id}> (reason: ${reason}). Warning **#${warning.id}** recorded. ${expiryLine}${escalationNote}`,

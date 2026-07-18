@@ -10,8 +10,6 @@ import {
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
 } from 'discord.js';
-import { Cron } from 'croner';
-
 import { Command, Permission } from '~/core/models';
 import { AppFeature, appFeatureMap } from '~/settings';
 import {
@@ -19,7 +17,6 @@ import {
   createEvent,
   findEventById,
   updateEvent,
-  cancelEvent,
   listUpcomingEvents,
   listEventsByCreator,
   listRegistrationsForEvent,
@@ -27,8 +24,16 @@ import {
   registerForEvent,
   unregisterFromEvent,
   isRegistered,
-  deleteRegistrationsForEvent,
 } from '~/database';
+import {
+  canManageEvent,
+  canManageEventsAtAll,
+  cancelEventAndNotify,
+  isValidCron,
+  parseNewEventSchedule,
+  resolveRecreateSchedule,
+  signupForEvents,
+} from '~/core/providers/events';
 import { L } from '~/core/locales';
 import { attempt, discordTimestamp } from '~/utilities';
 
@@ -46,28 +51,7 @@ const TIMEZONE_CHOICES = [
   { name: 'New York (EST/EDT)', value: 'America/New_York' },
 ] satisfies { name: string; value: string }[];
 
-const toUtc = (dateStr: string, timeStr: string, tz: string): Date => {
-  const local = new Date(`${dateStr}T${timeStr}:00`);
-  const inTz = new Date(local.toLocaleString('en-US', { timeZone: tz }));
-  return new Date(local.getTime() + (local.getTime() - inTz.getTime()));
-};
-
 const ts = (date: Date) => discordTimestamp(date, 'F');
-
-const isEventManager = (memberRoleIds: Set<string>, roleEventManagerId: string | null): boolean =>
-  roleEventManagerId !== null && memberRoleIds.has(roleEventManagerId);
-
-const canManageEvent = (
-  creatorId: string | null,
-  userId: string,
-  memberRoleIds: Set<string>,
-  settings: { roleEventManagerId: string | null; roleModerationId: string | null }
-): boolean => {
-  if (creatorId === userId) return true;
-  if (settings.roleModerationId && memberRoleIds.has(settings.roleModerationId)) return true;
-  if (settings.roleEventManagerId && memberRoleIds.has(settings.roleEventManagerId)) return true;
-  return false;
-};
 
 export default new Command<ApplicationCommandType.ChatInput>({
   feature: AppFeature.Events,
@@ -164,11 +148,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
     const memberRoleIds = new Set(member?.roles.cache.keys() ?? []);
 
     if (sub === 'create' || sub === 'recreate' || sub === 'repeat' || sub === 'dashboard' || sub === 'cancel' || sub === 'attendees') {
-      if (
-        !isEventManager(memberRoleIds, settings.roleEventManagerId) &&
-        !memberRoleIds.has(settings.roleModerationId ?? '') &&
-        !memberRoleIds.has(settings.roleAdministrationId ?? '')
-      ) {
+      if (!canManageEventsAtAll(memberRoleIds, settings)) {
         await interaction.reply({ content: L[locale].GENERAL.COMMAND_INVALID_PERMISSIONS(), flags: MessageFlags.Ephemeral });
         return;
       }
@@ -183,18 +163,8 @@ export default new Command<ApplicationCommandType.ChatInput>({
       const textChannel = interaction.options.getChannel('text-channel', false);
       const voiceChannel = interaction.options.getChannel('voice-channel', false);
 
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      const timeRegex = /^\d{2}:\d{2}$/;
-      if (!dateRegex.test(dateStr) || !timeRegex.test(timeStr)) {
-        await interaction.reply({ content: L[locale].EVENT.COMMAND_CREATE.ERROR_INVALID_DATE(), flags: MessageFlags.Ephemeral });
-        return;
-      }
-
-      let scheduledAt: Date;
-      try {
-        scheduledAt = toUtc(dateStr, timeStr, tz);
-        if (isNaN(scheduledAt.getTime())) throw new Error('invalid date');
-      } catch {
+      const scheduledAt = parseNewEventSchedule(dateStr, timeStr, tz);
+      if (!scheduledAt) {
         await interaction.reply({ content: L[locale].EVENT.COMMAND_CREATE.ERROR_INVALID_DATE(), flags: MessageFlags.Ephemeral });
         return;
       }
@@ -240,20 +210,10 @@ export default new Command<ApplicationCommandType.ChatInput>({
       const textChannel = interaction.options.getChannel('text-channel', false);
       const voiceChannel = interaction.options.getChannel('voice-channel', false);
 
-      let scheduledAt = original.scheduledAt;
-      if (dateStr || timeStr) {
-        const resolvedDate = dateStr ?? original.scheduledAt.toISOString().slice(0, 10);
-        const resolvedTime =
-          timeStr ??
-          `${String(original.scheduledAt.getUTCHours()).padStart(2, '0')}:${String(original.scheduledAt.getUTCMinutes()).padStart(2, '0')}`;
-        const resolvedTz = tz ?? 'UTC';
-        try {
-          scheduledAt = toUtc(resolvedDate, resolvedTime, resolvedTz);
-          if (isNaN(scheduledAt.getTime())) throw new Error('invalid');
-        } catch {
-          await interaction.reply({ content: L[locale].EVENT.COMMAND_CREATE.ERROR_INVALID_DATE(), flags: MessageFlags.Ephemeral });
-          return;
-        }
+      const scheduledAt = resolveRecreateSchedule(original, dateStr, timeStr, tz);
+      if (!scheduledAt) {
+        await interaction.reply({ content: L[locale].EVENT.COMMAND_CREATE.ERROR_INVALID_DATE(), flags: MessageFlags.Ephemeral });
+        return;
       }
 
       if (scheduledAt <= new Date()) {
@@ -298,9 +258,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
         return;
       }
 
-      try {
-        new Cron(cronStr);
-      } catch {
+      if (!isValidCron(cronStr)) {
         await interaction.reply({ content: L[locale].EVENT.COMMAND_REPEAT.ERROR_INVALID_CRON(), flags: MessageFlags.Ephemeral });
         return;
       }
@@ -413,16 +371,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
 
         if (i.componentType === ComponentType.StringSelect && i.customId === 'signup') {
           const ids = i.values.map(Number);
-          let signedUp = 0;
-          for (const id of ids) {
-            const ev = await findEventById(id);
-            if (!ev || ev.cancelledAt || ev.scheduledAt <= new Date()) continue;
-            const alreadyIn = await isRegistered(id, i.user.id);
-            if (!alreadyIn) {
-              await registerForEvent(id, i.user.id);
-              signedUp++;
-            }
-          }
+          const signedUp = await signupForEvents(ids, i.user.id);
           const { embed: newEmbed, components: newComponents } = await buildPage(page);
           await i.update({ content: L[locale].EVENT.COMMAND_LIST.SIGNED_UP({ count: signedUp }), embeds: [newEmbed], components: newComponents });
           return;
@@ -497,18 +446,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
         return;
       }
 
-      const registrations = await listRegistrationsForEvent(eventId);
-      await cancelEvent(eventId);
-      await deleteRegistrationsForEvent(eventId);
-
-      let notified = 0;
-      for (const reg of registrations) {
-        const sent = await attempt(async () => {
-          const user = await client.users.fetch(reg.userId);
-          return user.send(L[locale].EVENT.COMMAND_CANCEL.DM_NOTIFY({ name: event.name, time: ts(event.scheduledAt) }));
-        });
-        if (sent !== null) notified++;
-      }
+      const notified = await cancelEventAndNotify(client, event, locale);
 
       await interaction.reply({ content: L[locale].EVENT.COMMAND_CANCEL.SUCCESS({ id: eventId, count: notified }), flags: MessageFlags.Ephemeral });
       return;

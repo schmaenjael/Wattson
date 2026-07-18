@@ -1,34 +1,19 @@
-import {
-  ApplicationCommandType,
-  ChannelType,
-  EmbedBuilder,
-  MessageFlags,
-  SlashCommandBuilder,
-  TextChannel,
-  ThreadAutoArchiveDuration,
-} from 'discord.js';
+import { ApplicationCommandType, EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
 
-import { Command, Permission, BotException } from '~/core/models';
+import { Command, Permission } from '~/core/models';
 import { AppFeature, appFeatureMap } from '~/settings';
 import {
-  AuditEventType,
-  countBansForUser,
-  countReportsForUser,
-  countWarningsForUser,
   CourtStatus,
   findActiveCaseByThreadId,
   findCaseById,
   findOpenCaseForUser,
   getSettings,
-  insertCourtCase,
   listCasesForUser,
   listOpenCases,
-  recordAuditEvent,
   setCourtCaseFinalizing,
-  upsertUser,
   type CourtCase,
 } from '~/database';
-import { buildVoteEmbed, buildVoteRow } from '~/core/providers/court';
+import { buildVoteEmbed, buildVoteRow, openCourtCase } from '~/core/providers/court';
 import { attempt, discordTimestamp } from '~/utilities';
 
 const statusBadge = (s: CourtStatus): string => {
@@ -117,81 +102,17 @@ export default new Command<ApplicationCommandType.ChatInput>({
 
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-      const parent = (await interaction.guild!.channels.fetch(settings.courtParentChannelId)) as TextChannel | null;
-      if (!parent) throw new BotException(client, 'Court parent channel not found.');
+      const record = await openCourtCase(
+        client,
+        interaction.guild!,
+        settings.courtParentChannelId,
+        settings.roleMutedId,
+        interaction.user,
+        accused,
+        reason
+      );
 
-      await Promise.all([
-        upsertUser({ id: accused.id, username: accused.username }),
-        upsertUser({ id: interaction.user.id, username: interaction.user.username }),
-      ]);
-
-      const accusedMember = await interaction.guild!.members.fetch(accused.id).catch(() => null);
-      if (!accusedMember) throw new BotException(client, `Accused user ${accused.tag} is not in the guild.`);
-
-      const [reportCount, warnCount, banCount] = await Promise.all([
-        countReportsForUser(accused.id),
-        countWarningsForUser(accused.id),
-        countBansForUser(accused.id),
-      ]);
-
-      const thread = await parent.threads.create({
-        name: `court-${accused.username.slice(0, 16)}-${Date.now().toString(36)}`,
-        type: ChannelType.PrivateThread,
-        autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
-        invitable: false,
-        reason: `Court case opened by ${interaction.user.tag}`,
-      });
-
-      await thread.members.add(accused.id).catch(() => null);
-      await thread.members.add(interaction.user.id).catch(() => null);
-
-      await accusedMember.roles.add(settings.roleMutedId, `Court case opened: ${reason}`).catch(() => null);
-
-      const record = await insertCourtCase({
-        accusedUserId: accused.id,
-        openedByModeratorId: interaction.user.id,
-        threadId: thread.id,
-        parentChannelId: parent.id,
-        reason,
-      });
-
-      await recordAuditEvent({
-        eventType: AuditEventType.CourtOpened,
-        actorUserId: interaction.user.id,
-        targetUserId: accused.id,
-        payload: { caseId: record.id, threadId: thread.id, reason },
-      });
-
-      await thread.send({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(color)
-            .setTitle(`⚖️ Court Case #${record.id}`)
-            .setDescription(
-              [
-                `<@${accused.id}>, a court case has been opened against you.`,
-                `You are currently **muted server-wide** and may only respond **in this thread**.`,
-                ``,
-                `**Reason**`,
-                reason,
-                ``,
-                `**User History**`,
-                `Reports filed against you: **${reportCount}**`,
-                `Warnings on record: **${warnCount}**`,
-                `Bans on record: **${banCount}**`,
-                ``,
-                `**Notice**`,
-                `We welcome members of all backgrounds. However, we reserve the right to decide who may remain on this server and may remove members or content at any time.`,
-                ``,
-                `Court cases may take time. **At least ${3} moderators** must reach a unanimous conclusion before this case can be closed.`,
-              ].join('\n')
-            )
-            .setFooter({ text: `Opened by ${interaction.user.tag}` })
-            .setTimestamp(record.openedAt),
-        ],
-      });
-
-      await interaction.editReply({ content: `Opened case **#${record.id}** in <#${thread.id}>.` });
+      await interaction.editReply({ content: `Opened case **#${record.id}** in <#${record.threadId}>.` });
       return;
     }
 

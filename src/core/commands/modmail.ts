@@ -2,53 +2,22 @@ import {
   ActionRowBuilder,
   ApplicationCommandType,
   type ChatInputCommandInteraction,
-  Colors,
-  EmbedBuilder,
   InteractionContextType,
   MessageFlags,
   ModalBuilder,
-  PermissionFlagsBits,
-  type PublicThreadChannel,
   SlashCommandBuilder,
   TextInputBuilder,
   TextInputStyle,
-  ThreadAutoArchiveDuration,
   type TextChannel,
 } from 'discord.js';
 
-import { Command } from '~/core/models';
+import { Command, Permission } from '~/core/models';
+import { memberHasAnyPermission } from '~/core/middleware/permissionCore';
 import { AppFeature } from '~/settings';
-import {
-  AuditEventType,
-  ModmailCategory,
-  ModmailStatus,
-  closeModmail,
-  findModmailById,
-  findModmailByThreadId,
-  findOpenModmailByUserId,
-  getSettings,
-  openModmail,
-  recordAuditEvent,
-  setModmailChannelMessage,
-  setModmailSummary,
-  touchModmailActivity,
-  upsertUser,
-} from '~/database';
-import {
-  ModmailChannelEmbed,
-  ModmailClosedByModEmbed,
-  ModmailClosedByUserEmbed,
-  ModmailClosedDmEmbed,
-  ModmailOpenThreadEmbed,
-  ModmailShowEmbed,
-  ModmailSummaryEmbed,
-  ModmailThreadTutorialEmbed,
-  UserDmGuideEmbed,
-  buildKeepOpenDisabledRow,
-} from '~/core/components/Modmail';
-import { dispatchCloseAction, fetchModmailSummary } from '~/core/providers/modmail';
+import { ModmailCategory, ModmailStatus, findModmailById, findModmailByThreadId, findOpenModmailByUserId, getSettings } from '~/database';
+import { ModmailShowEmbed } from '~/core/components/Modmail';
+import { dispatchCloseAction, finalizeModmailClose, openModmailFlow, sendModmailAttachment } from '~/core/providers/modmail';
 import { L } from '~/core/locales';
-import { attempt } from '~/utilities';
 
 export const MODMAIL_MSG_MODAL_PREFIX = 'modmail_msg:';
 
@@ -56,9 +25,7 @@ const checkModRole = async (interaction: ChatInputCommandInteraction): Promise<b
   const settings = await getSettings();
   const member = await interaction.guild?.members.fetch(interaction.user.id).catch(() => null);
   if (!member) return false;
-  if (member.permissions.has(PermissionFlagsBits.ManageGuild)) return true;
-  if (settings.roleModerationId && member.roles.cache.has(settings.roleModerationId)) return true;
-  return false;
+  return memberHasAnyPermission(member, settings, [Permission.Moderation]);
 };
 
 export default new Command<ApplicationCommandType.ChatInput>({
@@ -156,33 +123,8 @@ export default new Command<ApplicationCommandType.ChatInput>({
 
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-      await upsertUser({ id: interaction.user.id, username: interaction.user.username });
+      const { modmail, guideEmbed } = await openModmailFlow(channel, interaction.user, category, reason);
 
-      const channelMsg = await channel.send({ content: '📬 Opening modmail…' });
-      const thread = (await channelMsg.startThread({
-        name: `📬 Modmail — ${interaction.user.username}`,
-        autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
-        reason: `Modmail opened by ${interaction.user.username} (${interaction.user.id})`,
-      })) as PublicThreadChannel;
-
-      const modmail = await openModmail({ userId: interaction.user.id, threadId: thread.id, category, reason, status: ModmailStatus.Open });
-
-      await thread.setName(`📬 Modmail #${modmail.id} — ${interaction.user.username}`).catch(() => null);
-      await channelMsg.edit({ content: null, embeds: [new ModmailChannelEmbed({ modmail, user: interaction.user }).render()] });
-      await setModmailChannelMessage(modmail.id, channelMsg.id);
-
-      const pingContent = settings.roleModmailHandlerId ? `<@&${settings.roleModmailHandlerId}>` : undefined;
-      await thread.send({ content: pingContent, embeds: [new ModmailOpenThreadEmbed({ modmail, user: interaction.user }).render()] });
-      await thread.send({ embeds: [new ModmailThreadTutorialEmbed({ modmail }).render()] });
-
-      await recordAuditEvent({
-        eventType: AuditEventType.ModmailOpened,
-        actorUserId: interaction.user.id,
-        targetUserId: interaction.user.id,
-        payload: { modmailId: modmail.id, category, threadId: thread.id },
-      });
-
-      const guideEmbed = new UserDmGuideEmbed({ modmail }).render();
       if (isDm) {
         await interaction.editReply({ embeds: [guideEmbed] });
       } else {
@@ -268,13 +210,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
           return;
         }
 
-        const embed = new EmbedBuilder()
-          .setColor(Colors.Blue)
-          .setAuthor({ name: `${interaction.user.username} — User`, iconURL: interaction.user.displayAvatarURL() })
-          .setDescription('📎 Sent an attachment')
-          .setTimestamp();
-        await thread.send({ embeds: [embed], files: [{ attachment: file.url, name: file.name }] });
-        await touchModmailActivity(modmail.id);
+        await sendModmailAttachment(client, thread, modmail, interaction.user, 'user', file);
         await interaction.editReply({ content: '✅ Attachment sent.' });
         return;
       }
@@ -298,27 +234,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
         return;
       }
 
-      const threadEmbed = new EmbedBuilder()
-        .setColor(Colors.Green)
-        .setAuthor({ name: `${interaction.user.username} — Moderator`, iconURL: interaction.user.displayAvatarURL() })
-        .setDescription('📎 Sent an attachment')
-        .setFooter({ text: 'Moderator reply' })
-        .setTimestamp();
-      await thread.send({ embeds: [threadEmbed], files: [{ attachment: file.url, name: file.name }] });
-
-      const targetUser = modmail.userId ? await client.users.fetch(modmail.userId).catch(() => null) : null;
-      if (targetUser) {
-        const dmEmbed = new EmbedBuilder()
-          .setColor(Colors.Green)
-          .setTitle(`💬 Moderator Attachment — Modmail #${modmail.id}`)
-          .setDescription('📎 A moderator sent an attachment.')
-          .setFooter({ text: 'Reply via /modmail message · /modmail attach · /modmail close' })
-          .setTimestamp();
-        const dmChannel = await targetUser.createDM().catch(() => null);
-        await dmChannel?.send({ embeds: [dmEmbed], files: [{ attachment: file.url, name: file.name }] }).catch(() => null);
-      }
-
-      await touchModmailActivity(modmail.id);
+      await sendModmailAttachment(client, thread, modmail, interaction.user, 'mod', file);
       await interaction.editReply({ content: '✅ Attachment sent.' });
       return;
     }
@@ -333,51 +249,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
         }
 
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-        await closeModmail(modmail.id);
-        await recordAuditEvent({
-          eventType: AuditEventType.ModmailClosed,
-          actorUserId: interaction.user.id,
-          targetUserId: modmail.userId ?? undefined,
-          payload: { modmailId: modmail.id, closedBy: 'user' },
-        });
-
-        const guild = client.guilds.cache.get(process.env.GUILD_ID);
-        const thread = await guild?.channels.fetch(modmail.threadId).catch(() => null);
-        if (thread?.isThread()) {
-          const summary = await fetchModmailSummary(client, modmail.threadId);
-          if (summary) {
-            await setModmailSummary(modmail.id, summary);
-          }
-
-          if (modmail.channelMessageId && thread.parentId) {
-            const parentChannel = await guild?.channels.fetch(thread.parentId).catch(() => null);
-            if (parentChannel?.isTextBased()) {
-              const channelMsg = await parentChannel.messages.fetch(modmail.channelMessageId).catch(() => null);
-              if (channelMsg) {
-                const closedModmail = { ...modmail, status: ModmailStatus.Closed, closedAt: new Date() };
-                const embeds: EmbedBuilder[] = [new ModmailChannelEmbed({ modmail: closedModmail, user: interaction.user }).render()];
-                if (summary) embeds.push(new ModmailSummaryEmbed({ summary, modmailId: modmail.id }).render());
-                await channelMsg.edit({ embeds }).catch(() => null);
-              }
-            }
-          }
-
-          await thread.send({ embeds: [new ModmailClosedByUserEmbed({ user: interaction.user }).render()] });
-
-          if (summary) {
-            await thread.send({ embeds: [new ModmailSummaryEmbed({ summary, modmailId: modmail.id }).render()] });
-          }
-
-          // Disable stale button if one was sent
-          if (modmail.staleMessageId) {
-            const msg = await thread.messages.fetch(modmail.staleMessageId).catch(() => null);
-            await msg?.edit({ components: [buildKeepOpenDisabledRow(modmail.id)] }).catch(() => null);
-          }
-
-          await attempt(async () => {
-            await thread.setArchived(true);
-          });
-        }
+        await finalizeModmailClose(client, modmail, 'user', interaction.user);
 
         await interaction.editReply({ content: '✅ Your modmail has been closed.' });
         await dispatchCloseAction(client, modmail);
@@ -398,56 +270,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
       }
 
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-      await closeModmail(modmail.id);
-      await recordAuditEvent({
-        eventType: AuditEventType.ModmailClosed,
-        actorUserId: interaction.user.id,
-        targetUserId: modmail.userId ?? undefined,
-        payload: { modmailId: modmail.id, closedBy: 'mod' },
-      });
-
-      const targetUser = modmail.userId ? await client.users.fetch(modmail.userId).catch(() => null) : null;
-
-      if (interaction.channel?.isThread()) {
-        const summary = await fetchModmailSummary(client, modmail.threadId);
-        if (summary) {
-          await setModmailSummary(modmail.id, summary);
-        }
-
-        if (modmail.channelMessageId && interaction.channel.parentId) {
-          const guild = client.guilds.cache.get(process.env.GUILD_ID);
-          const parentChannel = await guild?.channels.fetch(interaction.channel.parentId).catch(() => null);
-          if (parentChannel?.isTextBased()) {
-            const channelMsg = await parentChannel.messages.fetch(modmail.channelMessageId).catch(() => null);
-            if (channelMsg) {
-              const closedModmail = { ...modmail, status: ModmailStatus.Closed, closedAt: new Date() };
-              const embeds: EmbedBuilder[] = [new ModmailChannelEmbed({ modmail: closedModmail, user: targetUser }).render()];
-              if (summary) embeds.push(new ModmailSummaryEmbed({ summary, modmailId: modmail.id }).render());
-              await channelMsg.edit({ embeds }).catch(() => null);
-            }
-          }
-        }
-
-        await interaction.channel.send({ embeds: [new ModmailClosedByModEmbed({ mod: interaction.user }).render()] });
-
-        if (summary) {
-          await interaction.channel.send({ embeds: [new ModmailSummaryEmbed({ summary, modmailId: modmail.id }).render()] });
-        }
-
-        if (modmail.staleMessageId) {
-          const msg = await interaction.channel.messages.fetch(modmail.staleMessageId).catch(() => null);
-          await msg?.edit({ components: [buildKeepOpenDisabledRow(modmail.id)] }).catch(() => null);
-        }
-
-        await attempt(async () => {
-          if (interaction.channel?.isThread()) await interaction.channel.setArchived(true);
-        });
-      }
-
-      if (targetUser) {
-        const dmChannel = await targetUser.createDM().catch(() => null);
-        await dmChannel?.send({ embeds: [new ModmailClosedDmEmbed().render()] }).catch(() => null);
-      }
+      await finalizeModmailClose(client, modmail, 'mod', interaction.user);
 
       await interaction.editReply({ content: '✅ Modmail closed.' });
       await dispatchCloseAction(client, modmail);
