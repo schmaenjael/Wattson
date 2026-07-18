@@ -203,14 +203,11 @@ export default new Command<ApplicationCommandType.ChatInput>({
 
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-        const guild = client.guilds.cache.get(process.env.GUILD_ID);
-        const thread = await guild?.channels.fetch(modmail.threadId).catch(() => null);
-        if (!thread?.isThread()) {
+        const sent = await sendModmailAttachment(client, modmail, interaction.user, 'user', file);
+        if (!sent) {
           await interaction.editReply({ content: 'Could not find your modmail thread.' });
           return;
         }
-
-        await sendModmailAttachment(client, thread, modmail, interaction.user, 'user', file);
         await interaction.editReply({ content: '✅ Attachment sent.' });
         return;
       }
@@ -227,14 +224,11 @@ export default new Command<ApplicationCommandType.ChatInput>({
 
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-      const guild = client.guilds.cache.get(process.env.GUILD_ID);
-      const thread = await guild?.channels.fetch(modmail.threadId).catch(() => null);
-      if (!thread?.isThread()) {
+      const sent = await sendModmailAttachment(client, modmail, interaction.user, 'mod', file);
+      if (!sent) {
         await interaction.editReply({ content: 'Could not find the modmail thread.' });
         return;
       }
-
-      await sendModmailAttachment(client, thread, modmail, interaction.user, 'mod', file);
       await interaction.editReply({ content: '✅ Attachment sent.' });
       return;
     }

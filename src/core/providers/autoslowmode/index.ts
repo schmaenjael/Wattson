@@ -13,7 +13,7 @@ interface ChannelState {
 
 const channelStates = new Map<string, ChannelState>();
 
-export type SlowmodeAction =
+type SlowmodeAction =
   | { type: 'step_up'; level: number; slowmodeSeconds: number }
   | { type: 'step_down'; level: number; slowmodeSeconds: number }
   | { type: 'restore' }

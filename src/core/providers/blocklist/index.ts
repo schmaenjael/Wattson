@@ -32,8 +32,3 @@ export async function getBlocklistChecker(): Promise<BlocklistChecker | null> {
 
   return loading;
 }
-
-export function invalidateBlocklistChecker(): void {
-  instance = null;
-  loading = null;
-}

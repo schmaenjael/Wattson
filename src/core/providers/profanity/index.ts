@@ -32,8 +32,3 @@ export async function getProfanityChecker(): Promise<ProfanityChecker | null> {
 
   return loading;
 }
-
-export function invalidateProfanityChecker(): void {
-  instance = null;
-  loading = null;
-}

@@ -69,7 +69,11 @@ export const isValidCron = (cronStr: string): boolean => {
 export const isEventManager = (memberRoleIds: Set<string>, roleEventManagerId: string | null): boolean =>
   roleEventManagerId !== null && memberRoleIds.has(roleEventManagerId);
 
-/** Ownership check for a specific event: creator, or holds a moderation/event-manager role. */
+/**
+ * Ownership check for one specific event: creator, or holds a moderation/event-manager role.
+ * NOT the same role set as {@link canManageEventsAtAll} — this one has no administration-role
+ * bypass, but does have the creator check that the group-level gate doesn't need.
+ */
 export const canManageEvent = (
   creatorId: string | null,
   userId: string,
@@ -82,7 +86,12 @@ export const canManageEvent = (
   return false;
 };
 
-/** Gate for the create/recreate/repeat/dashboard/cancel/attendees subcommands as a group. */
+/**
+ * Gate for the create/recreate/repeat/dashboard/cancel/attendees subcommands as a group:
+ * event-manager, moderation, or administration role. NOT the same role set as
+ * {@link canManageEvent} — this one has no per-event creator check, but does check
+ * administration where the single-event gate doesn't.
+ */
 export const canManageEventsAtAll = (memberRoleIds: Set<string>, settings: Settings): boolean =>
   isEventManager(memberRoleIds, settings.roleEventManagerId) ||
   memberRoleIds.has(settings.roleModerationId ?? '') ||

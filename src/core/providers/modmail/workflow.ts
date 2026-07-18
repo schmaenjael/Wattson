@@ -1,4 +1,4 @@
-import type { Attachment, AnyThreadChannel, PublicThreadChannel, TextChannel, User } from 'discord.js';
+import type { Attachment, PublicThreadChannel, TextChannel, User } from 'discord.js';
 import { Colors, EmbedBuilder, ThreadAutoArchiveDuration } from 'discord.js';
 
 import {
@@ -65,14 +65,18 @@ export const openModmailFlow = async (
   return { modmail, guideEmbed };
 };
 
+/** Resolves the modmail's thread and sends the attachment there (+ a mod-side DM copy). Returns false if the thread can't be found. */
 export const sendModmailAttachment = async (
   client: Client,
-  thread: AnyThreadChannel,
   modmail: Modmail,
   sender: User,
   side: 'user' | 'mod',
   file: Attachment
-): Promise<void> => {
+): Promise<boolean> => {
+  const guild = client.guilds.cache.get(process.env.GUILD_ID);
+  const thread = await guild?.channels.fetch(modmail.threadId).catch(() => null);
+  if (!thread?.isThread()) return false;
+
   const embed =
     side === 'user'
       ? new EmbedBuilder()
@@ -104,6 +108,7 @@ export const sendModmailAttachment = async (
   }
 
   await touchModmailActivity(modmail.id);
+  return true;
 };
 
 /**
@@ -147,9 +152,7 @@ export const finalizeModmailClose = async (client: Client, modmail: Modmail, clo
       }
     }
 
-    await thread.send({
-      embeds: [new ModmailClosedEmbed(closedBy === 'user' ? { variant: 'user', actor: closer } : { variant: 'mod', actor: closer }).render()],
-    });
+    await thread.send({ embeds: [new ModmailClosedEmbed({ variant: closedBy, actor: closer }).render()] });
 
     if (summary) {
       await thread.send({ embeds: [new ModmailSummaryEmbed({ summary, modmailId: modmail.id }).render()] });

@@ -149,15 +149,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
         escalationNote = `\n\n⚠️ **Auto-escalation threshold reached** (${windowCount} active warnings in the last ${settings.warnAutoEscalateWindowDays} days). Consider a ban or court case.`;
       }
 
-      const autoMuteNote = await applyWarnAutoMute(
-        client,
-        interaction.guild!,
-        target,
-        activeCount,
-        settings,
-        logger,
-        appFeatureMap[command.options.feature].color
-      );
+      const autoMuteNote = await applyWarnAutoMute(client, interaction.guild!, target, activeCount, settings);
       if (autoMuteNote) escalationNote += autoMuteNote;
 
       await interaction.reply({

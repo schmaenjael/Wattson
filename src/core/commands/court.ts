@@ -10,11 +10,10 @@ import {
   getSettings,
   listCasesForUser,
   listOpenCases,
-  setCourtCaseFinalizing,
   type CourtCase,
 } from '~/database';
-import { buildVoteEmbed, buildVoteRow, openCourtCase } from '~/core/providers/court';
-import { attempt, discordTimestamp } from '~/utilities';
+import { finalizeCourtCase, openCourtCase } from '~/core/providers/court';
+import { discordTimestamp } from '~/utilities';
 
 const statusBadge = (s: CourtStatus): string => {
   switch (s) {
@@ -130,21 +129,11 @@ export default new Command<ApplicationCommandType.ChatInput>({
 
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-      const thread = await client.channels.fetch(caseRow.threadId);
-      if (thread && thread.isThread()) {
-        await attempt(async () => {
-          await thread.setLocked(true, 'Court finalization — moderator deliberation in progress');
-        });
-      }
-
-      const tallies = { ban: 0, warn: 0, dismiss: 0 };
-      if (!thread || !thread.isThread()) {
+      const finalized = await finalizeCourtCase(client, caseRow);
+      if (!finalized) {
         await interaction.editReply({ content: 'Could not fetch the court thread.' });
         return;
       }
-      const voteMsg = await thread.send({ embeds: [buildVoteEmbed(caseRow, tallies)], components: [buildVoteRow(caseRow.id)] });
-
-      await setCourtCaseFinalizing(caseRow.id, voteMsg.id);
 
       await interaction.editReply({ content: `Case #${caseRow.id} is now in deliberation. Thread locked; voting open to moderators.` });
       return;

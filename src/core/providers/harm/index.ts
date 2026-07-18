@@ -33,10 +33,6 @@ export const getHarmDetector = (): HateSpeechDetector | null => {
   return cached;
 };
 
-export const invalidateHarmDetector = (): void => {
-  cached = null;
-};
-
 export const warmupHarmDetector = async (): Promise<void> => {
   const detector = getHarmDetector();
   if (!detector) return;

@@ -3,7 +3,10 @@ import { EmbedBuilder, type Guild, type User } from 'discord.js';
 import { getConfig } from '~/config';
 import { AuditEventType, insertMute, recordAuditEvent, upsertUser, type Settings } from '~/database';
 import type { Client } from '~/core/models';
-import { discordTimestamp, type Logger } from '~/utilities';
+import { AppFeature, appFeatureMap } from '~/settings';
+import { discordTimestamp, Logger } from '~/utilities';
+
+const COLOR = appFeatureMap[AppFeature.Warn].color;
 
 export const computeAutoMuteMinutes = (activeCount: number, baseMinutes: number): number => {
   if (activeCount <= 1) return 0;
@@ -28,11 +31,11 @@ export const applyWarnAutoMute = async (
   guild: Guild,
   target: User,
   activeCount: number,
-  settings: Settings,
-  logger: Logger,
-  color: `#${string}`
+  settings: Settings
 ): Promise<string | null> => {
   if (!settings.featureWarnAutoMuteEnabled || !settings.roleMutedId) return null;
+
+  const logger = Logger.getInstance(AppFeature.Warn);
 
   const muteMinutes = computeAutoMuteMinutes(activeCount, settings.warnAutoMuteBaseMinutes);
   if (muteMinutes <= 0) return null;
@@ -66,7 +69,7 @@ export const applyWarnAutoMute = async (
     data: { muteId: autoMute.id, targetId: target.id, activeCount },
     target: 'moderation',
     internalEmbed: new EmbedBuilder()
-      .setColor(color)
+      .setColor(COLOR)
       .setTitle(`Auto-mute #${autoMute.id}`)
       .addFields(
         { name: 'Target', value: `<@${target.id}>`, inline: true },
@@ -76,7 +79,7 @@ export const applyWarnAutoMute = async (
       )
       .setTimestamp(),
     publicEmbed: new EmbedBuilder()
-      .setColor(color)
+      .setColor(COLOR)
       .setTitle('🔇 Member Muted (Automod)')
       .addFields(
         { name: 'User', value: `<@${target.id}>` },
