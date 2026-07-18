@@ -1,7 +1,7 @@
 import { ApplicationCommandType, ChannelType, EmbedBuilder, MessageFlags, SlashCommandBuilder, TextChannel } from 'discord.js';
 
 import { Command, Permission } from '~/core/models';
-import { AppFeature, ProcessExitCode } from '~/settings';
+import { AppFeature } from '~/settings';
 import { deleteStickyByChannelId, getStickyByChannelId, listStickyMessages, upsertStickyMessage } from '~/database';
 import { invalidateStickyCache, updateCachedLastMessageId } from '~/core/providers/sticky';
 import { Logger } from '~/utilities';
@@ -48,9 +48,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
     )
     .addSubcommand((s) => s.setName('list').setDescription('List all active sticky messages.')),
 
-  async executeCommand(command, client, interaction, middlewareData) {
-    if (middlewareData.some((m) => m.status !== ProcessExitCode.OK)) return;
-
+  async executeCommand(command, client, interaction) {
     const sub = interaction.options.getSubcommand(true);
     const logger = Logger.getInstance(AppFeature.Sticky);
 

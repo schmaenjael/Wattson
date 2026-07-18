@@ -1,7 +1,7 @@
 import { ApplicationCommandType, EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
 
 import { Command, Permission, BotException } from '~/core/models';
-import { AppFeature, appFeatureMap, MOD_LIST_PAGE_SIZE, ProcessExitCode } from '~/settings';
+import { AppFeature, appFeatureMap, MOD_LIST_PAGE_SIZE } from '~/settings';
 import { AuditEventType, findReportById, listReports, recordAuditEvent, ReportStatus, resolveReport, type Report } from '~/database';
 
 const messageUrl = (r: Report): string =>
@@ -86,9 +86,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
         .addIntegerOption((o) => o.setName('id').setDescription('Report ID').setRequired(true).setMinValue(1))
     ),
 
-  async executeCommand(command, client, interaction, middlewareData) {
-    if (middlewareData.some((m) => m.status !== ProcessExitCode.OK)) return;
-
+  async executeCommand(command, client, interaction) {
     const sub = interaction.options.getSubcommand(true);
 
     if (sub === 'list') {

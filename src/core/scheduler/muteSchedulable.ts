@@ -1,12 +1,13 @@
 import { AppFeature } from '~/settings';
 import { AuditEventType, deactivateMute, getSettings, listExpiredActiveMutes, recordAuditEvent } from '~/database';
+import { getConfig } from '~/config';
 import { Schedulable } from '~/core/models/Schedulable';
 
 export const muteSchedulable = new Schedulable({
   name: 'mute-schedulable',
   feature: AppFeature.Mute,
   description: 'Removes the muted role from members whose mute has expired.',
-  defaultCron: '* * * * *',
+  defaultCron: () => getConfig().config.schedules.muteSweep,
   execute: async (client, logger) => {
     const rows = await listExpiredActiveMutes();
     if (rows.length === 0) {

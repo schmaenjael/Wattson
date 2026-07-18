@@ -1,10 +1,11 @@
 import { ApplicationCommandType, ChannelType, Colors, EmbedBuilder, MessageFlags, SlashCommandBuilder, type GuildTextBasedChannel } from 'discord.js';
 
 import { Command, Permission } from '~/core/models';
-import { AppFeature, ProcessExitCode } from '~/settings';
+import { AppFeature } from '~/settings';
 import { Logger } from '~/utilities';
 import { AuditEventType, findLockedChannel, listLockedChannels, lockChannel, recordAuditEvent, unlockChannel, upsertUser } from '~/database';
 
+// Discord API hard limit: max slowmode is 21600s (6h).
 const SLOWMODE_MAX = 21600;
 
 const isSlowmodeChannel = (ch: GuildTextBasedChannel): boolean => ch.type === ChannelType.GuildText;
@@ -46,9 +47,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
         )
     ),
 
-  async executeCommand(_command, client, interaction, middlewareData) {
-    if (middlewareData.some((m) => m.status !== ProcessExitCode.OK)) return;
-
+  async executeCommand(_command, client, interaction) {
     if (!interaction.inGuild() || !interaction.guild) {
       await interaction.reply({ content: 'This command can only be used in the server.', flags: MessageFlags.Ephemeral });
       return;

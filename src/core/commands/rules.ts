@@ -1,6 +1,7 @@
 import { ApplicationCommandType, MessageFlags, SlashCommandBuilder, TextChannel } from 'discord.js';
 
-import { RuleCategory, listRules } from '~/database';
+import { listRules } from '~/config';
+import { RuleCategory } from '~/database';
 import { AppFeature, appFeatureMap } from '~/settings';
 import { baseLocale } from '~/core/locales';
 import { Command } from '~/core/models';

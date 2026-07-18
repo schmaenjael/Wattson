@@ -40,3 +40,12 @@ CREATE INDEX ON rag_data.chunks USING hnsw (embedding vector_cosine_ops);
 
 GRANT SELECT, INSERT, UPDATE ON rag_data.chunks TO "${RAG_DB_USER}";
 GRANT USAGE, SELECT ON SEQUENCE rag_data.chunks_id_seq TO "${RAG_DB_USER}";
+
+-- ── ML training user (read-only on `ml` schema, zero visibility into public) ─
+-- The `ml` schema and its tables are created by the drizzle migration, which runs
+-- AFTER this template (see postgres-init.sh). So this file only creates the role
+-- and locks it out of public; the schema-scoped SELECT grants run in the
+-- post-migration step in postgres-init.sh, once `ml` actually exists.
+CREATE USER "${ML_DB_USER}" WITH PASSWORD '${ML_DB_PASSWORD}';
+REVOKE ALL ON SCHEMA public FROM "${ML_DB_USER}";
+GRANT CONNECT ON DATABASE "${POSTGRES_DB}" TO "${ML_DB_USER}";

@@ -12,7 +12,7 @@ import {
 } from 'discord.js';
 
 import { Command } from '~/core/models';
-import { AppFeature, appFeatureMap, ProcessExitCode } from '~/settings';
+import { AppFeature, appFeatureMap } from '~/settings';
 import {
   AuditEventType,
   getSettings,
@@ -240,9 +240,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
     .addUserOption((o) => o.setName('user').setDescription('User to look up (defaults to yourself)').setRequired(false))
     .addBooleanOption((o) => o.setName('visible').setDescription('Show the response publicly (default: only visible to you)').setRequired(false)),
 
-  async executeCommand(command, _client, interaction, middlewareData) {
-    if (middlewareData.some((m) => m.status !== ProcessExitCode.OK)) return;
-
+  async executeCommand(command, _client, interaction) {
     if (!interaction.guild) {
       return;
     }

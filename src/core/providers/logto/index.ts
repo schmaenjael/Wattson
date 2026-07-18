@@ -1,3 +1,5 @@
+import { getConfig } from '~/config';
+
 type DeviceFlowResponse = {
   device_code: string;
   user_code: string;
@@ -35,7 +37,7 @@ export const initiateDeviceFlow = async (): Promise<DeviceFlowResponse> => {
 
 export const pollForToken = async (deviceCode: string, expiresIn: number, interval: number = 5): Promise<DeviceFlowResult> => {
   const deadline = Date.now() + expiresIn * 1000;
-  let pollMs = Math.max(interval, 5) * 1000;
+  let pollMs = Math.max(getConfig().config.timeouts.logtoPollMs, interval * 1000);
 
   const body = new URLSearchParams({
     client_id: process.env.LOGTO_DEVICE_APP_ID!,

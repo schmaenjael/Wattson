@@ -9,7 +9,7 @@ import {
 } from 'discord.js';
 
 import { Command, Permission } from '~/core/models';
-import { AppFeature, ProcessExitCode } from '~/settings';
+import { AppFeature } from '~/settings';
 import { getSettings } from '~/database';
 
 export const SUGGESTION_CREATE_MODAL = 'suggestion:create';
@@ -21,9 +21,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
   middleware: [],
   data: new SlashCommandBuilder().setName('suggest').setDescription('Submit a suggestion for the community to vote on.'),
 
-  async executeCommand(_command, _client, interaction, middlewareData) {
-    if (middlewareData.some((m) => m.status !== ProcessExitCode.OK)) return;
-
+  async executeCommand(_command, _client, interaction) {
     const settings = await getSettings();
     if (!settings.suggestionChannelId) {
       await interaction.reply({

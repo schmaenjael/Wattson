@@ -1,6 +1,8 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
+import JSON5 from 'json5';
+
 import { AppFeature } from '~/settings';
 import { Logger } from '~/utilities';
 
@@ -10,7 +12,7 @@ import { HateSpeechDetector } from './hsd';
 export * from './types';
 export { HateSpeechDetector };
 
-const CONFIG_PATH = join(process.cwd(), 'config', 'harm-detection.json');
+const CONFIG_PATH = join(process.cwd(), 'config', 'harm-detection.json5');
 const DEFAULT_ENDPOINT = 'http://hate-speech-detector:8000';
 
 let cached: HateSpeechDetector | null = null;
@@ -22,9 +24,9 @@ export const getHarmDetector = (): HateSpeechDetector | null => {
 
   let config: HarmDetectionConfig;
   try {
-    config = JSON.parse(readFileSync(CONFIG_PATH, 'utf-8')) as HarmDetectionConfig;
+    config = JSON5.parse(readFileSync(CONFIG_PATH, 'utf-8')) as HarmDetectionConfig;
   } catch (err) {
-    Logger.getInstance(AppFeature.Surveillance).warn(Object(err), 'harm-detection.json not found — harm detection disabled.');
+    Logger.getInstance(AppFeature.Surveillance).warn(Object(err), 'harm-detection.json5 not found — harm detection disabled.');
     return null;
   }
 

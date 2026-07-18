@@ -1,6 +1,7 @@
 import type { Message } from 'discord.js';
 
 import type { Client } from '~/core/models';
+import { getConfig } from '~/config';
 import { AppFeature } from '~/settings';
 import { Logger } from '~/utilities';
 
@@ -27,7 +28,7 @@ export const summarizeModmailThread = async (endpoint: string, model: string, me
 
   const conversation = relevant.map((m) => `[${m.role === 'user' ? 'User' : 'Moderator'} — ${m.author}]: ${m.content}`).join('\n');
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 60_000);
+  const timer = setTimeout(() => controller.abort(), getConfig().config.timeouts.summarizerMs);
 
   try {
     const res = await fetch(`${endpoint.replace(/\/$/, '')}/api/generate`, {

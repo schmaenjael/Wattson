@@ -205,7 +205,8 @@ const de = {
       BUTTON_APPROVE: 'Annehmen ({voteCount:number}/{threshold:number})',
       BUTTON_DENY: 'Ablehnen',
       FOOTER: 'Einspruch #{appealId:number}',
-      SUBMIT_INVALID: 'Dieser Einspruch ist nicht mehr gültig. Dein Bann wurde möglicherweise bereits aufgehoben oder es wurde bereits ein Einspruch eingereicht.',
+      SUBMIT_INVALID:
+        'Dieser Einspruch ist nicht mehr gültig. Dein Bann wurde möglicherweise bereits aufgehoben oder es wurde bereits ein Einspruch eingereicht.',
       NOT_CONFIGURED: 'Das Einspruchssystem ist nicht konfiguriert. Bitte kontaktiere das Moderationsteam direkt.',
       CHANNEL_UNAVAILABLE: 'Der Einspruchskanal ist nicht verfügbar. Bitte kontaktiere das Moderationsteam direkt.',
       SUBMITTED:

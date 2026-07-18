@@ -1,5 +1,6 @@
 """
 Entry point. Usage:
+  python main.py --download Fetch missing knowledge files from the URL list and exit.
   python main.py --ingest   Run the ingestion pipeline and exit.
   python main.py --serve    Start the FastAPI query server on port 8080.
 """
@@ -12,6 +13,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from sentence_transformers import SentenceTransformer
 
+import download
 import ingest
 import retrieve
 
@@ -56,10 +58,12 @@ async def query(req: QueryRequest):
 # ── CLI dispatch ─────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    if "--ingest" in sys.argv:
+    if "--download" in sys.argv:
+        download.run()
+    elif "--ingest" in sys.argv:
         ingest.run()
     elif "--serve" in sys.argv:
         uvicorn.run("main:app", host="0.0.0.0", port=8080, workers=1)
     else:
-        print("Usage: python main.py --ingest | --serve", file=sys.stderr)
+        print("Usage: python main.py --download | --ingest | --serve", file=sys.stderr)
         sys.exit(1)

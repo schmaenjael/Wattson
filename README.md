@@ -47,7 +47,7 @@ src/utilities/                 Logger (Pino), duration parser, misc helpers
 - [x] **Bans** — `/ban`, `/unban`, automatic expiry sweeper (`banSweeper` scheduler job)
 - [x] **Mutes** — timed mutes with automatic lift
 - [x] **Court system** — peer-review workflow: `/court open|close|dismiss|escalate|list|history`
-- [x] **Link filter** — blocks messages containing domains from Pi-hole-format blocklists (up to 500K entries, sub-millisecond in-memory `Set` lookup); configurable via `/config feature`
+- [x] **Link filter** — blocks messages containing domains from Pi-hole-format blocklists (up to 5M entries, sub-millisecond in-memory `Set` lookup); configurable via `/config feature`
 - [x] **Profanity filter** — pattern-based bad-word detection with configurable delete thresholds
 - [x] **Automod** — message + profile description scanning via self-hosted Ollama; `/automod` pattern management
 - [x] **GDPR deletion** — `/gdpr delete` — full moderation history erasure for a user with audit trail
@@ -96,7 +96,7 @@ src/utilities/                 Logger (Pino), duration parser, misc helpers
 
 - [Bun](https://bun.sh/) ≥ 1.2.8
 - PostgreSQL 15+ (or Docker — see below)
-- An Ollama instance running a compatible model (default: `granite3.2:8b`)
+- An Ollama instance running a compatible model (default: `qwen3:4b-instruct-2507-q4_K_M`)
 - A Discord application with a bot token (created at [discord.dev](https://discord.dev))
 
 ### 1. Clone and install
@@ -129,6 +129,10 @@ cp .env.example .env
 | `POSTGRES_PORT`       |          | Postgres port (default: `5432`)                                |
 | `BOT_USERNAME`        | ✅       | Least-privilege bot DB role                                    |
 | `BOT_PASSWORD`        | ✅       | Bot DB role password                                           |
+| `RAG_DB_USER`         | ✅       | RAG DB role (owns `rag_data` schema only)                      |
+| `RAG_DB_PASSWORD`     | ✅       | RAG DB role password                                           |
+| `ML_DB_USER`          | ✅       | ML training role (read-only on `ml` schema, no public access)  |
+| `ML_DB_PASSWORD`      | ✅       | ML training role password                                      |
 | `OLLAMA_ENDPOINT`     | ✅       | `http://localhost:11434` for local dev                         |
 | `OLLAMA_MODEL`        | ✅       | Ollama model name                                              |
 | `BLOCKLIST_PATHS`     |          | Comma-separated paths to Pi-hole blocklist files (link filter) |
@@ -178,6 +182,46 @@ The full Docker stack (bot + Postgres + Ollama + pgAdmin) is available via:
 
 ```bash
 docker-compose --profile production up -d --build
+```
+
+#### Build caching & BuildKit
+
+The Python service images (`hate-speech-detector`, `rag`) use multi-stage builds with
+**BuildKit pip cache mounts** so wheels (notably the ~180 MB CPU-only `torch`) are kept on
+the host builder and never re-downloaded on a rebuild. Compose v2 (`docker compose`) enables
+BuildKit by default; if you use legacy `docker-compose` v1, export `DOCKER_BUILDKIT=1` first or
+the `--mount=type=cache` lines are ignored.
+
+> These services run CPU-only — `torch` is pinned to the `+cpu` wheel in their `requirements.txt`.
+> If you ever add a GPU, drop the `+cpu` pin and the `--extra-index-url` line.
+
+#### RAG knowledge auto-download
+
+On startup the `rag` service runs three steps (`services/rag/app/entrypoint.sh`): **download → ingest →
+serve**. The download step reads `config/knowledge-wikipedia-list.txt` (one Wikipedia URL per line,
+`#` lines ignored) and fetches each page as clean plain text into `config/knowledge/`. Files that
+already exist are skipped, so the first boot populates the knowledge base and later boots are no-ops.
+
+Transient failures (network errors, timeouts, HTTP 429/5xx) are retried **indefinitely** with capped
+exponential backoff — the step never aborts the pipeline. Only a page the API reports as non-existent
+is skipped. Tunables (env, with defaults): `RAG_DOWNLOAD_BASE_DELAY=5`, `RAG_DOWNLOAD_MAX_DELAY=300`,
+`RAG_DOWNLOAD_POLITE_DELAY=1` (seconds), and `KNOWLEDGE_LIST` / `KNOWLEDGE_DIR` for the paths.
+
+To pre-populate the directory from the host instead, run the equivalent script:
+
+```bash
+python scripts/wikipedia-to-text.py --file config/knowledge-wikipedia-list.txt --out config/knowledge
+```
+
+#### Resetting the database after regenerating migrations
+
+The `postgres` image **bakes `scripts/migrations/` in at build time**, and its init scripts
+only run on an empty data volume. After a `bun run db:generate` (or a migration squash), a
+plain `up` reuses the stale image/volume and replays old SQL. Reset both:
+
+```bash
+docker-compose down -v                         # drop the stale postgres-data volume
+docker-compose --profile development up -d --build   # rebake migrations onto a fresh volume
 ```
 
 ---

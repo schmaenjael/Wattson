@@ -84,7 +84,6 @@ src/
 │   │   ├── courtCases.ts
 │   │   ├── courtVotes.ts
 │   │   ├── auditLog.ts
-│   │   ├── rules.ts
 │   │   ├── settings.ts             # singleton settings table (id=1, CHECK constraint)
 │   │   ├── slurPatterns.ts
 │   │   ├── slurViolations.ts
@@ -104,7 +103,6 @@ src/
 │       ├── courtCases.ts
 │       ├── courtVotes.ts
 │       ├── auditLog.ts
-│       ├── rules.ts
 │       ├── slurs.ts
 │       ├── starboard.ts
 │       ├── stats.ts                # cross-table aggregation queries (joins/stats)
@@ -221,7 +219,7 @@ src/
         │   ├── instagram.ts        # InstagramStub
         │   └── haiilo.ts           # HaiiloStub
         ├── harm/
-        │   ├── index.ts            # getHarmDetector() — reads config/harm-detection.json
+        │   ├── index.ts            # getHarmDetector() — reads config/harm-detection.json5
         │   ├── types.ts            # HarmDetectionConfig, HarmDetectionResult
         │   └── ollama.ts           # OllamaHarmDetector — classifies into racism/discrimination/sexism/harassment
         ├── starboard/
@@ -281,7 +279,7 @@ export default new Event({
   feature: AppFeature.System,
   middleware: [],
   async executeCommand(_event, client, member) {
-    await trackMemberJoin(member);   // inviteTracking provider
+    await trackMemberJoin(member); // inviteTracking provider
     await welcomeMember(client, member); // welcome provider
   },
 });
@@ -324,10 +322,10 @@ middleware: [fn1, fn2, fn3]
 
 **Available middleware:**
 
-| Function         | File                           | What it checks                                                                                                                                                |
-| ---------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Function         | File                           | What it checks                                                                                                                                                                                                                   |
+| ---------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `usePermissions` | `middleware/usePermissions.ts` | Runs on `InteractionCreate` event for slash/context commands. Cross-references `member.roles` against `settings.role{Permission}Id` columns via `permissionCore.ts`. ManageGuild bypasses as bootstrap fallback (AND semantics). |
-| `useAdmin`       | `middleware/useAdmin.ts`       | Checks `settings.roleAdministrationId` or ManageGuild. Used directly in command's `middleware: [useAdmin]`.                                                   |
+| `useAdmin`       | `middleware/useAdmin.ts`       | Checks `settings.roleAdministrationId` or ManageGuild. Used directly in command's `middleware: [useAdmin]`.                                                                                                                      |
 
 Route-level `rights[]` on interaction routes reuse the same role columns via
 `memberHasAnyPermission` (OR semantics; `ManageGuild` always passes), also in `permissionCore.ts`.
@@ -422,28 +420,26 @@ The TypeScript enum is used everywhere in application code; the pgEnum is used o
 
 ### Tables reference
 
-| Table                   | Purpose                                                                                                                                                                                                                         |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `users`                 | Snowflake ID + username cache. Must exist before any FK reference. Always `upsertUser()` before inserting moderation records.                                                                                                   |
-| `username_history`      | Append-only log of username changes.                                                                                                                                                                                            |
-| `warnings`              | Moderation warnings. `revokedAt`/`revokedBy` nullable — revocation doesn't delete.                                                                                                                                              |
-| `bans`                  | Bans with `active` flag and optional `expiresAt`. `banSweeper.ts` polls for expired active bans.                                                                                                                                |
-| `reports`               | User-filed reports with `ReportStatus` (open/resolved/dismissed).                                                                                                                                                               |
-| `court_cases`           | Judicial thread records. Statuses: open → finalizing → resolved/dismissed/escalated. Stores `threadId`, `verdict`, `summary` (LLM-generated), `voteMessageId`.                                                                  |
-| `court_votes`           | One row per moderator per case. Unique on `(case_id, moderator_id)` — supports vote changes via upsert.                                                                                                                         |
-| `audit_log`             | Append-only event stream. `eventType` from `AuditEventType` enum, `payload` is `jsonb`.                                                                                                                                         |
-| `rules`                 | Server rules with category, title, content, example. Displayed paginated in verification and via `/rules`.                                                                                                                      |
-| `settings`              | Singleton row (id=1). All runtime config.                                                                                                                                                                                       |
-| `slur_patterns`         | Regex patterns for automod. `severity`: warn/ban/review.                                                                                                                                                                        |
-| `slur_violations`       | Log of automod triggers per user per pattern.                                                                                                                                                                                   |
-| `starboard_entries`     | Tracks which messages have been posted to starboard (prevents duplicates).                                                                                                                                                      |
-| `external_posts`        | Queue/log for cross-platform posts (BSKY/Instagram/Haiilo). Status: queued/posted/failed.                                                                                                                                       |
-| `languages`             | Spoken language options for verification. `group`: european/world. `showInMenu` controls whether it appears in the select menu.                                                                                                 |
-| `role_mappings`         | Maps verification answer values (country/language/pronouns) to Discord role IDs. Managed via `/rolemapping`.                                                                                                                    |
-| `forum_role_mappings`   | Maps Discord role IDs to forum thread channel IDs. On role assignment, bot calls `thread.members.add()` for each mapped thread. Managed via `/config forum`.                                                                    |
-| `countries`             | Country options for verification.                                                                                                                                                                                               |
-| `member_activity_daily` | Per-user, per-UTC-day activity buckets (`messageCount`, `voiceSeconds`, `reactionCount`). Composite PK `(userId, day)`. Written by the analytics flush job, never per-event. Existence of a row = "member was active that day". |
-| `stat_channels`         | Maps a `StatChannelType` (PK) to a voice channel ID whose name is refreshed daily with the live stat value. Managed via `/config statchannel`.                                                                                  |
+| Table                       | Purpose                                                                                                                                                                                                                                                                           |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `users`                     | Snowflake ID + username cache. Must exist before any FK reference. Always `upsertUser()` before inserting moderation records.                                                                                                                                                     |
+| `username_history`          | Append-only log of username changes.                                                                                                                                                                                                                                              |
+| `warnings`                  | Moderation warnings. `revokedAt`/`revokedBy` nullable — revocation doesn't delete.                                                                                                                                                                                                |
+| `bans`                      | Bans with `active` flag and optional `expiresAt`. `banSweeper.ts` polls for expired active bans.                                                                                                                                                                                  |
+| `reports`                   | User-filed reports with `ReportStatus` (open/resolved/dismissed).                                                                                                                                                                                                                 |
+| `court_cases`               | Judicial thread records. Statuses: open → finalizing → resolved/dismissed/escalated. Stores `threadId`, `verdict`, `summary` (LLM-generated), `voteMessageId`.                                                                                                                    |
+| `court_votes`               | One row per moderator per case. Unique on `(case_id, moderator_id)` — supports vote changes via upsert.                                                                                                                                                                           |
+| `audit_log`                 | Append-only event stream. `eventType` from `AuditEventType` enum, `payload` is `jsonb`.                                                                                                                                                                                           |
+| `settings`                  | Singleton row (id=1). All runtime config.                                                                                                                                                                                                                                         |
+| `slur_patterns`             | Regex patterns for automod. `severity`: warn/ban/review.                                                                                                                                                                                                                          |
+| `slur_violations`           | Log of automod triggers per user per pattern.                                                                                                                                                                                                                                     |
+| `ml.harm_detection_samples` | Training-data capture (lives in the dedicated **`ml`** schema, no FKs into `public`): every harm-detector hit with text, context, raw scores, `modelVersion`, and `action`. Retro-labelled (`humanLabel`) from revoked auto-warnings and report outcomes. Purged on GDPR erasure. |
+| `starboard_entries`         | Tracks which messages have been posted to starboard (prevents duplicates).                                                                                                                                                                                                        |
+| `external_posts`            | Queue/log for cross-platform posts (BSKY/Instagram/Haiilo). Status: queued/posted/failed.                                                                                                                                                                                         |
+| `role_mappings`             | Maps verification answer values (country/language/pronouns) to Discord role IDs. Managed via `/rolemapping`.                                                                                                                                                                      |
+| `forum_role_mappings`       | Maps Discord role IDs to forum thread channel IDs. On role assignment, bot calls `thread.members.add()` for each mapped thread. Managed via `/config forum`.                                                                                                                      |
+| `member_activity_daily`     | Per-user, per-UTC-day activity buckets (`messageCount`, `voiceSeconds`, `reactionCount`). Composite PK `(userId, day)`. Written by the analytics flush job, never per-event. Existence of a row = "member was active that day".                                                   |
+| `stat_channels`             | Maps a `StatChannelType` (PK) to a voice channel ID whose name is refreshed daily with the live stat value. Managed via `/config statchannel`.                                                                                                                                    |
 
 ### Repositories (`src/database/repositories/`)
 
@@ -530,7 +526,7 @@ The verification flow is a multi-step DM wizard. The DSL lives in `flow.ts`:
 ```
 welcome.ts (GuildMemberAdd)
   → runVerification()       [run.ts]
-      → buildVerificationFlow()  [config.ts]  — fetches countries/languages/rules from DB
+      → buildVerificationFlow()  [config.ts]  — countries/languages/rules from config (catalog.ts)
       → FlowRunner.run(dm, opts) [flow.ts]    — executes steps, collects FlowAnswers
       → grantAccess(member, answers) [actions.ts]
             → getRoleMappingsForAnswers()  — country/language/pronouns → role IDs
@@ -594,7 +590,7 @@ Pluggable provider switched via `settings.automodProvider`:
 
 ### Harm detection (`providers/harm/`)
 
-Separate from automod. Reads `config/harm-detection.json` (not the DB) for its config. Classifies messages into four categories: `racism`, `discrimination`, `sexism`, `harassment`. Each result carries a `confidence` level (`low`/`medium`/`high`). Always fails safe — returns all-false result on any error.
+Separate from automod. Reads `config/harm-detection.json5` (not the DB) for its config. Classifies messages into four categories: `racism`, `discrimination`, `sexism`, `harassment`. Each result carries a `confidence` level (`low`/`medium`/`high`). Always fails safe — returns all-false result on any error.
 
 Enabled via `settings.featureHarmDetectionEnabled`. Alert channel configured via `settings.harmAlertChannelId`.
 
@@ -756,8 +752,8 @@ bun run db:migrate       # applies pending migrations to Postgres
 # 2. Register new/changed slash commands with Discord
 bun run script:register-commands
 
-# 3. Re-seed reference data if needed
-psql $DATABASE_URL < scripts/db/04_languages.sql
+# 3. Static reference data: countries + languages in config/catalog.json5, server rules in config/rules.json5
+#    (both loaded irrespective of NODE_ENV). Per-environment data (pronouns, role mappings) in config/config.<env>.json5 — edit there, not the DB
 ```
 
 Migrations live in `scripts/migrations/` and are committed. Never hand-edit generated migration files.

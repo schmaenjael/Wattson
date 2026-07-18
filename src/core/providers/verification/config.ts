@@ -1,7 +1,7 @@
 import { EmbedBuilder, Locale } from 'discord.js';
 
 import { L } from '~/core/locales';
-import { getEuropeanLanguageOptions, getVerificationCountryOptions, getWorldLanguageOptions, listRules } from '~/database';
+import { getEuropeanLanguageOptions, getVerificationCountryOptions, getWorldLanguageOptions, listRules } from '~/config';
 
 import { Flow } from './flow';
 

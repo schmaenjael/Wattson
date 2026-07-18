@@ -11,18 +11,18 @@ import {
   setKickNotified,
   setReverificationNotified,
 } from '~/database';
+import { getConfig } from '~/config';
 import { getLogtoUser } from '~/core/providers/logto';
 import { Schedulable } from '~/core/models/Schedulable';
 import { Logger } from '~/utilities';
-
-const REVERIFY_WARN_DAYS = 7;
 
 export const verificationSchedulable = new Schedulable({
   name: 'verification-schedulable',
   feature: AppFeature.VerificationSweeper,
   description: 'Reverification DMs, Volt role expiry, and LogTo suspension checks.',
-  defaultCron: '0 0 * * *',
+  defaultCron: () => getConfig().config.schedules.reverify,
   execute: async (client, logger) => {
+    const reverifyWarnDays = getConfig().config.thresholds.reverifyWarnDays;
     const settings = await getSettings();
     const guild = await client.guilds.fetch(process.env.GUILD_ID).catch(() => null);
     if (!guild) {
@@ -40,7 +40,7 @@ export const verificationSchedulable = new Schedulable({
     let kicked = 0;
     let suspended = 0;
 
-    const expiringSoon = await listVerificationsExpiringSoon(REVERIFY_WARN_DAYS).catch(() => []);
+    const expiringSoon = await listVerificationsExpiringSoon(reverifyWarnDays).catch(() => []);
     for (const row of expiringSoon) {
       try {
         const member = await guild.members.fetch(row.discordUserId).catch(() => null);
@@ -57,7 +57,7 @@ export const verificationSchedulable = new Schedulable({
             new EmbedBuilder()
               .setTitle('🟣 Volt Membership Re-verification Required')
               .setDescription(
-                `Your Volt membership verification expires <t:${Math.floor(row.expiresAt.getTime() / 1000)}:R>.\n\nUse \`/verify volter\` in the server to re-verify within **${REVERIFY_WARN_DAYS} days** to keep your Volt member status.`
+                `Your Volt membership verification expires <t:${Math.floor(row.expiresAt.getTime() / 1000)}:R>.\n\nUse \`/verify volter\` in the server to re-verify within **${reverifyWarnDays} days** to keep your Volt member status.`
               )
               .setColor(Colors.Purple),
           ],

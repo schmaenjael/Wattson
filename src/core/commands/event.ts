@@ -13,7 +13,7 @@ import {
 import { Cron } from 'croner';
 
 import { Command, Permission } from '~/core/models';
-import { AppFeature, appFeatureMap, ProcessExitCode } from '~/settings';
+import { AppFeature, appFeatureMap } from '~/settings';
 import {
   getSettings,
   createEvent,
@@ -155,9 +155,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
         .addIntegerOption((o) => o.setName('event-id').setDescription('Event ID').setRequired(true).setMinValue(1))
     ),
 
-  async executeCommand(_command, client, interaction, middlewareData) {
-    if (middlewareData.some((m) => m.status !== ProcessExitCode.OK)) return;
-
+  async executeCommand(_command, client, interaction) {
     const sub = interaction.options.getSubcommand(true);
     const locale = interaction.locale;
     const color = appFeatureMap[AppFeature.Events].color;

@@ -1,12 +1,13 @@
 import { AppFeature } from '~/settings';
 import { AuditEventType, deactivateBan, listExpiredActiveBans, recordAuditEvent } from '~/database';
+import { getConfig } from '~/config';
 import { Schedulable } from '~/core/models/Schedulable';
 
 export const banSchedulable = new Schedulable({
   name: 'ban-schedulable',
   feature: AppFeature.Ban,
   description: 'Lifts expired bans and records audit events.',
-  defaultCron: '* * * * *',
+  defaultCron: () => getConfig().config.schedules.banSweep,
   execute: async (client, logger) => {
     const rows = await listExpiredActiveBans();
     if (rows.length === 0) {

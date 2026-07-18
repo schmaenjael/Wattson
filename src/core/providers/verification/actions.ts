@@ -2,7 +2,8 @@ import { ActionRowBuilder, EmbedBuilder, GuildMember, StringSelectMenuBuilder, S
 
 import { Client } from '~/core/models';
 import { AppFeature, appFeatureMap } from '~/settings';
-import { getSettings, getRoleMappingsForAnswers, RoleMappingType } from '~/database';
+import { getRoleMappingsForAnswers } from '~/config';
+import { getSettings, RoleMappingType } from '~/database';
 import type { ChoiceOption, FlowAnswer, FlowAnswers, Step } from './flow';
 import { attempt } from '~/utilities';
 

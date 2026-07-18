@@ -1,7 +1,7 @@
 import { ApplicationCommandType, EmbedBuilder, MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
 
 import { Command, Permission } from '~/core/models';
-import { AppFeature, appFeatureMap, ProcessExitCode } from '~/settings';
+import { AppFeature, appFeatureMap } from '~/settings';
 import { getSettings, type Settings } from '~/database';
 
 const PERMISSION_TIERS = [
@@ -37,9 +37,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
   middleware: [],
   data: new SlashCommandBuilder().setName('help').setDescription('Show commands available at your permission level.'),
 
-  async executeCommand(command, client, interaction, middlewareData) {
-    if (middlewareData.some((m) => m.status !== ProcessExitCode.OK)) return;
-
+  async executeCommand(command, client, interaction) {
     const settings = await getSettings();
     const member = interaction.guild ? await interaction.guild.members.fetch(interaction.user.id).catch(() => null) : null;
 

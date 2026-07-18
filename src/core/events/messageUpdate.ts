@@ -2,8 +2,8 @@ import { Events } from 'discord.js';
 
 import { AppFeature } from '~/settings';
 import { Event } from '~/core/models';
-import { runAutomodOnEdit } from '~/core/providers/automod/run';
-import { reportMessageEdit } from '~/core/providers/surveillance/messageEdit';
+import { runAutomodOnEdit } from '~/core/providers/automod';
+import { reportMessageEdit } from '~/core/providers/surveillance';
 
 export default new Event({
   type: Events.MessageUpdate,

@@ -6,6 +6,7 @@ import { bans } from '~/database/schema/bans';
 import { courtCases } from '~/database/schema/courtCases';
 import { eventRegistrations } from '~/database/schema/eventRegistrations';
 import { externalPosts } from '~/database/schema/externalPosts';
+import { harmDetectionSamples } from '~/database/schema/harmDetectionSamples';
 import { memberActivityDaily } from '~/database/schema/memberActivityDaily';
 import { memberHistory } from '~/database/schema/memberHistory';
 import { reports } from '~/database/schema/reports';
@@ -40,6 +41,7 @@ export const executeGdprDeletion = async (targetUserId: string, moderatorId: str
     await tx.delete(starboardEntries).where(eq(starboardEntries.authorId, targetUserId));
     await tx.delete(courtCases).where(eq(courtCases.accusedUserId, targetUserId));
     await tx.delete(reports).where(or(eq(reports.reporterId, targetUserId), eq(reports.reportedUserId, targetUserId)));
+    await tx.delete(harmDetectionSamples).where(eq(harmDetectionSamples.authorId, targetUserId));
     await tx.delete(warnings).where(eq(warnings.targetUserId, targetUserId));
     await tx.delete(mutes).where(eq(mutes.targetUserId, targetUserId));
     await tx.delete(bans).where(eq(bans.targetUserId, targetUserId));

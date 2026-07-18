@@ -1,15 +1,8 @@
 import { EmbedBuilder, GuildMember, TextChannel, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 
 import { AppFeature, appFeatureMap, Colors } from '~/settings';
-import {
-  AuditEventType,
-  getCountryLabelMap,
-  getLanguageLabelMap,
-  getLatestJoinRecord,
-  getRecentJoinsByCode,
-  getSettings,
-  recordAuditEvent,
-} from '~/database';
+import { getCountryLabelMap, getLanguageLabelMap } from '~/config';
+import { AuditEventType, getLatestJoinRecord, getRecentJoinsByCode, getSettings, recordAuditEvent } from '~/database';
 import { Client } from '~/core/models';
 import { Logger } from '~/utilities';
 import { L } from '~/core/locales';

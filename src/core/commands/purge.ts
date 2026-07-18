@@ -1,7 +1,7 @@
 import { ActionRowBuilder, ApplicationCommandType, ButtonBuilder, ButtonStyle, ComponentType, EmbedBuilder, SlashCommandBuilder } from 'discord.js';
 
 import { Command, Permission } from '~/core/models';
-import { AppFeature, Colors, ProcessExitCode } from '~/settings';
+import { AppFeature, Colors } from '~/settings';
 import { L } from '~/core/locales';
 import { AuditEventType, deleteBansForUser, deleteReportsForUser, deleteWarningsForUser, insertBan, recordAuditEvent, upsertUser } from '~/database';
 import { attempt } from '~/utilities';
@@ -16,9 +16,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
     .setDescription('Permanently delete all moderation records for a user and issue a permanent ban.')
     .addUserOption((o) => o.setName('user').setDescription('User whose data to purge').setRequired(true)),
 
-  async executeCommand(command, client, interaction, middlewareData) {
-    if (middlewareData.some((m) => m.status !== ProcessExitCode.OK)) return;
-
+  async executeCommand(command, client, interaction) {
     const locale = interaction.locale;
     const targetUser = interaction.options.getUser('user', true);
     const P = L[locale].MODERATION.PURGE;

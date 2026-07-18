@@ -22,8 +22,9 @@ services:
       - BOT_PASSWORD=${BOT_PASSWORD:?err}
       - HATE_SPEECH_DETECTOR_ENDPOINT=${HATE_SPEECH_DETECTOR_ENDPOINT:-http://hate-speech-detector:8000}
       - OLLAMA_ENDPOINT=${OLLAMA_ENDPOINT:-http://ollama:11434}
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-granite3.2:8b}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen3:4b-instruct-2507-q4_K_M}
       - RAG_ENDPOINT=${RAG_ENDPOINT:-http://rag:8080}
+      - HEALTHCHECK_PORT=${HEALTHCHECK_PORT:-3001}
     depends_on:
       postgres:
         condition: service_healthy
@@ -34,6 +35,13 @@ services:
       rag:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      # oven/bun:1-alpine ships busybox wget; exits non-zero on a 503 (degraded) response.
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:${HEALTHCHECK_PORT:-3001}/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
     networks:
       - wattson-net
   # RAG service — pgvector retrieval + Ollama grounding for /ask command.
@@ -51,12 +59,14 @@ services:
       - RAG_DB_USER=${RAG_DB_USER:?err}
       - RAG_DB_PASSWORD=${RAG_DB_PASSWORD:?err}
       - OLLAMA_ENDPOINT=${OLLAMA_ENDPOINT:-http://ollama:11434}
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-granite3.2:8b}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen3:4b-instruct-2507-q4_K_M}
       - CHUNK_SIZE=500
       - CHUNK_OVERLAP=50
       - SIMILARITY_THRESHOLD=0.7
     volumes:
-      - ./config/knowledge:/config/knowledge:ro
+      # Writable: the auto-download step (entrypoint --download) populates this dir.
+      - ./config/knowledge:/config/knowledge
+      - ./config/knowledge-wikipedia-list.txt:/config/knowledge-wikipedia-list.txt:ro
     ports:
       - '8080:8080'
     depends_on:
@@ -86,7 +96,7 @@ services:
       context: .
       dockerfile: services/ollama/Dockerfile
       args:
-        MODEL_NAME: ${OLLAMA_MODEL:-granite3.2:8b}
+        MODEL_NAME: ${OLLAMA_MODEL:-qwen3:4b-instruct-2507-q4_K_M}
     container_name: ollama
     ports:
       - '11434:11434'
@@ -96,7 +106,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 15s
+      start_period: 60s
     logging:
       driver: 'json-file'
       options:
@@ -148,6 +158,8 @@ services:
       BOT_PASSWORD: ${BOT_PASSWORD:?err}
       RAG_DB_USER: ${RAG_DB_USER:?err}
       RAG_DB_PASSWORD: ${RAG_DB_PASSWORD:?err}
+      ML_DB_USER: ${ML_DB_USER:?err}
+      ML_DB_PASSWORD: ${ML_DB_PASSWORD:?err}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     restart: unless-stopped
@@ -173,6 +185,7 @@ services:
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:?err}
       PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: 'True'
       PGADMIN_CONFIG_CONSOLE_LOG_LEVEL: '10'
+      PGADMIN_SERVER_JSON_FILE: /tmp/servers.json
       TZ: Europe/Berlin
       POSTGRES_USER: ${POSTGRES_USER:?err}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?err}

@@ -39,12 +39,7 @@ export const getCommandsCollection = async () => {
   return commands;
 };
 
-export const loadSlashCommands = async (client: Client) => {
-  const commands = await getCommandsCollection();
-  client.setCommands(commands);
-};
-
-export const loadTextCommands = async (client: Client) => {
+export const loadCommands = async (client: Client) => {
   const commands = await getCommandsCollection();
   client.setCommands(commands);
 };

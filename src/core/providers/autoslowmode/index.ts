@@ -1,6 +1,4 @@
-export const SLOWMODE_TIERS = [5, 15, 30, 60] as const;
-
-const STEP_DOWN_DELAY_FACTOR = 2;
+import { getConfig } from '~/config';
 
 interface ChannelState {
   level: number;
@@ -17,6 +15,7 @@ export type SlowmodeAction =
   | null;
 
 export function recordAndCheckSlowmode(channelId: string, threshold: number, windowMs: number): SlowmodeAction {
+  const { autoSlowmodeTiers, autoSlowmodeStepDownFactor } = getConfig().config.thresholds;
   const now = Date.now();
   const cutoff = now - windowMs;
 
@@ -31,20 +30,20 @@ export function recordAndCheckSlowmode(channelId: string, threshold: number, win
 
   if (state.timestamps.length >= threshold) {
     state.lastActionAt = now;
-    if (state.level < SLOWMODE_TIERS.length) {
+    if (state.level < autoSlowmodeTiers.length) {
       state.level++;
-      return { type: 'step_up', level: state.level, slowmodeSeconds: SLOWMODE_TIERS[state.level - 1] };
+      return { type: 'step_up', level: state.level, slowmodeSeconds: autoSlowmodeTiers[state.level - 1] };
     }
     return null;
   }
 
-  if (state.level > 0 && now - state.lastActionAt > windowMs * STEP_DOWN_DELAY_FACTOR) {
+  if (state.level > 0 && now - state.lastActionAt > windowMs * autoSlowmodeStepDownFactor) {
     state.level--;
     state.lastActionAt = now;
     if (state.level === 0) {
       return { type: 'restore' };
     }
-    return { type: 'step_down', level: state.level, slowmodeSeconds: SLOWMODE_TIERS[state.level - 1] };
+    return { type: 'step_down', level: state.level, slowmodeSeconds: autoSlowmodeTiers[state.level - 1] };
   }
 
   return null;

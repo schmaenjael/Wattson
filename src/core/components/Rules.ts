@@ -1,6 +1,6 @@
 import { AttachmentBuilder, EmbedBuilder } from 'discord.js';
 
-import { Component } from '~/core/models';
+import { BaseEmbed } from '~/core/components/BaseEmbed';
 import { assets } from '~/settings';
 import { toTitleCase } from '~/utilities';
 import { L } from '~/core/locales';
@@ -11,7 +11,7 @@ interface RulesEmbedParams {
   fieldList: { title: string; categoryIndex: number; content: string; category: string; example: string | null }[];
 }
 
-export class RulesEmbed extends Component<RulesEmbedParams> {
+export class RulesEmbed extends BaseEmbed<RulesEmbedParams> {
   public attachments: AttachmentBuilder[] = [assets.volt['banner'].file, assets.volt['256x256'].file];
 
   render(): EmbedBuilder {
@@ -39,7 +39,7 @@ export class RulesEmbed extends Component<RulesEmbedParams> {
 
 type RuleHeaderEmbedParams = object;
 
-export class RuleHeaderEmbed extends Component<RuleHeaderEmbedParams> {
+export class RuleHeaderEmbed extends BaseEmbed<RuleHeaderEmbedParams> {
   public attachments: AttachmentBuilder[] = [];
 
   public render(): EmbedBuilder {

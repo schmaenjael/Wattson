@@ -4,7 +4,6 @@ import { EmbedBuilder, TextChannel } from 'discord.js';
 import { AppFeature, appFeatureMap } from '~/settings';
 import {
   getSettings,
-  updateSettings,
   listAnnouncableEvents,
   listEventsInRange,
   listRegistrationsForEvent,
@@ -12,9 +11,12 @@ import {
   createEvent,
   findNextRepeatInstance,
 } from '~/database';
+import { getConfig } from '~/config';
 import { Schedulable } from '~/core/models/Schedulable';
 import { Client } from '~/core/models/Client';
 import { Logger } from '~/utilities';
+
+let lastEventDigestAt: Date | null = null;
 
 const ts = (date: Date) => `<t:${Math.floor(date.getTime() / 1000)}:F>`;
 
@@ -110,7 +112,7 @@ const weeklyDigest = async (client: Client, settings: Awaited<ReturnType<typeof 
     return false;
   }
 
-  const lastDigest = settings.lastEventDigestAt;
+  const lastDigest = lastEventDigestAt;
   if (lastDigest) {
     const lastMonday = new Date(now);
     lastMonday.setUTCHours(0, 0, 0, 0);
@@ -125,7 +127,7 @@ const weeklyDigest = async (client: Client, settings: Awaited<ReturnType<typeof 
 
   if (!settings.eventAnnouncementChannelId) {
     logger.warn('Weekly digest skipped: eventAnnouncementChannelId not set');
-    await updateSettings({ lastEventDigestAt: now });
+    lastEventDigestAt = now;
     return false;
   }
 
@@ -146,7 +148,7 @@ const weeklyDigest = async (client: Client, settings: Awaited<ReturnType<typeof 
     logger.error(Object(err), 'Failed to send weekly event digest');
   }
 
-  await updateSettings({ lastEventDigestAt: now });
+  lastEventDigestAt = now;
   return true;
 };
 
@@ -154,7 +156,7 @@ export const eventSchedulable = new Schedulable({
   name: 'event-schedulable',
   feature: AppFeature.Events,
   description: 'Announces upcoming events and sends weekly digests.',
-  defaultCron: '*/10 * * * *',
+  defaultCron: () => getConfig().config.schedules.eventDigest,
   execute: async (client, logger) => {
     const settings = await getSettings();
     const announced = await announceEvent(client, settings, logger);

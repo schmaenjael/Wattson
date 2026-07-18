@@ -10,7 +10,7 @@ import {
 } from 'discord.js';
 
 import { Command, Permission } from '~/core/models';
-import { AppFeature, Colors, ProcessExitCode } from '~/settings';
+import { AppFeature, Colors } from '~/settings';
 import { AuditEventType, getSettings, recordAuditEvent } from '~/database';
 
 export default new Command<ApplicationCommandType.ChatInput>({
@@ -23,9 +23,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
     .setDescription('Submit a GDPR/DSGVO data deletion request for a user (requires second moderator approval).')
     .addUserOption((o) => o.setName('user').setDescription('User whose data to permanently erase').setRequired(true)),
 
-  async executeCommand(command, client, interaction, middlewareData) {
-    if (middlewareData.some((m) => m.status !== ProcessExitCode.OK)) return;
-
+  async executeCommand(command, client, interaction) {
     const target = interaction.options.getUser('user', true);
 
     if (target.id === interaction.user.id) {

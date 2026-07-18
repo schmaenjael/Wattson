@@ -43,7 +43,7 @@ src/
     locales/         # typesafe-i18n generated + hand-edited translations
     middleware/      # reusable MiddlewareFunction<T> exports
     models/          # Client, Command, Event, Exceptions, UserRole, Permission
-    providers/       # domain services (automod, starboard, verification, external)
+    providers/       # domain services (automod, starboard, verification, external); each exposes its public surface via index.ts barrel (see below)
     scheduler/       # recurring background jobs
     types/           # shared TypeScript types
   database/
@@ -74,7 +74,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
 
 - `requiredPermissions` -> `usePermissions` middleware (attached to InteractionCreate event) enforces before execution
 - `middleware: []` explicit even when empty
-- `executeCommand` checks `middlewareData.some(m => m.status !== ProcessExitCode.OK)` as first line
+- `Command.execute()` short-circuits on non-OK middleware (logs a debug line and returns before calling `executeCommand`), so commands no longer need a `middlewareData.some(...)` guard
 
 ## Events
 
@@ -105,6 +105,14 @@ Exactly ONE file per Discord gateway event, flat in `src/core/events/`. Events c
 - Provider handlers sub-route remaining customId segments with a `Record<string, handler>` map or `switch` — same shape at every routing level.
 - `middleware` array of `MiddlewareFunctionEvent<T>` -> non-OK status short-circuits handler
 
+## Components
+
+- Every embed is a `BaseEmbed` subclass (`src/core/components/BaseEmbed.ts`, extends `Component`) implementing `render(): EmbedBuilder`. No standalone `build*Embed()` functions.
+- Construct + render at the call site: `new XxxEmbed({ ...params }).render()`. Read `attachments`/`flags` off the instance where needed.
+- Domain params are the class's `TRequired`. `Component` also requires `color` + `locale`; when an embed computes its own color/owns its locale, the subclass constructor derives them and forwards to `super({ ...params, color, locale })` (use `baseLocale` for embeds with hard-coded copy).
+- `withBranding(embed)` (protected on `BaseEmbed`) applies the standard Wattson footer (`L[locale].GENERAL.WATTSON_IN_SERVICE()` + volt logo icon) and `.setTimestamp()`. Use it ONLY for embeds that carry the Wattson footer; embeds with their own footer (or none) set their footer/timestamp directly.
+- Action rows and buttons are NOT embeds: keep them as exported helper functions (e.g. `buildSuggestionVoteRow`, `buildAppealVoteRow`, `buildKeepOpenRow`) returning `ActionRowBuilder`/`ButtonBuilder`.
+
 ## Middleware
 
 - Return type: `Promise<MiddlewareResult>` = `{ status: ProcessExitCode, payload?: unknown }`
@@ -119,6 +127,14 @@ Exactly ONE file per Discord gateway event, flat in `src/core/events/`. Events c
 - Repositories: `src/database/repositories/<entity>.ts` -> exported async functions only, call `getDb()` inside each
 - Types via Drizzle inference: `InferSelectModel<typeof table>`, insert type = `Omit<InferInsertModel<...>, 'id' | 'createdAt' | ...>`
 - No raw SQL; use Drizzle query builder
+
+### DDL ownership — one owner per concern
+
+Decide with a single question: **does the bot's ORM read/write it?**
+
+- **Yes → Drizzle owns it.** Every schema/table/enum/index the bot queries (`public`, `ml`). Define it in `src/database/schema/*`, let drizzle-kit emit the migration. Never hand-create these in `services/postgres/postgres-init.*`.
+- **No → `services/postgres/postgres-init.*` owns it.** Roles/users, passwords, `GRANT`s, extensions, and schemas owned by an external service that the bot never queries via Drizzle (e.g. `rag_data`, used by the RAG service). drizzle-kit does not manage roles/grants/extensions, and secrets must not land in committed migrations.
+- Keep each object whole in its owner. `rag_data` (schema + table + index + grants) stays entirely in the init template — do not split it across both. A grant on a Drizzle-owned schema (e.g. read-only on `ml`) still belongs to the init side: put it in `postgres-init.sh` after the migration loop, since the schema only exists post-migration.
 
 ## Logging
 
@@ -143,6 +159,13 @@ Exactly ONE file per Discord gateway event, flat in `src/core/events/`. Events c
 ## Single-Guild Constraint
 
 - Bot runs on exactly one guild (GUILD_ID env) -> no multi-tenant logic, no guild-ID parameters in new code
+
+## Providers
+
+- Each provider lives in `src/core/providers/<name>/` and exposes its public surface via a single barrel `index.ts` (e.g. `export { handleCourtVote } from './vote';`). The barrel re-exports ONLY symbols consumed from outside the provider dir — never purely-internal helpers.
+- Code OUTSIDE a provider dir (events, commands, scheduler, AND other providers) imports it ONLY through the barrel: `~/core/providers/<name>` — never via a deep path like `~/core/providers/<name>/<subfile>`.
+- Imports WITHIN the same provider dir stay as relative deep paths (`./vote`, `./outcome`).
+- A provider may be a single `index.ts` when small; split internals into sibling files past ~500 lines and re-export the public ones from the barrel.
 
 ## External Providers
 
@@ -171,6 +194,7 @@ Exactly ONE file per Discord gateway event, flat in `src/core/events/`. Events c
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
 
 Rules:
+
 - For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.

@@ -2,9 +2,10 @@ import { ApplicationCommandType, ChannelType, Message, MessageFlags, SlashComman
 
 import { Command, Permission } from '~/core/models';
 import { logModAction } from '~/core/middleware';
-import { AppFeature, ProcessExitCode } from '~/settings';
+import { AppFeature } from '~/settings';
 import { AuditEventType, upsertUser } from '~/database';
 
+// Discord API hard limit: bulkDelete accepts at most 100 messages.
 const BULK_DELETE_LIMIT = 100;
 const BATCH_DELAY_MS = 1_000;
 
@@ -22,9 +23,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
     )
     .addUserOption((o) => o.setName('user').setDescription('Only delete messages from this user').setRequired(false)),
 
-  async executeCommand(_command, _client, interaction, middlewareData) {
-    if (middlewareData.some((m) => m.status !== ProcessExitCode.OK)) return;
-
+  async executeCommand(_command, _client, interaction) {
     const amount = interaction.options.getInteger('amount', true);
     const targetUser = interaction.options.getUser('user', false);
 

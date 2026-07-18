@@ -1,14 +1,6 @@
-import { eq, inArray, type InferSelectModel } from 'drizzle-orm';
+import { getConfig, type StarboardEmojiTier } from '~/config';
 
-import { AppFeature, ProcessExitCode } from '~/settings';
-import { Logger } from '~/utilities';
-
-import { getDb } from './client';
-import { settings } from './schema/settings';
-import { roleMappings } from './schema/roleMappings';
-import { RoleMappingType } from './schema/enums';
-
-type DbSettings = InferSelectModel<typeof settings>;
+export type { StarboardEmojiTier };
 
 export type RoleIds = {
   roleUnregisteredId: string | null;
@@ -21,72 +13,131 @@ export type RoleIds = {
   roleModmailHandlerId: string | null;
 };
 
-export type Settings = DbSettings & RoleIds;
+/**
+ * Legacy guild-settings shape. Previously an `InferSelectModel` of the (now removed) `settings`
+ * table; kept as a hand-written contract so the ~40 consumers of {@link getSettings} are untouched.
+ * Values are now sourced from the in-memory, Zod-validated config rather than the database.
+ */
+export type Settings = {
+  // Channel IDs
+  notificationChannelId: string | null;
+  modLogChannelId: string | null;
+  publicLogChannelId: string | null;
+  surveillanceLogChannelId: string | null;
+  reportsLogChannelId: string | null;
+  welcomeChannelId: string | null;
+  approvalChannelId: string | null;
+  courtParentChannelId: string | null;
+  starboardChannelId: string | null;
+  modmailChannelId: string | null;
+  appealChannelId: string | null;
+  eventAnnouncementChannelId: string | null;
+  suggestionChannelId: string | null;
+  suggestionApprovalChannelId: string | null;
 
-const SINGLETON_ID = 1;
-let cache: Settings | null = null;
+  // Feature toggles
+  featureWelcomeEnabled: boolean;
+  featureStarboardEnabled: boolean;
+  featureCourtEnabled: boolean;
+  featureSystemNotificationsEnabled: boolean;
+  featureSurveillanceEnabled: boolean;
+  featureVerificationRequiresApproval: boolean;
+  featureWarnAutoMuteEnabled: boolean;
+  featureHarmDetectionEnabled: boolean;
+  featureBadWordsEnabled: boolean;
+  featureLinkFilterEnabled: boolean;
+  featureAntiSpamEnabled: boolean;
+  featureAntiHoistEnabled: boolean;
+  featureInviteTrackingEnabled: boolean;
+  featureAutoSlowmodeEnabled: boolean;
 
-const fetchRoleIds = async (): Promise<RoleIds> => {
-  const db = getDb();
-  const rows = await db
-    .select()
-    .from(roleMappings)
-    .where(inArray(roleMappings.type, [RoleMappingType.Permission, RoleMappingType.Utility]));
-  const byValue = new Map(rows.map((r) => [r.value, r.roleId]));
-  return {
-    roleUnregisteredId: byValue.get('unregistered') ?? null,
-    roleCommunityId: byValue.get('community') ?? null,
-    roleMemberId: byValue.get('member') ?? null,
-    roleEventManagerId: byValue.get('eventmanager') ?? null,
-    roleModerationId: byValue.get('moderation') ?? null,
-    roleAdministrationId: byValue.get('administration') ?? null,
-    roleMutedId: byValue.get('muted') ?? null,
-    roleModmailHandlerId: byValue.get('modmail_handler') ?? null,
-  };
-};
+  // Thresholds
+  starboardThreshold: number;
+  starboardExternalThreshold: number;
+  warnAutoEscalateCount: number;
+  warnAutoEscalateWindowDays: number;
+  warnAutoMuteBaseMinutes: number;
+  badWordDeleteThreshold: number;
+  antiSpamMaxMessages: number;
+  antiSpamWindowMs: number;
+  inviteRaidThreshold: number;
+  inviteRaidWindowMs: number;
+  autoSlowmodeThreshold: number;
+  autoSlowmodeWindowMs: number;
+  appealVoteThreshold: number;
+  suggestionVoteThreshold: number;
+  suggestionVoteDurationHours: number;
 
-export const ensureSettingsSeeded = async (): Promise<void> => {
-  const logger = Logger.getInstance(AppFeature.Database);
-  const db = getDb();
+  // Complex
+  starboardEmojiTiers: StarboardEmojiTier[];
+  reactDefaultEmojis: string[];
+} & RoleIds;
 
-  const [existing] = await db.select().from(settings).where(eq(settings.id, SINGLETON_ID)).limit(1);
-  if (existing) {
-    const roleIds = await fetchRoleIds();
-    cache = { ...existing, ...roleIds };
-    logger.info('Settings row present.');
-    return;
-  }
-
-  const [inserted] = await db.insert(settings).values({ id: SINGLETON_ID }).returning();
-  const roleIds = await fetchRoleIds();
-  cache = { ...inserted, ...roleIds };
-  logger.info('Seeded singleton settings row with defaults.');
-};
-
+/**
+ * Returns the guild settings, flattened from the in-memory config into the legacy column shape.
+ * Async to preserve the historical contract; no I/O is performed.
+ */
 export const getSettings = async (): Promise<Settings> => {
-  if (cache) return cache;
+  const { config } = getConfig();
+  const { channels, features, thresholds, roles } = config;
 
-  const db = getDb();
-  const [row] = await db.select().from(settings).where(eq(settings.id, SINGLETON_ID)).limit(1);
+  return {
+    notificationChannelId: channels.notification ?? null,
+    modLogChannelId: channels.modLog ?? null,
+    publicLogChannelId: channels.publicLog ?? null,
+    surveillanceLogChannelId: channels.surveillanceLog ?? null,
+    reportsLogChannelId: channels.reportsLog ?? null,
+    welcomeChannelId: channels.welcome ?? null,
+    approvalChannelId: channels.approval ?? null,
+    courtParentChannelId: channels.courtParent ?? null,
+    starboardChannelId: channels.starboard ?? null,
+    modmailChannelId: channels.modmail ?? null,
+    appealChannelId: channels.appeal ?? null,
+    eventAnnouncementChannelId: channels.eventAnnouncement ?? null,
+    suggestionChannelId: channels.suggestion ?? null,
+    suggestionApprovalChannelId: channels.suggestionApproval ?? null,
 
-  if (!row) {
-    Logger.getInstance(AppFeature.Database).fatal('Settings row missing. Did ensureSettingsSeeded() run?');
-    process.exit(ProcessExitCode.CONFIG);
-  }
+    featureWelcomeEnabled: features.welcome,
+    featureStarboardEnabled: features.starboard,
+    featureCourtEnabled: features.court,
+    featureSystemNotificationsEnabled: features.systemNotifications,
+    featureSurveillanceEnabled: features.surveillance,
+    featureVerificationRequiresApproval: features.verificationRequiresApproval,
+    featureWarnAutoMuteEnabled: features.warnAutoMute,
+    featureHarmDetectionEnabled: features.harmDetection,
+    featureBadWordsEnabled: features.badWords,
+    featureLinkFilterEnabled: features.linkFilter,
+    featureAntiSpamEnabled: features.antiSpam,
+    featureAntiHoistEnabled: features.antiHoist,
+    featureInviteTrackingEnabled: features.inviteTracking,
+    featureAutoSlowmodeEnabled: features.autoSlowmode,
 
-  const roleIds = await fetchRoleIds();
-  cache = { ...row, ...roleIds };
-  return cache;
-};
+    starboardThreshold: thresholds.starboard,
+    starboardExternalThreshold: thresholds.starboardExternal,
+    warnAutoEscalateCount: thresholds.warnAutoEscalateCount,
+    warnAutoEscalateWindowDays: thresholds.warnAutoEscalateWindowDays,
+    warnAutoMuteBaseMinutes: thresholds.warnAutoMuteBaseMinutes,
+    badWordDeleteThreshold: thresholds.badWordDelete,
+    antiSpamMaxMessages: thresholds.antiSpamMaxMessages,
+    antiSpamWindowMs: thresholds.antiSpamWindowMs,
+    inviteRaidThreshold: thresholds.inviteRaidThreshold,
+    inviteRaidWindowMs: thresholds.inviteRaidWindowMs,
+    autoSlowmodeThreshold: thresholds.autoSlowmodeThreshold,
+    autoSlowmodeWindowMs: thresholds.autoSlowmodeWindowMs,
+    appealVoteThreshold: thresholds.appealVote,
+    suggestionVoteThreshold: thresholds.suggestionVote,
+    suggestionVoteDurationHours: thresholds.suggestionVoteDurationHours,
 
-export const updateSettings = async (patch: Partial<Omit<DbSettings, 'id'>>): Promise<Settings> => {
-  const db = getDb();
-  const [row] = await db.update(settings).set(patch).where(eq(settings.id, SINGLETON_ID)).returning();
-  const roleIds = await fetchRoleIds();
-  cache = { ...row, ...roleIds };
-  return cache;
-};
+    starboardEmojiTiers: config.starboard.emojiTiers,
+    reactDefaultEmojis: config.react.defaultEmojis,
 
-export const invalidateSettingsCache = (): void => {
-  cache = null;
+    roleUnregisteredId: roles.utility.unregistered ?? null,
+    roleCommunityId: roles.utility.community ?? null,
+    roleMemberId: roles.utility.member ?? null,
+    roleMutedId: roles.utility.muted ?? null,
+    roleModmailHandlerId: roles.utility.modmail_handler ?? null,
+    roleEventManagerId: roles.permission.eventmanager ?? null,
+    roleModerationId: roles.permission.moderation ?? null,
+    roleAdministrationId: roles.permission.administration ?? null,
+  };
 };

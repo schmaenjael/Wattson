@@ -9,14 +9,15 @@ import {
   setSuggestionStatus,
   SuggestionStatus,
 } from '~/database';
-import { buildSuggestionApprovalEmbed, buildSuggestionApprovalRow, buildSuggestionEmbed, buildSuggestionVoteRow } from '~/core/components/Suggestion';
+import { getConfig } from '~/config';
+import { SuggestionApprovalEmbed, SuggestionEmbed, buildSuggestionApprovalRow, buildSuggestionVoteRow } from '~/core/components/Suggestion';
 import { Schedulable } from '~/core/models/Schedulable';
 
 export const suggestionSchedulable = new Schedulable({
   name: 'suggestion-schedulable',
   feature: AppFeature.Suggestions,
   description: 'Closes expired suggestion votes, escalates qualifying ones to approval, and declines the rest.',
-  defaultCron: '0 * * * *',
+  defaultCron: () => getConfig().config.schedules.suggestionSweep,
   execute: async (client, logger) => {
     const settings = await getSettings();
     if (!settings.suggestionChannelId) {
@@ -46,7 +47,7 @@ export const suggestionSchedulable = new Schedulable({
 
         if (suggestion.status === SuggestionStatus.InConsideration && approvalChannel?.isSendable()) {
           const approvalMessage = await approvalChannel.send({
-            embeds: [buildSuggestionApprovalEmbed(suggestion, tally)],
+            embeds: [new SuggestionApprovalEmbed({ suggestion, tally }).render()],
             components: [buildSuggestionApprovalRow(suggestion.id)],
           });
           await setSuggestionApprovalMessageId(suggestion.id, approvalMessage.id);
@@ -62,7 +63,10 @@ export const suggestionSchedulable = new Schedulable({
         if (message) {
           const author = suggestion.userId ? await client.users.fetch(suggestion.userId).catch(() => null) : null;
           await message
-            .edit({ embeds: [buildSuggestionEmbed(suggestion, author, null, tally)], components: [buildSuggestionVoteRow(suggestion, tally, true)] })
+            .edit({
+              embeds: [new SuggestionEmbed({ suggestion, author, declineReason: null, tally }).render()],
+              components: [buildSuggestionVoteRow(suggestion, tally, true)],
+            })
             .catch(() => null);
         }
       } catch (err) {

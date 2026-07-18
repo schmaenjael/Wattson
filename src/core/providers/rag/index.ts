@@ -1,7 +1,6 @@
+import { getConfig } from '~/config';
 import { AppFeature } from '~/settings';
 import { Logger } from '~/utilities';
-
-const TIMEOUT_MS = 60_000;
 
 interface RagQueryResponse {
   answer: string;
@@ -22,7 +21,7 @@ export const queryRag = async (question: string): Promise<RagResult | null> => {
 
   const logger = Logger.getInstance(AppFeature.Ask);
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), getConfig().config.timeouts.ragMs);
 
   try {
     const res = await fetch(`${endpoint.replace(/\/$/, '')}/query`, {

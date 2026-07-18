@@ -1,4 +1,9 @@
-import { timestamp, varchar } from 'drizzle-orm/pg-core';
+import { pgSchema, timestamp, varchar } from 'drizzle-orm/pg-core';
+
+// Dedicated namespace for ML/training-data tables (harm-detector samples, future model/eval
+// tables). Kept as an append-only sink with no FKs back into `public`, so a training role can
+// be granted USAGE on `ml` alone and the data outlives operational churn.
+export const ml = pgSchema('ml');
 
 export const SNOWFLAKE_LENGTH = 20;
 export const USERNAME_LENGTH = 32;

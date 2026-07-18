@@ -1,6 +1,6 @@
 import { AttachmentBuilder, EmbedBuilder, Snowflake } from 'discord.js';
 
-import { Component } from '~/core/models';
+import { BaseEmbed } from '~/core/components/BaseEmbed';
 import { assets } from '~/settings';
 
 /**
@@ -20,7 +20,7 @@ interface ApprovalEmbedParams {
   answers: VerificationAnswer[];
 }
 
-export class ApprovalEmbed extends Component<ApprovalEmbedParams> {
+export class ApprovalEmbed extends BaseEmbed<ApprovalEmbedParams> {
   public attachments: AttachmentBuilder[] = [assets.volt['256x256'].file];
 
   render(): EmbedBuilder {

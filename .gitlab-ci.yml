@@ -1,5 +1,6 @@
 stages:
   - lint
+  - build
 
 lint:
   stage: lint
@@ -7,6 +8,16 @@ lint:
   script:
     - bun install
     - bun run script:lint
+  only:
+    - merge_requests
+    - main
+
+build:
+  stage: build
+  image: oven/bun:latest
+  script:
+    - bun install
+    - bun run build
   only:
     - merge_requests
     - main

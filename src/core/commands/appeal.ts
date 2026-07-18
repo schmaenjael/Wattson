@@ -11,7 +11,7 @@ import {
 } from 'discord.js';
 
 import { Command } from '~/core/models';
-import { AppFeature, ProcessExitCode } from '~/settings';
+import { AppFeature } from '~/settings';
 import { findAppealableBan, upsertUser } from '~/database';
 import { L } from '~/core/locales';
 
@@ -28,9 +28,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
     .setContexts([InteractionContextType.BotDM, InteractionContextType.Guild])
     .setIntegrationTypes([ApplicationIntegrationType.GuildInstall]),
 
-  async executeCommand(_command, _client, interaction, middlewareData) {
-    if (middlewareData.some((m) => m.status !== ProcessExitCode.OK)) return;
-
+  async executeCommand(_command, _client, interaction) {
     await upsertUser({ id: interaction.user.id, username: interaction.user.username });
 
     const T = L[interaction.locale].MODERATION.APPEAL;
@@ -46,7 +44,12 @@ export default new Command<ApplicationCommandType.ChatInput>({
       .setTitle(T.MODAL_TITLE())
       .addComponents(
         new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder().setCustomId('email').setLabel(T.MODAL_EMAIL_LABEL()).setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(256)
+          new TextInputBuilder()
+            .setCustomId('email')
+            .setLabel(T.MODAL_EMAIL_LABEL())
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setMaxLength(256)
         ),
         new ActionRowBuilder<TextInputBuilder>().addComponents(
           new TextInputBuilder()
@@ -58,7 +61,12 @@ export default new Command<ApplicationCommandType.ChatInput>({
             .setMaxLength(2000)
         ),
         new ActionRowBuilder<TextInputBuilder>().addComponents(
-          new TextInputBuilder().setCustomId('other').setLabel(T.MODAL_OTHER_LABEL()).setStyle(TextInputStyle.Paragraph).setRequired(false).setMaxLength(1000)
+          new TextInputBuilder()
+            .setCustomId('other')
+            .setLabel(T.MODAL_OTHER_LABEL())
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(false)
+            .setMaxLength(1000)
         )
       );
 

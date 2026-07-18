@@ -1,3 +1,4 @@
+import { getConfig } from '~/config';
 import { AppFeature } from '~/settings';
 import { Logger } from '~/utilities';
 
@@ -32,8 +33,6 @@ Volt Europa is a pan-European, progressive political party founded in 2018 with 
 - For factual political, historical, or current events questions, be accurate while framing answers through Volt's pro-European, progressive lens.
 - Keep responses concise and direct.`;
 
-const TIMEOUT_MS = 45_000;
-
 interface OllamaGenerateResponse {
   response?: string;
 }
@@ -45,7 +44,7 @@ export const queryOllama = async (question: string): Promise<string | null> => {
 
   const logger = Logger.getInstance(AppFeature.Ask);
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), getConfig().config.timeouts.ollamaMs);
 
   try {
     const res = await fetch(`${endpoint.replace(/\/$/, '')}/api/generate`, {

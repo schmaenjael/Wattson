@@ -4,7 +4,7 @@ import { AppFeature } from '~/settings';
 import { Event } from '~/core/models';
 import { enforceNickname } from '~/core/providers/antihoist';
 import { syncForumRoles } from '~/core/providers/forumRoles';
-import { recordMemberUpdate } from '~/core/providers/surveillance/memberUpdate';
+import { recordMemberUpdate } from '~/core/providers/surveillance';
 
 export default new Event({
   type: Events.GuildMemberUpdate,

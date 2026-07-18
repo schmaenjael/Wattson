@@ -19,7 +19,9 @@ const handleApprove = async (client: Client, interaction: ButtonInteraction, tar
     throw new BotException(client, `GDPR deletion transaction failed for user ${targetId}`, error);
   }
 
-  await attempt(() => interaction.guild!.bans.create(targetId, { reason: `[GDPR] Data Deletion Request — approved by ${interaction.user.username}` }));
+  await attempt(() =>
+    interaction.guild!.bans.create(targetId, { reason: `[GDPR] Data Deletion Request — approved by ${interaction.user.username}` })
+  );
 
   await attempt(async () => {
     const dmChannel = await client.users.createDM(targetId);

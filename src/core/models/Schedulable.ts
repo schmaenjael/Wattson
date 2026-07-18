@@ -10,7 +10,8 @@ export type SchedulableOptions = {
   name: string;
   feature: AppFeature;
   description: string;
-  defaultCron: string;
+  /** Lazy so config is read at registration time (after loadConfig()), not at module import. */
+  defaultCron: () => string;
   execute: (client: Client, logger: Logger) => Promise<string | void>;
 };
 
@@ -19,12 +20,11 @@ export class Schedulable {
   public readonly logger: Logger;
 
   private job: Cron | null = null;
-  private activeCron: string;
+  private activeCron: string | null = null;
 
   constructor(options: SchedulableOptions) {
     this.options = options;
     this.logger = Logger.getInstance(options.feature);
-    this.activeCron = options.defaultCron;
   }
 
   get name(): string {
@@ -32,7 +32,7 @@ export class Schedulable {
   }
 
   get currentCron(): string {
-    return this.activeCron;
+    return this.activeCron ?? this.options.defaultCron();
   }
 
   public start(client: Client, cron?: string): void {
@@ -40,7 +40,7 @@ export class Schedulable {
       this.job.stop();
       this.job = null;
     }
-    this.activeCron = cron ?? this.options.defaultCron;
+    this.activeCron = cron ?? this.options.defaultCron();
 
     this.logger.info({ cron: this.activeCron }, `Schedulable [${this.options.name}] starting.`);
 

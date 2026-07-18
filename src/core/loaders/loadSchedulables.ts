@@ -44,7 +44,7 @@ export const loadSchedulables = async (client: Client): Promise<void> => {
     registry.set(schedulable.name, schedulable);
 
     const config = await getSchedulableConfig(schedulable.name).catch(() => undefined);
-    const cron = config?.cronExpression ?? schedulable.options.defaultCron;
+    const cron = config?.cronExpression ?? schedulable.options.defaultCron();
 
     schedulable.start(client, cron);
     logger.info({ name: schedulable.name, cron }, `Schedulable [${schedulable.name}] registered (cron: ${cron}).`);

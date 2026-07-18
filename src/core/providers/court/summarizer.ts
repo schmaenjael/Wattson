@@ -1,3 +1,4 @@
+import { getConfig } from '~/config';
 import { AppFeature } from '~/settings';
 import { Logger } from '~/utilities';
 
@@ -23,7 +24,7 @@ export const summarizeCourtThread = async (endpoint: string, model: string, mess
 
   const conversation = relevant.map((m) => `[${m.author}]: ${m.content}`).join('\n');
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 60_000);
+  const timer = setTimeout(() => controller.abort(), getConfig().config.timeouts.summarizerMs);
 
   try {
     const res = await fetch(`${endpoint.replace(/\/$/, '')}/api/generate`, {

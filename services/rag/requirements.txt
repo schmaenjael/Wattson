@@ -1,7 +1,11 @@
+# CPU-only torch (pulled transitively by sentence-transformers) — pin the +cpu
+# build so it resolves to the ~180 MB wheel instead of the ~2.4 GB CUDA one.
+--extra-index-url https://download.pytorch.org/whl/cpu
 fastapi==0.115.6
 uvicorn[standard]==0.32.1
 psycopg2-binary==2.9.10
 pgvector==0.3.6
 sentence-transformers==3.3.1
+torch==2.5.1+cpu
 httpx==0.28.1
 pydantic==2.10.4

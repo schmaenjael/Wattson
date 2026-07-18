@@ -2,7 +2,7 @@ import { ApplicationCommandType, MessageFlags, SlashCommandBuilder } from 'disco
 
 import { Command, Permission, BotException } from '~/core/models';
 import { logModAction } from '~/core/middleware';
-import { AppFeature, ProcessExitCode } from '~/settings';
+import { AppFeature } from '~/settings';
 import { AuditEventType, deactivateBansForUser, listActiveBansForUser, upsertUser } from '~/database';
 
 export default new Command<ApplicationCommandType.ChatInput>({
@@ -17,9 +17,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
     .addStringOption((o) => o.setName('user_id').setDescription('User ID (snowflake)').setRequired(true))
     .addStringOption((o) => o.setName('reason').setDescription('Reason for unbanning').setRequired(false).setMaxLength(500)),
 
-  async executeCommand(_command, client, interaction, middlewareData) {
-    if (middlewareData.some((m) => m.status !== ProcessExitCode.OK)) return;
-
+  async executeCommand(_command, client, interaction) {
     const userId = interaction.options.getString('user_id', true);
     const reason = interaction.options.getString('reason', false) ?? 'no reason provided';
 

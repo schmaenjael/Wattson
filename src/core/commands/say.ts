@@ -10,7 +10,7 @@ import {
 } from 'discord.js';
 
 import { Command, Permission } from '~/core/models';
-import { AppFeature, appFeatureMap, ProcessExitCode } from '~/settings';
+import { AppFeature, appFeatureMap } from '~/settings';
 import { Logger } from '~/utilities';
 
 export default new Command<ApplicationCommandType.ChatInput>({
@@ -32,9 +32,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
     )
     .addStringOption((o) => o.setName('reply_to').setDescription('Message ID to reply to').setRequired(false)),
 
-  async executeCommand(command, _client, interaction, middlewareData) {
-    if (middlewareData.some((m) => m.status !== ProcessExitCode.OK)) return;
-
+  async executeCommand(command, _client, interaction) {
     const text = interaction.options.getString('text', false);
     const attachment = interaction.options.getAttachment('attachment', false);
     const targetChannel = (interaction.options.getChannel('channel', false) ?? interaction.channel) as TextChannel;

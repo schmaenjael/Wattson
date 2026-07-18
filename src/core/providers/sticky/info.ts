@@ -6,7 +6,11 @@ import { getStickyByLastMessageId } from '~/database';
 const STICKY_COLOR = { info: '#82D0F4', warning: '#FDC220' } as const;
 
 /** DMs the channel's extended sticky explanation when a user reacts with ❓ on the sticky message. */
-export const sendStickyInfo = async (_client: Client, reaction: MessageReaction | PartialMessageReaction, user: User | PartialUser): Promise<void> => {
+export const sendStickyInfo = async (
+  _client: Client,
+  reaction: MessageReaction | PartialMessageReaction,
+  user: User | PartialUser
+): Promise<void> => {
   if (user.bot) return;
   if (reaction.emoji.name !== '❓') return;
 

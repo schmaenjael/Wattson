@@ -1,7 +1,7 @@
 import { ApplicationCommandType, AttachmentBuilder, EmbedBuilder, MessageFlags, SlashCommandBuilder, SlashCommandIntegerOption } from 'discord.js';
 
 import { Command, Permission } from '~/core/models';
-import { AppFeature, appFeatureMap, ProcessExitCode } from '~/settings';
+import { AppFeature, appFeatureMap } from '~/settings';
 import {
   getActivityStats,
   getDailyActivitySeries,
@@ -76,9 +76,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
         .addSubcommand((s) => s.setName('engagement').setDescription('Daily messages and active members.').addIntegerOption(daysOption))
     ),
 
-  async executeCommand(command, _client, interaction, middlewareData) {
-    if (middlewareData.some((m) => m.status !== ProcessExitCode.OK)) return;
-
+  async executeCommand(command, _client, interaction) {
     const group = interaction.options.getSubcommandGroup(false);
     const sub = interaction.options.getSubcommand(true);
     const color = appFeatureMap[command.options.feature].color;

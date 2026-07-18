@@ -20,7 +20,7 @@ import {
   upsertUser,
 } from '~/database';
 import { L, baseLocale } from '~/core/locales';
-import { buildAppealEmbed, buildAppealVoteRow } from '~/core/components/Appeal';
+import { AppealEmbed, buildAppealVoteRow } from '~/core/components/Appeal';
 
 const T = L[baseLocale].MODERATION.APPEAL;
 
@@ -63,7 +63,19 @@ const handleSubmit: ModalHandler = async (client, interaction) => {
   const user = interaction.user;
   const threshold = settings.appealVoteThreshold;
 
-  const embed = buildAppealEmbed(user.id, user.createdTimestamp, user.displayAvatarURL(), email, reason, other, ban.reason, ban.createdAt, appeal.id, 0, threshold);
+  const embed = new AppealEmbed({
+    userId: user.id,
+    accountCreatedTs: user.createdTimestamp,
+    avatarUrl: user.displayAvatarURL(),
+    email,
+    reason,
+    other,
+    banReason: ban.reason,
+    banCreatedAt: ban.createdAt,
+    appealId: appeal.id,
+    voteCount: 0,
+    threshold,
+  }).render();
 
   await (appealChannel as TextChannel).send({ embeds: [embed], components: [buildAppealVoteRow(appeal.id, 0, threshold)] });
 
@@ -136,7 +148,11 @@ const handleApprove = async (client: Client, interaction: ButtonInteraction, app
   if (voteFieldIndex >= 0) {
     resolvedEmbed.spliceFields(voteFieldIndex, 1, { name: T.FIELD_APPROVALS(), value: `${voteCount}/${threshold}`, inline: true });
   }
-  resolvedEmbed.addFields({ name: T.OUTCOME_GRANTED_LABEL(), value: T.OUTCOME_GRANTED_VALUE({ voteCount, userId: interaction.user.id }), inline: false });
+  resolvedEmbed.addFields({
+    name: T.OUTCOME_GRANTED_LABEL(),
+    value: T.OUTCOME_GRANTED_VALUE({ voteCount, userId: interaction.user.id }),
+    inline: false,
+  });
   await interaction.message.edit({ embeds: [resolvedEmbed], components: [] });
 
   if (ban.targetUserId) {

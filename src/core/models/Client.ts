@@ -1,6 +1,6 @@
 import { Client as _Client, ActivityType, ApplicationCommandType, ClientOptions, Collection, GatewayIntentBits, Partials } from 'discord.js';
 
-import { loadEvents, loadSlashCommands } from '~/core/loaders';
+import { loadEvents, loadCommands } from '~/core/loaders';
 import { Logger, measurePerformance } from '~/utilities';
 import { Command } from '~/core/models';
 
@@ -40,7 +40,7 @@ export class Client extends _Client {
   }
 
   public async start(): Promise<void> {
-    await Promise.all([measurePerformance(() => loadEvents(this), 'events')(), measurePerformance(() => loadSlashCommands(this), 'commands')()]);
+    await Promise.all([measurePerformance(() => loadEvents(this), 'events')(), measurePerformance(() => loadCommands(this), 'commands')()]);
     await this.login(process.env.TOKEN);
     Logger.getInstance().info(`Successfully initialized bot <@${process.env.APPLICATION_ID}>.`);
   }

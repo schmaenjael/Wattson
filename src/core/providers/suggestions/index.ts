@@ -29,7 +29,7 @@ import {
   SuggestionVoteDirection,
   upsertUser,
 } from '~/database';
-import { buildSuggestionApprovalRow, buildSuggestionEmbed, buildSuggestionVoteRow } from '~/core/components/Suggestion';
+import { SuggestionEmbed, buildSuggestionApprovalRow, buildSuggestionVoteRow } from '~/core/components/Suggestion';
 
 const DECLINE_REASON_PREFIX = 'suggestion:decline-reason:';
 const logger = Logger.getInstance(AppFeature.Suggestions);
@@ -52,7 +52,10 @@ const refreshSuggestionMessage = async (client: Client, settings: Settings, sugg
   }
   const author = suggestion.userId ? (client.users.cache.get(suggestion.userId) ?? null) : null;
   await message
-    .edit({ embeds: [buildSuggestionEmbed(suggestion, author, declineReason)], components: [buildSuggestionVoteRow(suggestion, undefined, true)] })
+    .edit({
+      embeds: [new SuggestionEmbed({ suggestion, author, declineReason }).render()],
+      components: [buildSuggestionVoteRow(suggestion, undefined, true)],
+    })
     .catch(() => null);
 };
 
@@ -88,7 +91,7 @@ const handleCreate: ModalHandler = async (client, interaction) => {
   const suggestion = await createSuggestion({ userId: interaction.user.id, title, description: body, expiresAt });
 
   const message = await (channel as TextChannel).send({
-    embeds: [buildSuggestionEmbed(suggestion, interaction.user)],
+    embeds: [new SuggestionEmbed({ suggestion, author: interaction.user }).render()],
     components: [buildSuggestionVoteRow(suggestion)],
   });
   await setSuggestionMessageId(suggestion.id, message.id);
@@ -154,7 +157,10 @@ const handleVote: ButtonHandler = async (client, interaction) => {
 
     const author = client.users.cache.get(suggestion.userId ?? '') ?? null;
     await interaction.message
-      .edit({ embeds: [buildSuggestionEmbed(suggestion, author, null, tally)], components: [buildSuggestionVoteRow(suggestion, tally)] })
+      .edit({
+        embeds: [new SuggestionEmbed({ suggestion, author, declineReason: null, tally }).render()],
+        components: [buildSuggestionVoteRow(suggestion, tally)],
+      })
       .catch(() => null);
 
     await interaction.editReply({ content: `Your ${isUp ? '👍' : '👎'} vote has been recorded.` });
@@ -195,7 +201,12 @@ const resolveApproval = async (client: Client, interaction: ButtonInteraction, a
         .setTitle(`Decline Suggestion #${suggestion.id}`)
         .addComponents(
           new ActionRowBuilder<TextInputBuilder>().addComponents(
-            new TextInputBuilder().setCustomId('reason').setLabel('Reason for declining').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(1000)
+            new TextInputBuilder()
+              .setCustomId('reason')
+              .setLabel('Reason for declining')
+              .setStyle(TextInputStyle.Paragraph)
+              .setRequired(true)
+              .setMaxLength(1000)
           )
         )
     );
@@ -218,10 +229,7 @@ const BUTTON_ACTIONS: Record<string, ButtonHandler> = {
   decline: (client, interaction) => resolveApproval(client, interaction, 'decline'),
 };
 
-const MODAL_ACTIONS: Record<string, ModalHandler> = {
-  create: handleCreate,
-  'decline-reason': handleDeclineReason,
-};
+const MODAL_ACTIONS: Record<string, ModalHandler> = { create: handleCreate, 'decline-reason': handleDeclineReason };
 
 export const handleSuggestionButton: ButtonHandler = async (client, interaction) => {
   await BUTTON_ACTIONS[interaction.customId.split(':')[1]]?.(client, interaction);

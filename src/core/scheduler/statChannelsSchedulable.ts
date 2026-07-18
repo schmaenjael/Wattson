@@ -1,15 +1,16 @@
 import { ChannelType } from 'discord.js';
 
 import { AppFeature } from '~/settings';
+import { getConfig, listStatChannels } from '~/config';
 import { Schedulable } from '~/core/models/Schedulable';
-import { listStatChannels, type StatChannelType } from '~/database';
+import { type StatChannelType } from '~/database';
 import { computeStatValue, STAT_CHANNEL_LABELS } from '~/core/providers/statChannels';
 
 export const statChannelsSchedulable = new Schedulable({
   name: 'stat-channels-schedulable',
   feature: AppFeature.Analytics,
   description: 'Updates configured voice-channel names with daily server statistics.',
-  defaultCron: '0 1 * * *',
+  defaultCron: () => getConfig().config.schedules.statChannels,
   execute: async (client, logger) => {
     const mappings = await listStatChannels();
     if (mappings.length === 0) {

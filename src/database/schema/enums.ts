@@ -1,5 +1,7 @@
 import { pgEnum } from 'drizzle-orm/pg-core';
 
+import { ml } from './shared';
+
 export enum RuleCategory {
   General = 'general',
   Behaviour = 'behaviour',
@@ -12,8 +14,6 @@ export enum RuleCategory {
   Reporting = 'reporting',
   Punishments = 'punishments',
 }
-
-export const ruleCategoryEnum = pgEnum('rule_category', Object.values(RuleCategory) as [string, ...string[]]);
 
 export enum ReportStatus {
   Open = 'open',
@@ -83,7 +83,6 @@ export enum StatChannelType {
   TextChannels = 'text_channels',
   MessagesToday = 'messages_today',
 }
-export const statChannelTypeEnum = pgEnum('stat_channel_type', Object.values(StatChannelType) as [string, ...string[]]);
 
 export enum AuditEventType {
   // Member lifecycle
@@ -163,13 +162,11 @@ export enum Continents {
   Africa = 'Africa',
   Oceania = 'Oceania',
 }
-export const continentEnum = pgEnum('continents', Object.values(Continents) as [string, ...string[]]);
 
 export enum LanguageGroup {
   European = 'european',
   World = 'world',
 }
-export const languageGroupEnum = pgEnum('language_group', Object.values(LanguageGroup) as [string, ...string[]]);
 
 export enum RoleMappingType {
   Country = 'country',
@@ -178,7 +175,6 @@ export enum RoleMappingType {
   Permission = 'permission',
   Utility = 'utility',
 }
-export const roleMappingTypeEnum = pgEnum('role_mapping_type', Object.values(RoleMappingType) as [string, ...string[]]);
 
 export enum StickyLevel {
   Info = 'info',
@@ -192,3 +188,27 @@ export enum ModerationStatus {
   Lifted = 'lifted',
 }
 export const moderationStatusEnum = pgEnum('moderation_status', Object.values(ModerationStatus) as [string, ...string[]]);
+
+// Action automod took on a message the harm detector flagged. Captured for training data.
+// Defined in the `ml` schema so the training tables form a self-contained, grantable namespace.
+export enum HarmSampleAction {
+  Flagged = 'flagged', // detector returned a hit but below the auto-action threshold — no enforcement
+  DeletedWarned = 'deleted_warned', // high confidence — message deleted and user auto-warned
+}
+export const harmSampleActionEnum = ml.enum('harm_sample_action', Object.values(HarmSampleAction) as [string, ...string[]]);
+
+// Ground-truth label retro-filled onto a harm sample once a human decision settles its outcome.
+export enum HarmSampleLabel {
+  Harmful = 'harmful',
+  NotHarmful = 'not_harmful',
+}
+export const harmSampleLabelEnum = ml.enum('harm_sample_label', Object.values(HarmSampleLabel) as [string, ...string[]]);
+
+// Where a harm sample's human label came from.
+export enum HarmSampleLabelSource {
+  WarningRevoked = 'warning_revoked', // a moderator lifted the auto-warning -> false positive
+  ReportResolved = 'report_resolved', // a human report on the same message was actioned -> true positive
+  ReportDismissed = 'report_dismissed', // a human report on the same message was dismissed -> false positive
+  Manual = 'manual', // labelled by hand
+}
+export const harmSampleLabelSourceEnum = ml.enum('harm_sample_label_source', Object.values(HarmSampleLabelSource) as [string, ...string[]]);

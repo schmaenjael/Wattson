@@ -1,7 +1,7 @@
-import { AttachmentBuilder, EmbedBuilder, HexColorString, Locale, MessageFlags } from 'discord.js';
+import { AttachmentBuilder, ColorResolvable, EmbedBuilder, Locale, MessageFlags } from 'discord.js';
 
 interface ComponentRequirements {
-  color: HexColorString;
+  color: ColorResolvable;
   locale: Locale;
 }
 

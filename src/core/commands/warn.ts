@@ -1,8 +1,9 @@
 import { ApplicationCommandType, EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
 
+import { getConfig } from '~/config';
 import { Command, Permission, BotException } from '~/core/models';
 import { logModAction } from '~/core/middleware';
-import { AppFeature, appFeatureMap, MOD_LIST_PAGE_SIZE, ProcessExitCode } from '~/settings';
+import { AppFeature, appFeatureMap, MOD_LIST_PAGE_SIZE } from '~/settings';
 import { Logger, validateModerationTarget } from '~/utilities';
 import {
   AuditEventType,
@@ -20,12 +21,11 @@ import {
   type Warning,
 } from '~/database';
 
-const MUTE_CAP_MINUTES = 14 * 24 * 60;
-
 const computeAutoMuteMinutes = (activeCount: number, baseMinutes: number): number => {
   if (activeCount <= 1) return 0;
   if (activeCount === 2) return Math.max(Math.round(baseMinutes / 4), 5);
-  return Math.min(Math.round(baseMinutes * Math.pow(2, activeCount - 3)), MUTE_CAP_MINUTES);
+  const { muteCapMinutes } = getConfig().config.thresholds;
+  return Math.min(Math.round(baseMinutes * Math.pow(2, activeCount - 3)), muteCapMinutes);
 };
 
 const formatMuteDuration = (minutes: number): string => {
@@ -82,9 +82,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
         .addIntegerOption((o) => o.setName('id').setDescription('Warning ID').setRequired(true).setMinValue(1))
     ),
 
-  async executeCommand(command, client, interaction, middlewareData) {
-    if (middlewareData.some((m) => m.status !== ProcessExitCode.OK)) return;
-
+  async executeCommand(command, client, interaction) {
     const sub = interaction.options.getSubcommand(true);
 
     if (sub === 'issue') {

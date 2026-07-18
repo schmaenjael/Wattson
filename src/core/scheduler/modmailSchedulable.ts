@@ -12,9 +12,9 @@ import {
   setModmailSummary,
   setReminderSent,
 } from '~/database';
-import { buildKeepOpenRow, buildModmailSummaryEmbed } from '~/core/components/Modmail';
-import { fetchModmailSummary } from '~/core/providers/modmail/summarizer';
-import { dispatchCloseAction } from '~/core/providers/modmail/closeActions';
+import { getConfig } from '~/config';
+import { ModmailSummaryEmbed, buildKeepOpenRow } from '~/core/components/Modmail';
+import { dispatchCloseAction, fetchModmailSummary } from '~/core/providers/modmail';
 import { Schedulable } from '~/core/models/Schedulable';
 import { attempt } from '~/utilities';
 
@@ -22,7 +22,7 @@ export const modmailSchedulable = new Schedulable({
   name: 'modmail-schedulable',
   feature: AppFeature.Modmail,
   description: 'Sends inactivity reminders, stale warnings, and auto-closes expired modmails.',
-  defaultCron: '0 * * * *',
+  defaultCron: () => getConfig().config.schedules.modmailStale,
   execute: async (client, logger) => {
     const guild = await client.guilds.fetch(process.env.GUILD_ID).catch(() => null);
     if (!guild) {
@@ -132,7 +132,7 @@ export const modmailSchedulable = new Schedulable({
           }
           await thread.send({ embeds: [closedEmbed] }).catch(() => null);
           if (summary) {
-            await thread.send({ embeds: [buildModmailSummaryEmbed(summary, modmail.id)] }).catch(() => null);
+            await thread.send({ embeds: [new ModmailSummaryEmbed({ summary, modmailId: modmail.id }).render()] }).catch(() => null);
           }
           await attempt(async () => {
             await thread.setArchived(true);

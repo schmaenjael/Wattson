@@ -8,7 +8,6 @@ RUN apt-get update \
 COPY ./services/postgres/postgres-init.template.sql /tmp/scripts/postgres-init.template.sql
 COPY ./services/postgres/postgres-init.sh /docker-entrypoint-initdb.d/postgres-init.sh
 COPY ./scripts/migrations /tmp/scripts/migrations
-COPY ./services/postgres/seed /tmp/scripts/seed
 
 RUN dos2unix /docker-entrypoint-initdb.d/postgres-init.sh \
     && chmod +x /docker-entrypoint-initdb.d/postgres-init.sh

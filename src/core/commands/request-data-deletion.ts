@@ -13,7 +13,7 @@ import {
 } from 'discord.js';
 
 import { Command } from '~/core/models';
-import { AppFeature, Colors, ProcessExitCode } from '~/settings';
+import { AppFeature, Colors } from '~/settings';
 import { AuditEventType, getSettings, recordAuditEvent } from '~/database';
 import { L } from '~/core/locales';
 
@@ -31,9 +31,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
     .setDescription('Request permanent deletion of your personal data (GDPR/DSGVO). Results in a permanent ban.')
     .setContexts(InteractionContextType.Guild),
 
-  async executeCommand(_command, client, interaction, middlewareData) {
-    if (middlewareData.some((m) => m.status !== ProcessExitCode.OK)) return;
-
+  async executeCommand(_command, client, interaction) {
     const locale = interaction.locale;
     const T = L[locale].MODERATION.GDPR_REQUEST;
 

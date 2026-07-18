@@ -35,19 +35,18 @@ import {
   upsertUser,
 } from '~/database';
 import {
+  ModmailChannelEmbed,
+  ModmailClosedByModEmbed,
+  ModmailClosedByUserEmbed,
+  ModmailClosedDmEmbed,
+  ModmailOpenThreadEmbed,
+  ModmailShowEmbed,
+  ModmailSummaryEmbed,
+  ModmailThreadTutorialEmbed,
+  UserDmGuideEmbed,
   buildKeepOpenDisabledRow,
-  buildModmailChannelEmbed,
-  buildModmailClosedByModEmbed,
-  buildModmailClosedByUserEmbed,
-  buildModmailClosedDmEmbed,
-  buildModmailOpenThreadEmbed,
-  buildModmailShowEmbed,
-  buildModmailSummaryEmbed,
-  buildModmailThreadTutorialEmbed,
-  buildUserDmGuideEmbed,
 } from '~/core/components/Modmail';
-import { fetchModmailSummary } from '~/core/providers/modmail/summarizer';
-import { dispatchCloseAction } from '~/core/providers/modmail/closeActions';
+import { dispatchCloseAction, fetchModmailSummary } from '~/core/providers/modmail';
 import { L } from '~/core/locales';
 import { attempt } from '~/utilities';
 
@@ -169,12 +168,12 @@ export default new Command<ApplicationCommandType.ChatInput>({
       const modmail = await openModmail({ userId: interaction.user.id, threadId: thread.id, category, reason, status: ModmailStatus.Open });
 
       await thread.setName(`📬 Modmail #${modmail.id} — ${interaction.user.username}`).catch(() => null);
-      await channelMsg.edit({ content: null, embeds: [buildModmailChannelEmbed(modmail, interaction.user)] });
+      await channelMsg.edit({ content: null, embeds: [new ModmailChannelEmbed({ modmail, user: interaction.user }).render()] });
       await setModmailChannelMessage(modmail.id, channelMsg.id);
 
       const pingContent = settings.roleModmailHandlerId ? `<@&${settings.roleModmailHandlerId}>` : undefined;
-      await thread.send({ content: pingContent, embeds: [buildModmailOpenThreadEmbed(modmail, interaction.user)] });
-      await thread.send({ embeds: [buildModmailThreadTutorialEmbed(modmail)] });
+      await thread.send({ content: pingContent, embeds: [new ModmailOpenThreadEmbed({ modmail, user: interaction.user }).render()] });
+      await thread.send({ embeds: [new ModmailThreadTutorialEmbed({ modmail }).render()] });
 
       await recordAuditEvent({
         eventType: AuditEventType.ModmailOpened,
@@ -183,7 +182,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
         payload: { modmailId: modmail.id, category, threadId: thread.id },
       });
 
-      const guideEmbed = buildUserDmGuideEmbed(modmail);
+      const guideEmbed = new UserDmGuideEmbed({ modmail }).render();
       if (isDm) {
         await interaction.editReply({ embeds: [guideEmbed] });
       } else {
@@ -356,17 +355,17 @@ export default new Command<ApplicationCommandType.ChatInput>({
               const channelMsg = await parentChannel.messages.fetch(modmail.channelMessageId).catch(() => null);
               if (channelMsg) {
                 const closedModmail = { ...modmail, status: ModmailStatus.Closed, closedAt: new Date() };
-                const embeds: EmbedBuilder[] = [buildModmailChannelEmbed(closedModmail, interaction.user)];
-                if (summary) embeds.push(buildModmailSummaryEmbed(summary, modmail.id));
+                const embeds: EmbedBuilder[] = [new ModmailChannelEmbed({ modmail: closedModmail, user: interaction.user }).render()];
+                if (summary) embeds.push(new ModmailSummaryEmbed({ summary, modmailId: modmail.id }).render());
                 await channelMsg.edit({ embeds }).catch(() => null);
               }
             }
           }
 
-          await thread.send({ embeds: [buildModmailClosedByUserEmbed(interaction.user)] });
+          await thread.send({ embeds: [new ModmailClosedByUserEmbed({ user: interaction.user }).render()] });
 
           if (summary) {
-            await thread.send({ embeds: [buildModmailSummaryEmbed(summary, modmail.id)] });
+            await thread.send({ embeds: [new ModmailSummaryEmbed({ summary, modmailId: modmail.id }).render()] });
           }
 
           // Disable stale button if one was sent
@@ -422,17 +421,17 @@ export default new Command<ApplicationCommandType.ChatInput>({
             const channelMsg = await parentChannel.messages.fetch(modmail.channelMessageId).catch(() => null);
             if (channelMsg) {
               const closedModmail = { ...modmail, status: ModmailStatus.Closed, closedAt: new Date() };
-              const embeds: EmbedBuilder[] = [buildModmailChannelEmbed(closedModmail, targetUser)];
-              if (summary) embeds.push(buildModmailSummaryEmbed(summary, modmail.id));
+              const embeds: EmbedBuilder[] = [new ModmailChannelEmbed({ modmail: closedModmail, user: targetUser }).render()];
+              if (summary) embeds.push(new ModmailSummaryEmbed({ summary, modmailId: modmail.id }).render());
               await channelMsg.edit({ embeds }).catch(() => null);
             }
           }
         }
 
-        await interaction.channel.send({ embeds: [buildModmailClosedByModEmbed(interaction.user)] });
+        await interaction.channel.send({ embeds: [new ModmailClosedByModEmbed({ mod: interaction.user }).render()] });
 
         if (summary) {
-          await interaction.channel.send({ embeds: [buildModmailSummaryEmbed(summary, modmail.id)] });
+          await interaction.channel.send({ embeds: [new ModmailSummaryEmbed({ summary, modmailId: modmail.id }).render()] });
         }
 
         if (modmail.staleMessageId) {
@@ -447,7 +446,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
 
       if (targetUser) {
         const dmChannel = await targetUser.createDM().catch(() => null);
-        await dmChannel?.send({ embeds: [buildModmailClosedDmEmbed()] }).catch(() => null);
+        await dmChannel?.send({ embeds: [new ModmailClosedDmEmbed().render()] }).catch(() => null);
       }
 
       await interaction.editReply({ content: '✅ Modmail closed.' });
@@ -474,7 +473,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
       }
 
       const targetUser = modmail.userId ? await client.users.fetch(modmail.userId).catch(() => null) : null;
-      await interaction.reply({ embeds: [buildModmailShowEmbed(modmail, targetUser)], flags: MessageFlags.Ephemeral });
+      await interaction.reply({ embeds: [new ModmailShowEmbed({ modmail, user: targetUser }).render()], flags: MessageFlags.Ephemeral });
       return;
     }
   },

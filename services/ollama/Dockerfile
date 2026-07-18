@@ -3,7 +3,7 @@
 # MODEL_NAME build arg changes.
 FROM ollama/ollama:latest AS model-puller
 
-ARG MODEL_NAME=granite3.2:8b
+ARG MODEL_NAME=qwen3:4b-instruct-2507-q4_K_M
 
 # Start the server in the background, wait for it to be ready, pull the model,
 # then shut down cleanly so the layer is sealed with the model files in place.
@@ -19,7 +19,7 @@ RUN ollama serve & \
 # Stage 2: Minimal runtime image with the pre-pulled model already present.
 FROM ollama/ollama:latest
 
-ARG MODEL_NAME=granite3.2:8b
+ARG MODEL_NAME=qwen3:4b-instruct-2507-q4_K_M
 ENV OLLAMA_MODEL=${MODEL_NAME}
 
 COPY --from=model-puller /root/.ollama /root/.ollama

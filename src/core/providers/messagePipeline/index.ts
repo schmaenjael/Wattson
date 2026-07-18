@@ -5,9 +5,16 @@ import { AppFeature } from '~/settings';
 import { Logger, AsyncQueue } from '~/utilities';
 import { Client } from '~/core/models';
 import { clearUserChannelWindow, recordAndCheck } from '~/core/providers/antispam';
-import { clearChannelSlowmodeState, recordAndCheckSlowmode, SLOWMODE_TIERS, type SlowmodeAction } from '~/core/providers/autoslowmode';
-import { getStickyForChannel, incrementStickyCounter, resetStickyCounter, updateCachedLastMessageId, type StickyMessage } from '~/core/providers/sticky';
-import { runAutomod } from '~/core/providers/automod/run';
+import { clearChannelSlowmodeState, recordAndCheckSlowmode, type SlowmodeAction } from '~/core/providers/autoslowmode';
+import { getConfig } from '~/config';
+import {
+  getStickyForChannel,
+  incrementStickyCounter,
+  resetStickyCounter,
+  updateCachedLastMessageId,
+  type StickyMessage,
+} from '~/core/providers/sticky';
+import { runAutomod } from '~/core/providers/automod';
 
 const queueLogger = Logger.getInstance(AppFeature.Surveillance);
 const messageQueue = new AsyncQueue<void>(500, (err) => queueLogger.error(Object(err), 'Message queue task failed'));
@@ -81,7 +88,7 @@ const applyAutoSlowmodeAction = async (
         .setTitle('🐌 Auto-slowmode — Stepped Up')
         .addFields(
           { name: 'Channel', value: `<#${channel.id}>`, inline: true },
-          { name: 'Level', value: `${action.level}/${SLOWMODE_TIERS.length}`, inline: true },
+          { name: 'Level', value: `${action.level}/${getConfig().config.thresholds.autoSlowmodeTiers.length}`, inline: true },
           { name: 'Slowmode', value: `${action.slowmodeSeconds}s`, inline: true }
         )
         .setTimestamp(),
@@ -105,7 +112,7 @@ const applyAutoSlowmodeAction = async (
         .setTitle('🐌 Auto-slowmode — Stepped Down')
         .addFields(
           { name: 'Channel', value: `<#${channel.id}>`, inline: true },
-          { name: 'Level', value: `${action.level}/${SLOWMODE_TIERS.length}`, inline: true },
+          { name: 'Level', value: `${action.level}/${getConfig().config.thresholds.autoSlowmodeTiers.length}`, inline: true },
           { name: 'Slowmode', value: `${action.slowmodeSeconds}s`, inline: true }
         )
         .setTimestamp(),

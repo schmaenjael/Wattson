@@ -27,8 +27,8 @@ import {
   recordAuditEvent,
   upsertUser,
 } from '~/database';
-import { CloseActionType, type VerificationFollowUpPayload } from '~/core/providers/modmail/closeActions';
-import { buildModmailOpenThreadEmbed, buildVerificationFollowUpUserDmEmbed } from '~/core/components/Modmail';
+import { CloseActionType, type VerificationFollowUpPayload } from '~/core/providers/modmail';
+import { ModmailOpenThreadEmbed, VerificationFollowUpUserDmEmbed } from '~/core/components/Modmail';
 import { L } from '~/core/locales';
 import type { FlowAnswers } from '~/core/providers/verification/flow';
 import { ANSWER_DISPLAY_NAMES, grantAccess, postWelcomeEmbed } from '~/core/providers/verification/actions';
@@ -147,10 +147,10 @@ const handleAskQuestion = async (interaction: ButtonInteraction, memberId: strin
   await thread.setName(`📬 Modmail #${modmail.id} — ${applicant.user.username}`).catch(() => null);
 
   const pingContent = settings.roleModmailHandlerId ? `<@&${settings.roleModmailHandlerId}>` : undefined;
-  await thread.send({ content: pingContent, embeds: [buildModmailOpenThreadEmbed(modmail, applicant.user)] });
+  await thread.send({ content: pingContent, embeds: [new ModmailOpenThreadEmbed({ modmail, user: applicant.user }).render()] });
 
   const dmChannel = await applicant.createDM().catch(() => null);
-  await dmChannel?.send({ embeds: [buildVerificationFollowUpUserDmEmbed(modmail)] }).catch(() => null);
+  await dmChannel?.send({ embeds: [new VerificationFollowUpUserDmEmbed({ modmail }).render()] }).catch(() => null);
 
   await recordAuditEvent({
     eventType: AuditEventType.ModmailOpened,

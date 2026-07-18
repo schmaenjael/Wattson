@@ -1,5 +1,7 @@
+# CPU-only torch (no GPU in this stack) — ~180 MB wheel vs the ~2.4 GB CUDA build.
+--extra-index-url https://download.pytorch.org/whl/cpu
 fastapi==0.115.6
 uvicorn[standard]==0.32.1
 transformers==4.47.1
-torch==2.5.1
+torch==2.5.1+cpu
 pydantic==2.10.4

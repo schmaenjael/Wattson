@@ -2,6 +2,8 @@ import { listStickyMessages, updateStickyLastMessageId, type StickyMessage } fro
 
 export type { StickyMessage };
 
+export { sendStickyInfo } from './info';
+
 let cache: Map<string, StickyMessage> | null = null;
 const counters = new Map<string, number>();
 

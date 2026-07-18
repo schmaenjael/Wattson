@@ -15,6 +15,10 @@ declare global {
     BOT_USERNAME: string;
     BOT_PASSWORD: string;
 
+    POOL_MAX?: string;
+    DB_MAX_RETRIES?: string;
+    DB_RETRY_DELAY_MS?: string;
+
     HATE_SPEECH_DETECTOR_ENDPOINT?: string;
 
     OLLAMA_ENDPOINT?: string;

@@ -5,13 +5,13 @@ import { BotException, Client, Event, Permission } from '~/core/models';
 import { ErrorEmbed } from '~/core/components/Error';
 import { usePermissions } from '~/core/middleware';
 import { Logger } from '~/utilities';
-import { handleCourtVote } from '~/core/providers/court/vote';
+import { handleCourtVote } from '~/core/providers/court';
 import { handleGdprButton } from '~/core/providers/gdpr';
 import { handleReportButton } from '~/core/providers/report';
 import { handleAppealButton, handleAppealModal } from '~/core/providers/appeal';
 import { handleSuggestionButton, handleSuggestionModal } from '~/core/providers/suggestions';
-import { handleVerifyButton, handleVerifyModal } from '~/core/providers/verification/review';
-import { handleKeepOpenButton, handleMessageModal } from '~/core/providers/modmail/interactions';
+import { handleVerifyButton, handleVerifyModal } from '~/core/providers/verification';
+import { handleKeepOpenButton, handleMessageModal } from '~/core/providers/modmail';
 
 const MODERATOR: Permission[] = [Permission.Moderation, Permission.Administration];
 

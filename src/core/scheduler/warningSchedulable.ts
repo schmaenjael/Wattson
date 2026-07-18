@@ -1,12 +1,13 @@
 import { AppFeature } from '~/settings';
 import { AuditEventType, listExpiredActiveWarnings, ModerationStatus, recordAuditEvent, updateWarningStatus } from '~/database';
+import { getConfig } from '~/config';
 import { Schedulable } from '~/core/models/Schedulable';
 
 export const warningSchedulable = new Schedulable({
   name: 'warning-schedulable',
   feature: AppFeature.Warn,
   description: 'Marks expired warnings as expired and records audit events.',
-  defaultCron: '0 * * * *',
+  defaultCron: () => getConfig().config.schedules.warningSweep,
   execute: async (_client, logger) => {
     const rows = await listExpiredActiveWarnings();
     if (rows.length === 0) {

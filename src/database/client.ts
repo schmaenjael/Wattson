@@ -1,12 +1,11 @@
 import { drizzle, NodePgClient, NodePgDatabase } from 'drizzle-orm/node-postgres';
 
+import { getConfig } from '~/config';
 import { AppFeature, ProcessExitCode } from '~/settings';
 import { Logger } from '~/utilities';
 
 import * as schema from './schema';
 
-const MAX_RETRIES = 5;
-const RETRY_DELAY_MS = 5_000;
 const POSTGRES_DEFAULT_PORT = 5432;
 
 export type Database = NodePgDatabase<typeof schema> & { $client: NodePgClient };
@@ -18,8 +17,33 @@ export const getDb = (): Database => {
   return instance;
 };
 
+export interface PoolStats {
+  total: number;
+  idle: number;
+  waiting: number;
+}
+
+export const getPoolStats = (): PoolStats => {
+  if (!instance) {
+    return { total: 0, idle: 0, waiting: 0 };
+  }
+
+  const client = instance.$client;
+
+  // $client is a NodePgClient union (Pool | PoolClient); only Pool exposes count fields.
+  if ('totalCount' in client) {
+    return { total: client.totalCount, idle: client.idleCount, waiting: client.waitingCount };
+  }
+
+  return { total: 0, idle: 0, waiting: 0 };
+};
+
 export const connectDatabase = async (): Promise<void> => {
   if (instance) throw new Error('Database is already connected.');
+
+  // POOL_MAX: message pipeline runs an async queue at concurrency 500; steady-state is 0-query
+  // (cached), but automod/antispam bursts (3-5 queries each) can starve a small pool.
+  const { POOL_MAX, DB_MAX_RETRIES, DB_RETRY_DELAY_MS } = getConfig().env;
 
   const logger = Logger.getInstance(AppFeature.Database);
   let attempts = 0;
@@ -37,7 +61,7 @@ export const connectDatabase = async (): Promise<void> => {
           password: process.env.BOT_PASSWORD,
           connectionTimeoutMillis: 10_000,
           idleTimeoutMillis: 30_000,
-          max: 5,
+          max: POOL_MAX,
         },
       });
 
@@ -46,9 +70,9 @@ export const connectDatabase = async (): Promise<void> => {
       attempts += 1;
       logger.error({ err: error }, `Postgres connection attempt ${attempts} failed.`);
 
-      if (attempts < MAX_RETRIES) {
-        logger.warn(`Retrying Postgres connection in ${RETRY_DELAY_MS / 1000}s (${attempts}/${MAX_RETRIES})`);
-        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+      if (attempts < DB_MAX_RETRIES) {
+        logger.warn(`Retrying Postgres connection in ${DB_RETRY_DELAY_MS / 1000}s (${attempts}/${DB_MAX_RETRIES})`);
+        await new Promise((resolve) => setTimeout(resolve, DB_RETRY_DELAY_MS));
         return tryConnect();
       }
 

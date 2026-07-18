@@ -2,7 +2,7 @@ import { ApplicationCommandType, EmbedBuilder, MessageFlags, SlashCommandBuilder
 
 import { BotException, Command, Permission } from '~/core/models';
 import { logModAction } from '~/core/middleware';
-import { AppFeature, appFeatureMap, ProcessExitCode } from '~/settings';
+import { AppFeature, appFeatureMap } from '~/settings';
 import { AuditEventType, getSettings, insertMute, upsertUser } from '~/database';
 import { Logger, validateModerationTarget, resolveExpiresAt } from '~/utilities';
 
@@ -19,9 +19,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
     .addStringOption((o) => o.setName('reason').setDescription('Reason').setRequired(true).setMaxLength(500))
     .addStringOption((o) => o.setName('duration').setDescription('Duration like 30m, 2h, 7d, 1w (blank = indefinite)').setRequired(false)),
 
-  async executeCommand(command, client, interaction, middlewareData) {
-    if (middlewareData.some((m) => m.status !== ProcessExitCode.OK)) return;
-
+  async executeCommand(command, client, interaction) {
     const target = interaction.options.getUser('user', true);
     const reason = interaction.options.getString('reason', true);
     const durationStr = interaction.options.getString('duration', false);

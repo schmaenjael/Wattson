@@ -9,7 +9,7 @@ import {
 } from 'discord.js';
 
 import { Command, Permission, BotException } from '~/core/models';
-import { AppFeature, appFeatureMap, ProcessExitCode } from '~/settings';
+import { AppFeature, appFeatureMap } from '~/settings';
 import {
   AuditEventType,
   countBansForUser,
@@ -28,7 +28,7 @@ import {
   upsertUser,
   type CourtCase,
 } from '~/database';
-import { buildVoteEmbed, buildVoteRow } from '~/core/providers/court/outcome';
+import { buildVoteEmbed, buildVoteRow } from '~/core/providers/court';
 import { attempt } from '~/utilities';
 
 const statusBadge = (s: CourtStatus): string => {
@@ -79,9 +79,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
         .addIntegerOption((o) => o.setName('id').setDescription('Case ID').setRequired(true).setMinValue(1))
     ),
 
-  async executeCommand(command, client, interaction, middlewareData) {
-    if (middlewareData.some((m) => m.status !== ProcessExitCode.OK)) return;
-
+  async executeCommand(command, client, interaction) {
     const sub = interaction.options.getSubcommand(true);
     const settings = await getSettings();
     const color = appFeatureMap[command.options.feature].color;

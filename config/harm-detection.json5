@@ -1,0 +1,14 @@
+{
+  // Max time to wait for the hate-speech-detector service before failing open.
+  timeoutMs: 10000,
+  // Per-category toggles. action: 'flag' surfaces to mods; comments/trailing commas allowed (JSON5).
+  categories: {
+    race: { enabled: true, action: 'flag' },
+    sexualOrientation: { enabled: true, action: 'flag' },
+    gender: { enabled: true, action: 'flag' },
+    physicalAppearance: { enabled: true, action: 'flag' },
+    religion: { enabled: true, action: 'flag' },
+    class: { enabled: true, action: 'flag' },
+    disability: { enabled: true, action: 'flag' },
+  },
+}

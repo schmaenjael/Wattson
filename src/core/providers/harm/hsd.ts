@@ -1,3 +1,4 @@
+import { getConfig } from '~/config';
 import { AppFeature } from '~/settings';
 import { Logger } from '~/utilities';
 
@@ -29,6 +30,8 @@ const DEFAULT_RESULT: HarmDetectionResult = {
   },
   anyDetected: false,
   detectedCategories: [],
+  modelVersion: 'unknown',
+  scores: {},
 };
 
 const toConfidenceLevel = (score: number): HarmCategoryResult['confidence'] => {
@@ -40,10 +43,17 @@ const toConfidenceLevel = (score: number): HarmCategoryResult['confidence'] => {
 interface HsdApiResponse {
   category: string;
   confidence: number;
+  all_scores?: Record<string, number>;
+}
+
+interface HsdHealthResponse {
+  status: string;
+  model?: string;
 }
 
 export class HateSpeechDetector {
   private available = true;
+  private modelVersion = 'unknown';
 
   constructor(
     private readonly endpoint: string,
@@ -53,11 +63,13 @@ export class HateSpeechDetector {
   async warmup(): Promise<void> {
     const logger = Logger.getInstance(AppFeature.Surveillance);
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 120_000);
+    const timer = setTimeout(() => controller.abort(), getConfig().config.timeouts.harmMs);
     try {
       const res = await fetch(`${this.endpoint.replace(/\/$/, '')}/health`, { signal: controller.signal });
       if (res.ok) {
-        logger.info('Hate speech detection service ready.');
+        const body = (await res.json()) as HsdHealthResponse;
+        if (body.model) this.modelVersion = body.model;
+        logger.info({ model: this.modelVersion }, 'Hate speech detection service ready.');
       } else {
         logger.warn({ status: res.status }, 'Hate speech detection warmup: unexpected status.');
       }
@@ -105,7 +117,7 @@ export class HateSpeechDetector {
         ])
       ) as Record<HarmCategory, HarmCategoryResult>;
 
-      return { categories, anyDetected: true, detectedCategories: [mappedCategory] };
+      return { categories, anyDetected: true, detectedCategories: [mappedCategory], modelVersion: this.modelVersion, scores: body.all_scores ?? {} };
     } catch (err) {
       logger.warn(Object(err), 'Hate speech detection failed — returning safe default.');
       return DEFAULT_RESULT;

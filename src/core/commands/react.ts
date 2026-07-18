@@ -1,10 +1,11 @@
 import { ApplicationCommandType, MessageFlags, SlashCommandBuilder } from 'discord.js';
 
 import { Command, Permission } from '~/core/models';
-import { AppFeature, ProcessExitCode } from '~/settings';
+import { AppFeature } from '~/settings';
 import { getSettings } from '~/database';
 
 const CUSTOM_EMOJI_RE = /^<a?:(\w+):(\d+)>$/;
+// Discord API hard limit: max 20 reactions per message.
 const MAX_REACTIONS = 20;
 
 function parseEmojis(raw: string): string[] {
@@ -34,9 +35,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
         .setMaxLength(512)
     ),
 
-  async executeCommand(_command, _client, interaction, middlewareData) {
-    if (middlewareData.some((m) => m.status !== ProcessExitCode.OK)) return;
-
+  async executeCommand(_command, _client, interaction) {
     const messageId = interaction.options.getString('message_id', true).trim();
     const emojiRaw = interaction.options.getString('emojis', false);
 

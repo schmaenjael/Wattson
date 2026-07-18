@@ -3,7 +3,7 @@ import { GuildMember, PartialGuildMember } from 'discord.js';
 import { AppFeature } from '~/settings';
 import { Client } from '~/core/models';
 import { Logger } from '~/utilities';
-import { getForumRoleMappingsByRole } from '~/database';
+import { getForumRoleMappingsByRole } from '~/config';
 
 const logger = Logger.getInstance(AppFeature.ForumRoles);
 

@@ -1,176 +1,10 @@
-import { ApplicationCommandType, ChannelType, EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
+import { ApplicationCommandType, EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
 
 import { Command, Permission } from '~/core/models';
-import { AppFeature, appFeatureMap, Colors, ProcessExitCode } from '~/settings';
+import { AppFeature, appFeatureMap, Colors } from '~/settings';
 import { getSchedulables, SCHEDULABLE_CHOICES } from '~/core/loaders/loadSchedulables';
-import { upsertSchedulableConfig } from '~/database';
-import {
-  getSettings,
-  updateSettings,
-  upsertRoleMapping,
-  deleteRoleMapping,
-  listRoleMappings,
-  getVerificationCountryOptions,
-  getEuropeanLanguageOptions,
-  getWorldLanguageOptions,
-  insertForumRoleMapping,
-  deleteForumRoleMapping,
-  listForumRoleMappings,
-  upsertStatChannel,
-  deleteStatChannel,
-  listStatChannels,
-  type Settings,
-  type StatChannel,
-  RoleMappingType,
-  StatChannelType,
-} from '~/database';
-import { STAT_CHANNEL_CHOICES, STAT_CHANNEL_LABELS } from '~/core/providers/statChannels';
+import { getSettings, upsertSchedulableConfig, type Settings } from '~/database';
 import { handlePaginatedEmbeds } from '~/core/components';
-import type { StarboardEmojiTier } from '~/database';
-
-const parseStarboardTiers = (raw: string): StarboardEmojiTier[] =>
-  raw
-    .split(',')
-    .map((t) => {
-      const [n, ...rest] = t.trim().split(':');
-      return { threshold: parseInt(n, 10), emoji: rest.join(':').trim() };
-    })
-    .filter((t) => !isNaN(t.threshold) && t.emoji.length > 0)
-    .sort((a, b) => a.threshold - b.threshold);
-
-type ChannelKey =
-  | 'notificationChannelId'
-  | 'modLogChannelId'
-  | 'publicLogChannelId'
-  | 'surveillanceLogChannelId'
-  | 'reportsLogChannelId'
-  | 'welcomeChannelId'
-  | 'approvalChannelId'
-  | 'courtParentChannelId'
-  | 'starboardChannelId'
-  | 'modmailChannelId'
-  | 'eventAnnouncementChannelId'
-  | 'suggestionChannelId'
-  | 'suggestionApprovalChannelId';
-
-const CHANNEL_CHOICES: { name: string; value: ChannelKey }[] = [
-  { name: 'System notifications', value: 'notificationChannelId' },
-  { name: 'Moderation log (internal)', value: 'modLogChannelId' },
-  { name: 'Public moderation log', value: 'publicLogChannelId' },
-  { name: 'Surveillance log', value: 'surveillanceLogChannelId' },
-  { name: 'Reports log', value: 'reportsLogChannelId' },
-  { name: 'Welcome', value: 'welcomeChannelId' },
-  { name: 'Verification approval', value: 'approvalChannelId' },
-  { name: 'Court parent', value: 'courtParentChannelId' },
-  { name: 'Starboard', value: 'starboardChannelId' },
-  { name: 'Modmail (mod-only thread parent)', value: 'modmailChannelId' },
-  { name: 'Event announcements', value: 'eventAnnouncementChannelId' },
-  { name: 'Suggestions', value: 'suggestionChannelId' },
-  { name: 'Suggestion approval', value: 'suggestionApprovalChannelId' },
-];
-
-type FeatureKey =
-  | 'featureWelcomeEnabled'
-  | 'featureBadWordsEnabled'
-  | 'featureStarboardEnabled'
-  | 'featureCourtEnabled'
-  | 'featureSystemNotificationsEnabled'
-  | 'featureSurveillanceEnabled'
-  | 'featureVerificationRequiresApproval'
-  | 'featureHarmDetectionEnabled'
-  | 'featureLinkFilterEnabled'
-  | 'featureAntiSpamEnabled'
-  | 'featureAntiHoistEnabled'
-  | 'featureWarnAutoMuteEnabled';
-
-const FEATURE_CHOICES: { name: string; value: FeatureKey }[] = [
-  { name: 'Welcome', value: 'featureWelcomeEnabled' },
-  { name: 'Bad words filter', value: 'featureBadWordsEnabled' },
-  { name: 'Starboard', value: 'featureStarboardEnabled' },
-  { name: 'Court', value: 'featureCourtEnabled' },
-  { name: 'System notifications', value: 'featureSystemNotificationsEnabled' },
-  { name: 'Surveillance', value: 'featureSurveillanceEnabled' },
-  { name: 'Verification requires approval', value: 'featureVerificationRequiresApproval' },
-  { name: 'Harm detection (LLM)', value: 'featureHarmDetectionEnabled' },
-  { name: 'Link filter (blocklist)', value: 'featureLinkFilterEnabled' },
-  { name: 'Anti-spam (per-user rate limiting)', value: 'featureAntiSpamEnabled' },
-  { name: 'Anti-hoist (strip hoisting prefixes from nicknames)', value: 'featureAntiHoistEnabled' },
-  { name: 'Warn auto-mute (mute on warning threshold)', value: 'featureWarnAutoMuteEnabled' },
-];
-
-type StringKey = 'reactDefaultEmojis';
-const STRING_CHOICES: { name: string; value: StringKey }[] = [
-  { name: 'Default react emojis (comma or space separated)', value: 'reactDefaultEmojis' },
-];
-
-type ThresholdKey =
-  | 'starboardThreshold'
-  | 'starboardExternalThreshold'
-  | 'warnAutoEscalateCount'
-  | 'warnAutoEscalateWindowDays'
-  | 'badWordDeleteThreshold'
-  | 'antiSpamMaxMessages'
-  | 'antiSpamWindowMs'
-  | 'warnAutoMuteBaseMinutes'
-  | 'suggestionVoteThreshold'
-  | 'suggestionVoteDurationHours';
-const THRESHOLD_CHOICES: { name: string; value: ThresholdKey }[] = [
-  { name: 'Starboard threshold (stars)', value: 'starboardThreshold' },
-  { name: 'Starboard external-post threshold (stars)', value: 'starboardExternalThreshold' },
-  { name: 'Warn auto-escalate count', value: 'warnAutoEscalateCount' },
-  { name: 'Warn auto-escalate window (days)', value: 'warnAutoEscalateWindowDays' },
-  { name: 'Bad-word delete threshold (severity ≥ N → immediate delete)', value: 'badWordDeleteThreshold' },
-  { name: 'Anti-spam: max messages per window', value: 'antiSpamMaxMessages' },
-  { name: 'Anti-spam: window size (ms)', value: 'antiSpamWindowMs' },
-  { name: 'Warn auto-mute: base duration (minutes)', value: 'warnAutoMuteBaseMinutes' },
-  { name: 'Suggestion vote threshold (net upvotes)', value: 'suggestionVoteThreshold' },
-  { name: 'Suggestion vote duration (hours)', value: 'suggestionVoteDurationHours' },
-];
-
-const ALL_FEATURE_KEYS: FeatureKey[] = [
-  'featureWelcomeEnabled',
-  'featureBadWordsEnabled',
-  'featureStarboardEnabled',
-  'featureCourtEnabled',
-  'featureSystemNotificationsEnabled',
-  'featureSurveillanceEnabled',
-  'featureVerificationRequiresApproval',
-  'featureHarmDetectionEnabled',
-  'featureLinkFilterEnabled',
-  'featureAntiSpamEnabled',
-  'featureAntiHoistEnabled',
-  'featureWarnAutoMuteEnabled',
-];
-
-const PERMISSION_CHOICES = [
-  { name: 'Unregistered', value: 'unregistered' },
-  { name: 'Community', value: 'community' },
-  { name: 'Member', value: 'member' },
-  { name: 'Event Manager', value: 'eventmanager' },
-  { name: 'Moderation', value: 'moderation' },
-  { name: 'Administration', value: 'administration' },
-] as const;
-
-const UTILITY_CHOICES = [
-  { name: 'Muted', value: 'muted' },
-  { name: 'Modmail handler', value: 'modmail_handler' },
-] as const;
-
-const PRONOUN_CHOICES = [
-  { name: 'she/her', value: 'she' },
-  { name: 'he/him', value: 'he' },
-  { name: 'they/them', value: 'they' },
-  { name: 'any', value: 'any' },
-  { name: 'ask me', value: 'ask' },
-] as const;
-
-const ROLE_TYPE_CHOICES = [
-  { name: 'Country', value: RoleMappingType.Country },
-  { name: 'Language', value: RoleMappingType.Language },
-  { name: 'Pronouns', value: RoleMappingType.Pronouns },
-  { name: 'Permission', value: RoleMappingType.Permission },
-  { name: 'Utility', value: RoleMappingType.Utility },
-] as const;
 
 const ch = (id: string | null | undefined) => (id ? `<#${id}>` : '—');
 const ro = (id: string | null | undefined) => (id ? `<@&${id}>` : '—');
@@ -263,7 +97,7 @@ const FEATURES: FeatureDef[] = [
   },
 ];
 
-const buildConfigPages = (s: Settings, statChannels: StatChannel[]): EmbedBuilder[] => {
+const buildConfigPages = (s: Settings): EmbedBuilder[] => {
   const color = appFeatureMap[AppFeature.System].color;
 
   const activeWarnings = FEATURES.flatMap((f) => (f.enabled(s) ? f.warnings(s).map((w) => `**${f.label}:** ${w}`) : []));
@@ -278,12 +112,12 @@ const buildConfigPages = (s: Settings, statChannels: StatChannel[]): EmbedBuilde
     featuresPage.addFields({ name: '⚠️ Configuration Warnings', value: activeWarnings.map((w) => `> ${w}`).join('\n') });
   }
 
-  featuresPage.setFooter({ text: 'Page 1 of 4 · use /config feature to toggle' }).setTimestamp();
+  featuresPage.setFooter({ text: 'Page 1 of 4' }).setTimestamp();
 
   const channelsPage = new EmbedBuilder()
     .setColor(color)
     .setTitle('Wattson Config — Channels (2/4)')
-    .setDescription('Channel mappings for each bot subsystem. Use `/config channel` to set or clear.')
+    .setDescription('Channel mappings for each bot subsystem.')
     .addFields(
       {
         name: 'Log Channels',
@@ -307,25 +141,15 @@ const buildConfigPages = (s: Settings, statChannels: StatChannel[]): EmbedBuilde
           `**Suggestions:** ${ch(s.suggestionChannelId)}`,
           `**Suggestion approval:** ${ch(s.suggestionApprovalChannelId)}`,
         ].join('\n'),
-      },
-      {
-        name: 'Stat Channels (voice · updated daily at 01:00)',
-        value:
-          statChannels.length > 0
-            ? STAT_CHANNEL_CHOICES.map((choice) => {
-                const mapping = statChannels.find((sc) => sc.statType === choice.value);
-                return `**${choice.name}:** ${ch(mapping?.channelId)}`;
-              }).join('\n')
-            : '*None configured — use `/config statchannel` to set.*',
       }
     )
-    .setFooter({ text: 'Page 2 of 4 · use /config channel or /config statchannel to set' })
+    .setFooter({ text: 'Page 2 of 4' })
     .setTimestamp();
 
   const rolesPage = new EmbedBuilder()
     .setColor(color)
     .setTitle('Wattson Config — Roles (3/4)')
-    .setDescription('Role mappings that control bot permission tiers. Use `/config role` to set or clear.')
+    .setDescription('Role mappings that control bot permission tiers.')
     .addFields(
       {
         name: 'Permission Hierarchy',
@@ -346,7 +170,7 @@ const buildConfigPages = (s: Settings, statChannels: StatChannel[]): EmbedBuilde
         ].join('\n'),
       }
     )
-    .setFooter({ text: 'Page 3 of 4 · use /config role to set' })
+    .setFooter({ text: 'Page 3 of 4' })
     .setTimestamp();
 
   const thresholdsPage = new EmbedBuilder()
@@ -398,10 +222,7 @@ const buildConfigPages = (s: Settings, statChannels: StatChannel[]): EmbedBuilde
           `**Window:** ${s.antiSpamWindowMs}ms\n-# Auto-mute (10 min) applied when threshold exceeded; requires \`roleMutedId\` set`,
         ].join('\n'),
       },
-      {
-        name: 'React',
-        value: `**Default emojis:** \`${s.reactDefaultEmojis.join(',')}\`\n-# Overridable per \`/react\` invocation · use \`/config string\` to change`,
-      },
+      { name: 'React', value: `**Default emojis:** \`${s.reactDefaultEmojis.join(',')}\`\n-# Overridable per \`/react\` invocation` },
       {
         name: 'Suggestions',
         value: [
@@ -410,7 +231,7 @@ const buildConfigPages = (s: Settings, statChannels: StatChannel[]): EmbedBuilde
         ].join('\n'),
       }
     )
-    .setFooter({ text: 'Page 4 of 4 · use /config threshold or /config string to adjust values' })
+    .setFooter({ text: 'Page 4 of 4' })
     .setTimestamp();
 
   return [featuresPage, channelsPage, rolesPage, thresholdsPage];
@@ -425,206 +246,6 @@ export default new Command<ApplicationCommandType.ChatInput>({
     .setName('config')
     .setDescription('Configure Wattson runtime settings.')
     .addSubcommand((s) => s.setName('show').setDescription('Show all current settings.'))
-    .addSubcommand((s) =>
-      s
-        .setName('channel')
-        .setDescription('Set a channel mapping.')
-        .addStringOption((o) =>
-          o
-            .setName('key')
-            .setDescription('Which channel to set')
-            .setRequired(true)
-            .addChoices(...CHANNEL_CHOICES)
-        )
-        .addChannelOption((o) =>
-          o
-            .setName('channel')
-            .setDescription('The channel (leave blank to unset)')
-            .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
-            .setRequired(false)
-        )
-    )
-    .addSubcommand((s) =>
-      s
-        .setName('statchannel')
-        .setDescription('Map a server stat to a voice channel whose name updates daily at 01:00.')
-        .addStringOption((o) =>
-          o
-            .setName('stat')
-            .setDescription('Which statistic to display')
-            .setRequired(true)
-            .addChoices(...STAT_CHANNEL_CHOICES)
-        )
-        .addChannelOption((o) =>
-          o.setName('channel').setDescription('The voice channel (leave blank to unset)').addChannelTypes(ChannelType.GuildVoice).setRequired(false)
-        )
-    )
-    .addSubcommandGroup((group) =>
-      group
-        .setName('role')
-        .setDescription('Configure role mappings (permission levels, community groups, and answer roles).')
-        .addSubcommand((s) =>
-          s
-            .setName('permission')
-            .setDescription('Set a role for a permission level (unregistered, community, member, moderation, administration).')
-            .addStringOption((o) =>
-              o
-                .setName('key')
-                .setDescription('Permission level')
-                .setRequired(true)
-                .addChoices(...PERMISSION_CHOICES)
-            )
-            .addRoleOption((o) => o.setName('role').setDescription('The role (leave blank to unset)').setRequired(false))
-        )
-        .addSubcommand((s) =>
-          s
-            .setName('utility')
-            .setDescription('Set a utility role (muted, modmail handler).')
-            .addStringOption((o) =>
-              o
-                .setName('key')
-                .setDescription('Utility role')
-                .setRequired(true)
-                .addChoices(...UTILITY_CHOICES)
-            )
-            .addRoleOption((o) => o.setName('role').setDescription('The role (leave blank to unset)').setRequired(false))
-        )
-        .addSubcommand((s) =>
-          s
-            .setName('country')
-            .setDescription('Map a country/region code to a Discord role.')
-            .addStringOption((o) => o.setName('code').setDescription('Country or region code (e.g. de, fr)').setRequired(true).setAutocomplete(true))
-            .addRoleOption((o) => o.setName('role').setDescription('The Discord role to assign').setRequired(true))
-        )
-        .addSubcommand((s) =>
-          s
-            .setName('language')
-            .setDescription('Map a language code to a Discord role.')
-            .addStringOption((o) => o.setName('code').setDescription('Language code (e.g. en, fr, de)').setRequired(true).setAutocomplete(true))
-            .addRoleOption((o) => o.setName('role').setDescription('The Discord role to assign').setRequired(true))
-        )
-        .addSubcommand((s) =>
-          s
-            .setName('pronouns')
-            .setDescription('Map a pronoun choice to a Discord role.')
-            .addStringOption((o) =>
-              o
-                .setName('value')
-                .setDescription('Pronoun choice')
-                .setRequired(true)
-                .addChoices(...PRONOUN_CHOICES)
-            )
-            .addRoleOption((o) => o.setName('role').setDescription('The Discord role to assign').setRequired(true))
-        )
-        .addSubcommand((s) =>
-          s
-            .setName('remove')
-            .setDescription('Remove a role mapping.')
-            .addStringOption((o) =>
-              o
-                .setName('type')
-                .setDescription('Mapping category')
-                .setRequired(true)
-                .addChoices(...ROLE_TYPE_CHOICES)
-            )
-            .addStringOption((o) => o.setName('value').setDescription('Mapping value to remove').setRequired(true).setAutocomplete(true))
-        )
-        .addSubcommand((s) =>
-          s
-            .setName('list')
-            .setDescription('List configured role mappings.')
-            .addStringOption((o) =>
-              o
-                .setName('type')
-                .setDescription('Filter by category (optional)')
-                .setRequired(false)
-                .addChoices(...ROLE_TYPE_CHOICES)
-            )
-        )
-    )
-    .addSubcommand((s) =>
-      s
-        .setName('feature')
-        .setDescription('Enable or disable a feature.')
-        .addStringOption((o) =>
-          o
-            .setName('key')
-            .setDescription('Which feature')
-            .setRequired(true)
-            .addChoices(...FEATURE_CHOICES)
-        )
-        .addBooleanOption((o) => o.setName('enabled').setDescription('enable/disable').setRequired(true))
-    )
-    .addSubcommand((s) =>
-      s
-        .setName('threshold')
-        .setDescription('Set a numeric threshold.')
-        .addStringOption((o) =>
-          o
-            .setName('key')
-            .setDescription('Which threshold')
-            .setRequired(true)
-            .addChoices(...THRESHOLD_CHOICES)
-        )
-        .addIntegerOption((o) => o.setName('value').setDescription('New value (≥0)').setMinValue(0).setRequired(true))
-    )
-    .addSubcommand((s) =>
-      s
-        .setName('starboard')
-        .setDescription('Configure starboard appearance.')
-        .addStringOption((o) =>
-          o
-            .setName('emoji-tiers')
-            .setDescription('Comma-separated "threshold:emoji" pairs e.g. "1:⭐,5:🌟,10:💫,25:🌠"')
-            .setRequired(true)
-            .setMaxLength(512)
-        )
-    )
-    .addSubcommand((s) =>
-      s
-        .setName('string')
-        .setDescription('Set a string config value.')
-        .addStringOption((o) =>
-          o
-            .setName('key')
-            .setDescription('Which setting')
-            .setRequired(true)
-            .addChoices(...STRING_CHOICES)
-        )
-        .addStringOption((o) => o.setName('value').setDescription('New value').setRequired(true).setMaxLength(512))
-    )
-    .addSubcommand((s) =>
-      s
-        .setName('enable-all')
-        .setDescription('Enable or disable every feature flag at once.')
-        .addBooleanOption((o) => o.setName('enabled').setDescription('Enable or disable all features').setRequired(true))
-    )
-    .addSubcommandGroup((group) =>
-      group
-        .setName('forum')
-        .setDescription('Map forum thread channels to roles (members get auto-added when role is assigned).')
-        .addSubcommand((s) =>
-          s
-            .setName('add')
-            .setDescription('Add a mapping: role → forum thread.')
-            .addRoleOption((o) => o.setName('role').setDescription('The Discord role').setRequired(true))
-            .addChannelOption((o) =>
-              o
-                .setName('channel')
-                .setDescription('The forum thread (post) to map to this role')
-                .addChannelTypes(ChannelType.PublicThread, ChannelType.PrivateThread)
-                .setRequired(true)
-            )
-        )
-        .addSubcommand((s) =>
-          s
-            .setName('remove')
-            .setDescription('Remove a mapping: role → forum thread.')
-            .addRoleOption((o) => o.setName('role').setDescription('The Discord role').setRequired(true))
-            .addStringOption((o) => o.setName('channel').setDescription('Forum thread channel ID').setRequired(true).setAutocomplete(true))
-        )
-        .addSubcommand((s) => s.setName('list').setDescription('List all forum role mappings.'))
-    )
     .addSubcommand((s) =>
       s
         .setName('schedulable')
@@ -653,151 +274,13 @@ export default new Command<ApplicationCommandType.ChatInput>({
         )
     ),
 
-  async autocomplete(_client, interaction) {
-    const group = interaction.options.getSubcommandGroup(false);
-    const sub = interaction.options.getSubcommand(false);
-    const focused = interaction.options.getFocused(true);
-    const query = focused.value.toLowerCase();
-    const dispatchKey = group && sub ? `${group}:${sub}` : (sub ?? '');
-
-    const handlers: Record<string, () => Promise<void>> = {
-      'forum:remove': async () => {
-        const roleId = interaction.options.get('role')?.value as string | undefined;
-        const mappings = await listForumRoleMappings();
-        const relevant = roleId ? mappings.filter((m) => m.roleId === roleId) : mappings;
-        const seen = new Set<string>();
-        const choices = relevant
-          .filter((m) => {
-            if (seen.has(m.channelId)) return false;
-            seen.add(m.channelId);
-            return m.channelId.includes(query);
-          })
-          .slice(0, 25)
-          .map((m) => {
-            const resolved = interaction.guild?.channels.cache.get(m.channelId);
-            return { name: resolved ? `${resolved.name} (${m.channelId})` : m.channelId, value: m.channelId };
-          });
-        await interaction.respond(choices);
-      },
-
-      'role:country': async () => {
-        const options = await getVerificationCountryOptions();
-        const filtered = options
-          .filter((o) => o.label.toLowerCase().includes(query) || o.value.toLowerCase().includes(query))
-          .slice(0, 25)
-          .map((o) => ({ name: `${o.label} (${o.value})`, value: o.value }));
-        await interaction.respond(filtered);
-      },
-
-      'role:language': async () => {
-        const [eu, world] = await Promise.all([getEuropeanLanguageOptions(), getWorldLanguageOptions()]);
-        const all = [...eu, ...world];
-        const filtered = all
-          .filter((o) => o.label.toLowerCase().includes(query) || o.value.toLowerCase().includes(query))
-          .slice(0, 25)
-          .map((o) => ({ name: `${o.label} (${o.value})`, value: o.value }));
-        await interaction.respond(filtered);
-      },
-
-      'role:remove': async () => {
-        const type = interaction.options.getString('type') as RoleMappingType | null;
-        if (!type) {
-          await interaction.respond([]);
-          return;
-        }
-        const rows = await listRoleMappings(type);
-        const filtered = rows
-          .filter((r) => r.value.includes(query))
-          .slice(0, 25)
-          .map((r) => ({ name: r.value, value: r.value }));
-        await interaction.respond(filtered);
-      },
-    };
-
-    await (handlers[dispatchKey]?.() ?? interaction.respond([]));
-  },
-
-  async executeCommand(command, client, interaction, middlewareData) {
-    if (middlewareData.some((m) => m.status !== ProcessExitCode.OK)) return;
-
-    const group = interaction.options.getSubcommandGroup(false);
+  async executeCommand(command, client, interaction) {
     const sub = interaction.options.getSubcommand(true);
-    const dispatchKey = group ? `${group}:${sub}` : sub;
 
     const handlers: Record<string, () => Promise<void>> = {
       show: async () => {
-        const [settings, statChannels] = await Promise.all([getSettings(), listStatChannels()]);
-        await handlePaginatedEmbeds(buildConfigPages(settings, statChannels), interaction, { flags: MessageFlags.Ephemeral });
-      },
-
-      channel: async () => {
-        const settingsKey = interaction.options.getString('key', true) as ChannelKey;
-        const channel = interaction.options.getChannel('channel', false);
-        await updateSettings({ [settingsKey]: channel?.id ?? null });
-        await interaction.reply({
-          content: channel ? `Set **${settingsKey}** to <#${channel.id}>.` : `Cleared **${settingsKey}**.`,
-          flags: MessageFlags.Ephemeral,
-        });
-      },
-
-      statchannel: async () => {
-        const statType = interaction.options.getString('stat', true) as StatChannelType;
-        const channel = interaction.options.getChannel('channel', false);
-        const label = STAT_CHANNEL_LABELS[statType];
-        if (channel) {
-          await upsertStatChannel(statType, channel.id);
-          await interaction.reply({
-            content: `Set **${label}** stat channel to <#${channel.id}>. It updates daily at 01:00 — run \`/config run\` on \`stat-channels-schedulable\` to apply now.`,
-            flags: MessageFlags.Ephemeral,
-          });
-        } else {
-          const deleted = await deleteStatChannel(statType);
-          await interaction.reply({
-            content: deleted ? `Cleared the **${label}** stat channel.` : `No stat channel configured for **${label}**.`,
-            flags: MessageFlags.Ephemeral,
-          });
-        }
-      },
-
-      feature: async () => {
-        const settingsKey = interaction.options.getString('key', true) as FeatureKey;
-        const enabled = interaction.options.getBoolean('enabled', true);
-        await updateSettings({ [settingsKey]: enabled });
-        await interaction.reply({ content: `Set **${settingsKey}** to \`${enabled}\`.`, flags: MessageFlags.Ephemeral });
-      },
-
-      threshold: async () => {
-        const settingsKey = interaction.options.getString('key', true) as ThresholdKey;
-        const value = interaction.options.getInteger('value', true);
-        await updateSettings({ [settingsKey]: value });
-        await interaction.reply({ content: `Set **${settingsKey}** to \`${value}\`.`, flags: MessageFlags.Ephemeral });
-      },
-
-      starboard: async () => {
-        const emojiTiers = interaction.options.getString('emoji-tiers', true);
-        const parsed = parseStarboardTiers(emojiTiers);
-        await updateSettings({ starboardEmojiTiers: parsed });
-        await interaction.reply({ content: `Updated starboard emoji tiers: \`${emojiTiers}\`.`, flags: MessageFlags.Ephemeral });
-      },
-
-      string: async () => {
-        const settingsKey = interaction.options.getString('key', true) as StringKey;
-        const value = interaction.options.getString('value', true);
-        if (settingsKey === 'reactDefaultEmojis') {
-          const emojis = value.split(/[\s,]+/).filter(Boolean);
-          await updateSettings({ reactDefaultEmojis: emojis });
-          await interaction.reply({ content: `Set **${settingsKey}** to \`${emojis.join(',')}\`.`, flags: MessageFlags.Ephemeral });
-          return;
-        }
-        await updateSettings({ [settingsKey]: value });
-        await interaction.reply({ content: `Set **${settingsKey}** to \`${value}\`.`, flags: MessageFlags.Ephemeral });
-      },
-
-      'enable-all': async () => {
-        const enabled = interaction.options.getBoolean('enabled', true);
-        const patch = Object.fromEntries(ALL_FEATURE_KEYS.map((k) => [k, enabled]));
-        await updateSettings(patch);
-        await interaction.reply({ content: `All features ${enabled ? 'enabled' : 'disabled'}.`, flags: MessageFlags.Ephemeral });
+        const settings = await getSettings();
+        await handlePaginatedEmbeds(buildConfigPages(settings), interaction, { flags: MessageFlags.Ephemeral });
       },
 
       run: async () => {
@@ -859,166 +342,8 @@ export default new Command<ApplicationCommandType.ChatInput>({
           flags: MessageFlags.Ephemeral,
         });
       },
-
-      'role:permission': async () => {
-        const roleKey = interaction.options.getString('key', true);
-        const role = interaction.options.getRole('role', false);
-        if (role) {
-          await upsertRoleMapping({ type: RoleMappingType.Permission, value: roleKey, roleId: role.id });
-          await interaction.reply({ content: `Set **permission:${roleKey}** → ${role}.`, flags: MessageFlags.Ephemeral });
-        } else {
-          const deleted = await deleteRoleMapping(RoleMappingType.Permission, roleKey);
-          await interaction.reply({
-            content: deleted ? `Cleared **permission:${roleKey}**.` : `No mapping for **permission:${roleKey}**.`,
-            flags: MessageFlags.Ephemeral,
-          });
-        }
-      },
-
-      'role:utility': async () => {
-        const roleKey = interaction.options.getString('key', true);
-        const role = interaction.options.getRole('role', false);
-        if (role) {
-          await upsertRoleMapping({ type: RoleMappingType.Utility, value: roleKey, roleId: role.id });
-          await interaction.reply({ content: `Set **utility:${roleKey}** → ${role}.`, flags: MessageFlags.Ephemeral });
-        } else {
-          const deleted = await deleteRoleMapping(RoleMappingType.Utility, roleKey);
-          await interaction.reply({
-            content: deleted ? `Cleared **utility:${roleKey}**.` : `No mapping for **utility:${roleKey}**.`,
-            flags: MessageFlags.Ephemeral,
-          });
-        }
-      },
-
-      'role:country': async () => {
-        const code = interaction.options.getString('code', true).toLowerCase().trim();
-        const role = interaction.options.getRole('role', true);
-        const options = await getVerificationCountryOptions();
-        const valid = options.some((o) => o.value.toLowerCase() === code);
-        if (!valid) {
-          await interaction.reply({
-            content: `\`${code}\` is not a valid country/region code. Use the autocomplete to pick a valid value.`,
-            flags: MessageFlags.Ephemeral,
-          });
-          return;
-        }
-        await upsertRoleMapping({ type: RoleMappingType.Country, value: code, roleId: role.id });
-        await interaction.reply({ content: `Mapped **country:${code}** → ${role}.`, flags: MessageFlags.Ephemeral });
-      },
-
-      'role:language': async () => {
-        const code = interaction.options.getString('code', true).toLowerCase().trim();
-        const role = interaction.options.getRole('role', true);
-        const [eu, world] = await Promise.all([getEuropeanLanguageOptions(), getWorldLanguageOptions()]);
-        const valid = [...eu, ...world].some((o) => o.value.toLowerCase() === code);
-        if (!valid) {
-          await interaction.reply({
-            content: `\`${code}\` is not a valid language code. Use the autocomplete to pick a valid value.`,
-            flags: MessageFlags.Ephemeral,
-          });
-          return;
-        }
-        await upsertRoleMapping({ type: RoleMappingType.Language, value: code, roleId: role.id });
-        await interaction.reply({ content: `Mapped **language:${code}** → ${role}.`, flags: MessageFlags.Ephemeral });
-      },
-
-      'role:pronouns': async () => {
-        const value = interaction.options.getString('value', true);
-        const role = interaction.options.getRole('role', true);
-        await upsertRoleMapping({ type: RoleMappingType.Pronouns, value, roleId: role.id });
-        await interaction.reply({ content: `Mapped **pronouns:${value}** → ${role}.`, flags: MessageFlags.Ephemeral });
-      },
-
-      'role:remove': async () => {
-        const type = interaction.options.getString('type', true) as RoleMappingType;
-        const value = interaction.options.getString('value', true).toLowerCase().trim();
-        const deleted = await deleteRoleMapping(type, value);
-        await interaction.reply({
-          content: deleted ? `Removed mapping **${type}:${value}**.` : `No mapping found for **${type}:${value}**.`,
-          flags: MessageFlags.Ephemeral,
-        });
-      },
-
-      'role:list': async () => {
-        const typeFilter = interaction.options.getString('type') as RoleMappingType | null;
-        const rows = await listRoleMappings(typeFilter ?? undefined);
-        const color = appFeatureMap[command.options.feature].color;
-        const embed = new EmbedBuilder().setColor(color).setTitle('Role Mappings').setTimestamp();
-        if (rows.length === 0) {
-          embed.setDescription('*No mappings configured.*');
-        } else {
-          const grouped = new Map<RoleMappingType, typeof rows>();
-          for (const row of rows) {
-            const bucket = grouped.get(row.type) ?? [];
-            bucket.push(row);
-            grouped.set(row.type, bucket);
-          }
-          for (const [type, entries] of grouped) {
-            embed.addFields({
-              name: type.charAt(0).toUpperCase() + type.slice(1),
-              value: entries.map((e) => `\`${e.value}\` → <@&${e.roleId}>`).join('\n'),
-            });
-          }
-        }
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-      },
-
-      'forum:add': async () => {
-        const role = interaction.options.getRole('role', true);
-        const channelOption = interaction.options.getChannel('channel', true);
-        const thread = await interaction.guild?.channels.fetch(channelOption.id).catch(() => null);
-        if (!thread?.isThread() || thread.parent?.type !== ChannelType.GuildForum) {
-          await interaction.reply({ content: 'Channel must be a thread inside a forum channel.', flags: MessageFlags.Ephemeral });
-          return;
-        }
-        await insertForumRoleMapping({ channelId: thread.id, roleId: role.id });
-        const members = interaction.guild?.roles.cache.get(role.id)?.members;
-        let synced = 0;
-        if (members) {
-          await Promise.allSettled(
-            members.map(async (member) => {
-              await thread.members.add(member.id).catch(() => null);
-              synced++;
-            })
-          );
-        }
-        await interaction.reply({
-          content: `Mapped ${role} → <#${thread.id}>. Added ${synced} existing role holder(s) to the thread.`,
-          flags: MessageFlags.Ephemeral,
-        });
-      },
-
-      'forum:remove': async () => {
-        const role = interaction.options.getRole('role', true);
-        const channelId = interaction.options.getString('channel', true).trim();
-        const deleted = await deleteForumRoleMapping(channelId, role.id);
-        await interaction.reply({
-          content: deleted ? `Removed mapping ${role} → <#${channelId}>.` : `No mapping found for ${role} → \`${channelId}\`.`,
-          flags: MessageFlags.Ephemeral,
-        });
-      },
-
-      'forum:list': async () => {
-        const mappings = await listForumRoleMappings();
-        const color = appFeatureMap[command.options.feature].color;
-        const embed = new EmbedBuilder().setColor(color).setTitle('Forum Role Mappings').setTimestamp();
-        if (mappings.length === 0) {
-          embed.setDescription('*No mappings configured.*');
-        } else {
-          const grouped = new Map<string, typeof mappings>();
-          for (const m of mappings) {
-            const bucket = grouped.get(m.channelId) ?? [];
-            bucket.push(m);
-            grouped.set(m.channelId, bucket);
-          }
-          for (const [channelId, entries] of grouped) {
-            embed.addFields({ name: `<#${channelId}>`, value: entries.map((e) => `<@&${e.roleId}>`).join('\n') });
-          }
-        }
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-      },
     };
 
-    await handlers[dispatchKey]?.();
+    await handlers[sub]?.();
   },
 });

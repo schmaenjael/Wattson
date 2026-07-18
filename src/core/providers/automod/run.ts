@@ -1,6 +1,15 @@
 import { Colors, EmbedBuilder, type Message, type PartialMessage, type TextChannel } from 'discord.js';
 
-import { AuditEventType, getSettings, insertWarning, recordAuditEvent, upsertUser } from '~/database';
+import {
+  AuditEventType,
+  getSettings,
+  HarmSampleAction,
+  insertHarmSample,
+  insertWarning,
+  recordAuditEvent,
+  upsertUser,
+  type Warning,
+} from '~/database';
 import { AppFeature } from '~/settings';
 import { Client } from '~/core/models';
 import { Logger } from '~/utilities';
@@ -75,7 +84,33 @@ const postHarmAlert = async (
   }
 };
 
-const issueAutoWarn = async (message: Message<true>, result: HarmDetectionResult): Promise<void> => {
+/** Records a harm-detector hit as training data (text + context + raw scores + action taken). Never throws. */
+const recordHarmSample = async (
+  message: Message<true>,
+  result: HarmDetectionResult,
+  action: HarmSampleAction,
+  warningId: number | null
+): Promise<void> => {
+  try {
+    await upsertUser({ id: message.author.id, username: message.author.username });
+    await insertHarmSample({
+      messageId: message.id,
+      channelId: message.channelId,
+      authorId: message.author.id,
+      content: message.content,
+      contextMessages: [],
+      detectedCategories: result.detectedCategories,
+      scores: result.scores,
+      modelVersion: result.modelVersion,
+      action,
+      warningId,
+    });
+  } catch (err) {
+    Logger.getInstance(AppFeature.Surveillance).warn(Object(err), 'Failed to record harm detection sample.');
+  }
+};
+
+const issueAutoWarn = async (message: Message<true>, result: HarmDetectionResult): Promise<Warning> => {
   const botId = message.client.user!.id;
   const botUsername = message.client.user!.username;
   const categoryList = result.detectedCategories.map((c) => CATEGORY_LABELS[c]).join(', ');
@@ -134,6 +169,8 @@ const issueAutoWarn = async (message: Message<true>, result: HarmDetectionResult
       .addFields({ name: 'User', value: `<@${message.author.id}>` }, { name: 'Reason', value: reason })
       .setTimestamp(warning.createdAt),
   });
+
+  return warning;
 };
 
 const runLlmCheck = async (content: string, settings: Awaited<ReturnType<typeof getSettings>>): Promise<HarmDetectionResult | null> => {
@@ -148,7 +185,11 @@ const runLlmCheck = async (content: string, settings: Awaited<ReturnType<typeof 
 };
 
 /** MessageUpdate fan-out entrypoint: re-runs automod on an edited message when its content changed. */
-export const runAutomodOnEdit = async (_client: Client, oldMessage: Message<boolean> | PartialMessage, newMessage: Message<boolean> | PartialMessage): Promise<void> => {
+export const runAutomodOnEdit = async (
+  _client: Client,
+  oldMessage: Message<boolean> | PartialMessage,
+  newMessage: Message<boolean> | PartialMessage
+): Promise<void> => {
   if (!newMessage.inGuild()) return;
   if (newMessage.author?.bot) return;
   if (oldMessage.content === newMessage.content) return;
@@ -247,7 +288,8 @@ export const runAutomod = async (message: Message<true>, settings: Awaited<Retur
           const isHighConfidence = result.detectedCategories.some((cat) => result.categories[cat].confidence === 'high');
           if (isHighConfidence) {
             await message.delete().catch(() => null);
-            await issueAutoWarn(message, result);
+            const warning = await issueAutoWarn(message, result);
+            await recordHarmSample(message, result, HarmSampleAction.DeletedWarned, warning.id);
             logger.info(
               { word: match.word, categories: result.detectedCategories },
               'Profanity: LLM confirmed high confidence harm, deleted + warned.'
@@ -280,6 +322,8 @@ export const runAutomod = async (message: Message<true>, settings: Awaited<Retur
                 settings.surveillanceLogChannelId
               );
             }
+          } else {
+            await recordHarmSample(message, result, HarmSampleAction.Flagged, null);
           }
         }
 
@@ -305,10 +349,14 @@ export const runAutomod = async (message: Message<true>, settings: Awaited<Retur
   if (!result.anyDetected) return;
 
   const isHighConfidence = result.detectedCategories.some((cat) => result.categories[cat].confidence === 'high');
-  if (!isHighConfidence) return;
+  if (!isHighConfidence) {
+    await recordHarmSample(message, result, HarmSampleAction.Flagged, null);
+    return;
+  }
 
   await message.delete().catch(() => null);
-  await issueAutoWarn(message, result);
+  const warning = await issueAutoWarn(message, result);
+  await recordHarmSample(message, result, HarmSampleAction.DeletedWarned, warning.id);
   logger.info({ categories: result.detectedCategories }, 'Harm detection: high confidence — deleted + warned.');
   await logger.log({
     level: 'info',
