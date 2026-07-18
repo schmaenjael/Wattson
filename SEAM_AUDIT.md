@@ -4,6 +4,19 @@ Design review of the whole codebase through the deep-module lens (Ousterhout dep
 
 **Verdict in one line:** the _architecture_ (provider barrels, thin events, repo layer, Schedulable base) is sound; the _seams leak_. Depth that belongs behind provider interfaces has repeatedly spilled into commands, into the message pipeline, and — worst — into Discord embeds used as a database.
 
+## Fix-plan decisions (grilling session, do not re-open)
+
+Scope is **B: structural fixes, no permanent test suite**. Decided and closed:
+
+- **#3 (db-injection across repos) — WON'T FIX.** Testability rationale is void under scope B. Its only other justification, atomic GDPR delete, doesn't hold up: `executeGdprDeletion` is already one clean transaction of trivial one-liners.
+- **GDPR "duplication" finding — WON'T FIX.** Over-flagged; the ~18 `tx.delete().where()` lines are trivial one-liners, not duplicated logic. Threading `tx` through repos to remove them would widen every repo interface for no real gain.
+- **`getSettings` async — WON'T FIX.** Confirmed synchronous (no I/O; reads in-memory Zod config), and already carries an explanatory docstring. De-asyncing means touching ~40 call sites for a LOW-severity finding — not worth the churn.
+- **#7 (isPrivileged predicate) — folded into Wave 2**, done alongside the #1 command extractions rather than as a standalone pass, since most scattered checks live in the same files #1 rewrites.
+- **`messagePipeline` dispatcher/provider mislabel — upgraded to full re-seat**, done as part of Wave 3 alongside #5. It should mirror `Event.routes[]` (a message-dispatch mechanism, not a domain provider), with each safety provider owning its own side-effects.
+- **Characterization tests are scaffolding only** — written to pin risky waves (#1 extraction, #2 embed→audit swap, pipeline re-seat), deleted once each wave is green. No permanent suite, per scope B.
+
+Wave order: **0** mechanical (done) → **1** #2 embed-as-database fix → **2** #1 full command extraction + new `events` provider + #7 → **3** pipeline re-seat + #5 → **4** #9 BaseEmbed/embed cleanup.
+
 ---
 
 ## Cross-cutting seam breaks (ranked — these matter more than any single finding)
