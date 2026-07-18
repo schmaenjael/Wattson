@@ -20,6 +20,7 @@ import { AppFeature, appFeatureMap } from '~/settings';
 import {
   AuditEventType,
   findOpenModmailByUserId,
+  getLatestVerificationAnswers,
   getSettings,
   ModmailCategory,
   ModmailStatus,
@@ -31,33 +32,7 @@ import { CloseActionType, type VerificationFollowUpPayload } from '~/core/provid
 import { ModmailOpenThreadEmbed, VerificationFollowUpUserDmEmbed } from '~/core/components/Modmail';
 import { L } from '~/core/locales';
 import type { FlowAnswers } from './flow';
-import { ANSWER_DISPLAY_NAMES, grantAccess, postWelcomeEmbed } from './actions';
-
-const STATIC_FIELDS = new Set(['User', 'Account created', 'Joined server']);
-const MULTI_SELECT_KEYS = new Set(['home_country', 'pronouns', 'spoken_languages_eu', 'spoken_languages_other']);
-const CODE_KEYS = new Set(['home_country', 'pronouns', 'spoken_languages_eu', 'spoken_languages_other']);
-
-const REVERSE_DISPLAY_NAMES: Record<string, string> = Object.fromEntries(Object.entries(ANSWER_DISPLAY_NAMES).map(([k, v]) => [v, k]));
-
-const extractCode = (val: string): string => {
-  const m = val.match(/\(([^)]+)\)$/);
-  return m ? m[1] : val;
-};
-
-const answersFromEmbed = (embed: { fields: { name: string; value: string }[] }): FlowAnswers => {
-  const result: FlowAnswers = {};
-  for (const field of embed.fields) {
-    if (STATIC_FIELDS.has(field.name)) continue;
-    const key = REVERSE_DISPLAY_NAMES[field.name] ?? field.name;
-    if (MULTI_SELECT_KEYS.has(key)) {
-      const items = field.value.split(', ').filter(Boolean);
-      result[key] = CODE_KEYS.has(key) ? items.map((c) => extractCode(c).toLowerCase()) : items;
-    } else {
-      result[key] = CODE_KEYS.has(key) ? extractCode(field.value).toLowerCase() : field.value;
-    }
-  }
-  return result;
-};
+import { grantAccess, postWelcomeEmbed } from './actions';
 
 const isModerator = async (interaction: ButtonInteraction): Promise<boolean> => {
   const settings = await getSettings();
@@ -189,10 +164,19 @@ const handleApprove = async (client: Client, interaction: ButtonInteraction, mem
     return;
   }
 
+  const answers = await getLatestVerificationAnswers(memberId);
+  if (!answers) {
+    await interaction.followUp({
+      content: `No recorded verification answers found for <@${memberId}>. Cannot grant access.`,
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
   const locale = interaction.guild?.preferredLocale ?? 'en-US';
   const color = appFeatureMap[AppFeature.Welcome].color;
 
-  await grantAccess(member, answersFromEmbed(embed));
+  await grantAccess(member, answers as FlowAnswers);
   await postWelcomeEmbed(client, member);
   await recordAuditEvent({ eventType: AuditEventType.VerificationCompleted, actorUserId: interaction.user.id, targetUserId: memberId });
 
