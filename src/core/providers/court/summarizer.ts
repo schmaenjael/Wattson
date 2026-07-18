@@ -1,4 +1,5 @@
 import { getConfig } from '~/config';
+import { callOllamaGenerate } from '~/core/providers/ollama';
 import { AppFeature } from '~/settings';
 import { Logger } from '~/utilities';
 
@@ -18,30 +19,17 @@ Rules:
 - If there are no notable points, return exactly: No notable points recorded.`;
 
 export const summarizeCourtThread = async (endpoint: string, model: string, messages: CourtThreadMessage[]): Promise<string | null> => {
-  const logger = Logger.getInstance(AppFeature.System);
   const relevant = messages.filter((m) => m.content.trim().length > 0);
   if (relevant.length === 0) return null;
 
   const conversation = relevant.map((m) => `[${m.author}]: ${m.content}`).join('\n');
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), getConfig().config.timeouts.summarizerMs);
 
-  try {
-    const res = await fetch(`${endpoint.replace(/\/$/, '')}/api/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: controller.signal,
-      body: JSON.stringify({ model, prompt: `${SYSTEM_PROMPT}\n\nCONVERSATION:\n${conversation}`, stream: false }),
-    });
-
-    if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
-    const body = (await res.json()) as { response?: string };
-    if (!body.response) throw new Error('Ollama response missing "response" field');
-    return body.response.trim() || null;
-  } catch (err) {
-    logger.warn(Object(err), 'Court thread summarization failed — skipping summary.');
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
+  return callOllamaGenerate({
+    endpoint,
+    model,
+    prompt: `${SYSTEM_PROMPT}\n\nCONVERSATION:\n${conversation}`,
+    timeoutMs: getConfig().config.timeouts.summarizerMs,
+    logger: Logger.getInstance(AppFeature.System),
+    failureMessage: 'Court thread summarization failed — skipping summary.',
+  });
 };

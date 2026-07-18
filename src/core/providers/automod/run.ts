@@ -12,7 +12,7 @@ import {
 } from '~/database';
 import { AppFeature } from '~/settings';
 import { Client } from '~/core/models';
-import { Logger } from '~/utilities';
+import { Logger, discordTimestamp } from '~/utilities';
 import { getHarmDetector, type HarmCategory, type HarmDetectionResult } from '~/core/providers/harm';
 import { getBlocklistChecker } from '~/core/providers/blocklist';
 import { getProfanityChecker } from '~/core/providers/profanity';
@@ -31,6 +31,7 @@ const CATEGORY_LABELS: Record<HarmCategory, string> = {
 
 const CONFIDENCE_EMOJI: Record<string, string> = { low: '🟡', medium: '🟠', high: '🔴' };
 
+const MAX_HARM_ALERT_STATE_SIZE = 500;
 const _harmAlertState = new Map<string, { alertMessageId: string; count: number }>();
 
 const postHarmAlert = async (
@@ -80,6 +81,10 @@ const postHarmAlert = async (
 
   const alertMsg = await alertChannel.send({ embeds: [embed] }).catch(() => null);
   if (alertMsg) {
+    if (_harmAlertState.size >= MAX_HARM_ALERT_STATE_SIZE) {
+      const oldestKey = _harmAlertState.keys().next().value;
+      if (oldestKey !== undefined) _harmAlertState.delete(oldestKey);
+    }
     _harmAlertState.set(messageId, { alertMessageId: alertMsg.id, count: 1 });
   }
 };
@@ -138,8 +143,8 @@ const issueAutoWarn = async (message: Message<true>, result: HarmDetectionResult
             .addFields(
               { name: 'Reason', value: reason },
               { name: 'Warning ID', value: `#${warning.id}`, inline: true },
-              { name: 'Issued at', value: `<t:${Math.floor(warning.createdAt.getTime() / 1000)}:F>`, inline: true },
-              { name: 'Expires', value: warning.expiresAt ? `<t:${Math.floor(warning.expiresAt.getTime() / 1000)}:F>` : 'Never', inline: true }
+              { name: 'Issued at', value: `${discordTimestamp(warning.createdAt, 'F')}`, inline: true },
+              { name: 'Expires', value: warning.expiresAt ? `${discordTimestamp(warning.expiresAt, 'F')}` : 'Never', inline: true }
             )
             .setTimestamp(),
         ],
@@ -159,7 +164,7 @@ const issueAutoWarn = async (message: Message<true>, result: HarmDetectionResult
       .addFields(
         { name: 'Target', value: `<@${message.author.id}>`, inline: true },
         { name: 'Moderator', value: 'Automod', inline: true },
-        { name: 'Expires', value: warning.expiresAt ? `<t:${Math.floor(warning.expiresAt.getTime() / 1000)}:R>` : 'Never', inline: true },
+        { name: 'Expires', value: warning.expiresAt ? `${discordTimestamp(warning.expiresAt, 'R')}` : 'Never', inline: true },
         { name: 'Reason', value: reason }
       )
       .setTimestamp(warning.createdAt),

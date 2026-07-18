@@ -13,6 +13,7 @@ import {
 
 import { Command } from '~/core/models';
 import { AppFeature, appFeatureMap } from '~/settings';
+import { discordTimestamp } from '~/utilities';
 import {
   AuditEventType,
   getSettings,
@@ -68,8 +69,8 @@ const AUDIT_EVENT_LABEL: Partial<Record<AuditEventType, string>> = {
   [AuditEventType.ChannelUnlocked]: 'Channel Unlocked',
 };
 
-const stamp = (d: Date) => `<t:${Math.floor(d.getTime() / 1000)}:d>`;
-const stampRel = (d: Date) => `<t:${Math.floor(d.getTime() / 1000)}:R>`;
+const stamp = (d: Date) => discordTimestamp(d, 'd');
+const stampRel = (d: Date) => discordTimestamp(d, 'R');
 
 function pageCount(items: unknown[], perPage: number): number {
   return items.length === 0 ? 0 : Math.ceil(items.length / perPage);

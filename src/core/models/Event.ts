@@ -23,7 +23,7 @@ export class Event<T extends keyof ClientEvents = any> {
   }
 
   public async execute(client: Client, ...args: ClientEvents[T]) {
-    const { executeCommand, middleware, afterware } = this.options;
+    const { middleware, afterware } = this.options;
 
     if (middleware) {
       for (const fn of middleware) {
@@ -45,8 +45,6 @@ export class Event<T extends keyof ClientEvents = any> {
           this.logger.error(Object(err), `Event handler failed for ${this.options.type}`);
         }
       }
-    } else if (executeCommand) {
-      await executeCommand(this, client, ...args);
     }
 
     if (afterware) {

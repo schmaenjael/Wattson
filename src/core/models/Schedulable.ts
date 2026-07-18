@@ -4,7 +4,7 @@ import { EmbedBuilder, TextChannel } from 'discord.js';
 import { AppFeature, appFeatureMap, Colors } from '~/settings';
 import { getSettings } from '~/database';
 import { Client } from './Client';
-import { attempt, Logger } from '~/utilities';
+import { attempt, Logger, discordTimestamp } from '~/utilities';
 
 export type SchedulableOptions = {
   name: string;
@@ -90,7 +90,7 @@ export class Schedulable {
             name: 'Next run',
             value: (() => {
               const nr = this.job?.nextRun() ?? null;
-              return nr ? `<t:${Math.floor(nr.getTime() / 1000)}:R>` : '—';
+              return nr ? `${discordTimestamp(nr, 'R')}` : '—';
             })(),
             inline: true,
           }

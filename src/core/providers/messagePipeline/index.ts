@@ -2,7 +2,7 @@ import { ChannelType, Colors, EmbedBuilder, Message, TextChannel, type Guild } f
 
 import { AuditEventType, findLockedChannel, getSettings, insertMute, lockChannel, recordAuditEvent, unlockChannel, upsertUser } from '~/database';
 import { AppFeature } from '~/settings';
-import { Logger, AsyncQueue } from '~/utilities';
+import { Logger, AsyncQueue, discordTimestamp } from '~/utilities';
 import { Client } from '~/core/models';
 import { clearUserChannelWindow, recordAndCheck } from '~/core/providers/antispam';
 import { clearChannelSlowmodeState, recordAndCheckSlowmode, type SlowmodeAction } from '~/core/providers/autoslowmode';
@@ -223,7 +223,7 @@ const processMessage = async (client: Client, message: Message<true>): Promise<v
               { name: 'Channel', value: `<#${message.channelId}>`, inline: true },
               { name: 'Mute', value: `#${mute.id}`, inline: true },
               { name: 'Threshold', value: `>${settings.antiSpamMaxMessages} msg/${settings.antiSpamWindowMs}ms`, inline: true },
-              { name: 'Expires', value: `<t:${Math.floor(expiresAt.getTime() / 1000)}:R>`, inline: true }
+              { name: 'Expires', value: `${discordTimestamp(expiresAt, 'R')}`, inline: true }
             )
             .setTimestamp(),
         });

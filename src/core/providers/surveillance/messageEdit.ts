@@ -4,8 +4,7 @@ import { AppFeature } from '~/settings';
 import { Colors } from '~/settings/theme';
 import { AuditEventType, getSettings, recordAuditEvent } from '~/database';
 import { Client } from '~/core/models';
-import { Logger } from '~/utilities';
-import { diffWords, jaccardWordDistance, levenshtein } from '~/core/providers/textSimilarity';
+import { Logger, diffWords, jaccardWordDistance, levenshtein } from '~/utilities';
 
 const MAX_DISPLAY = 1000;
 const METRIC_CAP = 500;

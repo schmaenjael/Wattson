@@ -9,8 +9,7 @@ import { Logger } from '~/utilities';
 import type { HarmDetectionConfig } from './types';
 import { HateSpeechDetector } from './hsd';
 
-export * from './types';
-export { HateSpeechDetector };
+export type { HarmCategory, HarmDetectionResult } from './types';
 
 const CONFIG_PATH = join(process.cwd(), 'config', 'harm-detection.json5');
 const DEFAULT_ENDPOINT = 'http://hate-speech-detector:8000';

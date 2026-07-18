@@ -14,11 +14,11 @@ import {
 import { getConfig } from '~/config';
 import { Schedulable } from '~/core/models/Schedulable';
 import { Client } from '~/core/models/Client';
-import { Logger } from '~/utilities';
+import { Logger, discordTimestamp } from '~/utilities';
 
 let lastEventDigestAt: Date | null = null;
 
-const ts = (date: Date) => `<t:${Math.floor(date.getTime() / 1000)}:F>`;
+const ts = (date: Date) => discordTimestamp(date, 'F');
 
 const announceEvent = async (client: Client, settings: Awaited<ReturnType<typeof getSettings>>, logger: Logger) => {
   const ANNOUNCEMENT_WINDOW_MS = 60 * 60 * 1000;

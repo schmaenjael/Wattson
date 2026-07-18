@@ -14,7 +14,7 @@ import {
 import { getConfig } from '~/config';
 import { getLogtoUser } from '~/core/providers/logto';
 import { Schedulable } from '~/core/models/Schedulable';
-import { Logger } from '~/utilities';
+import { Logger, discordTimestamp } from '~/utilities';
 
 export const verificationSchedulable = new Schedulable({
   name: 'verification-schedulable',
@@ -57,7 +57,7 @@ export const verificationSchedulable = new Schedulable({
             new EmbedBuilder()
               .setTitle('🟣 Volt Membership Re-verification Required')
               .setDescription(
-                `Your Volt membership verification expires <t:${Math.floor(row.expiresAt.getTime() / 1000)}:R>.\n\nUse \`/verify volter\` in the server to re-verify within **${reverifyWarnDays} days** to keep your Volt member status.`
+                `Your Volt membership verification expires ${discordTimestamp(row.expiresAt, 'R')}.\n\nUse \`/verify volter\` in the server to re-verify within **${reverifyWarnDays} days** to keep your Volt member status.`
               )
               .setColor(Colors.Purple),
           ],

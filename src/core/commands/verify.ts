@@ -11,7 +11,7 @@ import { AuditEventType, findUserById, findVerificationByDiscordId, getSettings,
 import { Command, Permission } from '~/core/models';
 import { L } from '~/core/locales';
 import { AppFeature, Colors } from '~/settings';
-import { Logger } from '~/utilities';
+import { Logger, discordTimestamp } from '~/utilities';
 import { activeVerifications, runVerification } from '~/core/providers/verification';
 import { initiateDeviceFlow, pollForToken } from '~/core/providers/logto';
 
@@ -94,7 +94,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
           embeds: [
             new EmbedBuilder()
               .setTitle(V.SUCCESS_TITLE())
-              .setDescription(V.ALREADY_VERIFIED({ expiry: `<t:${Math.floor(existing.expiresAt.getTime() / 1000)}:D>` }))
+              .setDescription(V.ALREADY_VERIFIED({ expiry: `${discordTimestamp(existing.expiresAt, 'D')}` }))
               .setColor(Colors.Green),
           ],
         });
@@ -154,7 +154,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
             .setTitle(V.LOG_TITLE())
             .addFields(
               { name: 'User', value: `<@${interaction.user.id}> (${interaction.user.id})`, inline: true },
-              { name: 'Expires', value: verification ? `<t:${Math.floor(verification.expiresAt.getTime() / 1000)}:D>` : '—', inline: true }
+              { name: 'Expires', value: verification ? `${discordTimestamp(verification.expiresAt, 'D')}` : '—', inline: true }
             )
             .setColor(Colors.Purple)
             .setTimestamp(),

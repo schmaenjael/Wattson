@@ -3,12 +3,13 @@ import { ApplicationCommandType, EmbedBuilder, MessageFlags, SlashCommandBuilder
 import { Command, Permission, BotException } from '~/core/models';
 import { AppFeature, appFeatureMap, MOD_LIST_PAGE_SIZE } from '~/settings';
 import { AuditEventType, findReportById, listReports, recordAuditEvent, ReportStatus, resolveReport, type Report } from '~/database';
+import { discordTimestamp } from '~/utilities';
 
 const messageUrl = (r: Report): string =>
   r.channelId && r.messageId ? `https://discord.com/channels/${process.env.GUILD_ID}/${r.channelId}/${r.messageId}` : `<#${r.channelId}>`;
 
 const reportSummary = (r: Report) =>
-  `**#${r.id}** · <t:${Math.floor(r.createdAt.getTime() / 1000)}:R> · ${statusBadge(r.status)} · reporter <@${r.reporterId}> → target <@${r.reportedUserId}>\n${messageUrl(r)}`;
+  `**#${r.id}** · ${discordTimestamp(r.createdAt, 'R')} · ${statusBadge(r.status)} · reporter <@${r.reporterId}> → target <@${r.reportedUserId}>\n${messageUrl(r)}`;
 
 const statusBadge = (s: ReportStatus): string => {
   switch (s) {
@@ -35,11 +36,11 @@ const renderDetailEmbed = (r: Report) =>
       { name: 'Reporter', value: `<@${r.reporterId}>`, inline: true },
       { name: 'Target', value: `<@${r.reportedUserId}>`, inline: true },
       { name: 'Channel', value: `<#${r.channelId}>`, inline: true },
-      { name: 'Filed', value: `<t:${Math.floor(r.createdAt.getTime() / 1000)}:F>` },
+      { name: 'Filed', value: `${discordTimestamp(r.createdAt, 'F')}` },
       { name: 'Message link', value: messageUrl(r) },
       { name: 'Content excerpt', value: r.messageContent ? r.messageContent.slice(0, 1024) : '—' },
       ...(r.resolvedBy ? [{ name: 'Resolved by', value: `<@${r.resolvedBy}>`, inline: true }] : []),
-      ...(r.resolvedAt ? [{ name: 'Resolved at', value: `<t:${Math.floor(r.resolvedAt.getTime() / 1000)}:F>`, inline: true }] : [])
+      ...(r.resolvedAt ? [{ name: 'Resolved at', value: `${discordTimestamp(r.resolvedAt, 'F')}`, inline: true }] : [])
     )
     .setTimestamp();
 

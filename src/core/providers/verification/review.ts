@@ -30,8 +30,8 @@ import {
 import { CloseActionType, type VerificationFollowUpPayload } from '~/core/providers/modmail';
 import { ModmailOpenThreadEmbed, VerificationFollowUpUserDmEmbed } from '~/core/components/Modmail';
 import { L } from '~/core/locales';
-import type { FlowAnswers } from '~/core/providers/verification/flow';
-import { ANSWER_DISPLAY_NAMES, grantAccess, postWelcomeEmbed } from '~/core/providers/verification/actions';
+import type { FlowAnswers } from './flow';
+import { ANSWER_DISPLAY_NAMES, grantAccess, postWelcomeEmbed } from './actions';
 
 const STATIC_FIELDS = new Set(['User', 'Account created', 'Joined server']);
 const MULTI_SELECT_KEYS = new Set(['home_country', 'pronouns', 'spoken_languages_eu', 'spoken_languages_other']);

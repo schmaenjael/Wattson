@@ -4,7 +4,7 @@ import { getConfig } from '~/config';
 import { Command, Permission, BotException } from '~/core/models';
 import { logModAction } from '~/core/middleware';
 import { AppFeature, appFeatureMap, MOD_LIST_PAGE_SIZE } from '~/settings';
-import { Logger, validateModerationTarget } from '~/utilities';
+import { Logger, validateModerationTarget, discordTimestamp } from '~/utilities';
 import {
   AuditEventType,
   countActiveWarnings,
@@ -41,9 +41,8 @@ const statusBadge = (w: Warning, now: Date): string => {
 };
 
 const line = (w: Warning, now: Date): string => {
-  const expiry =
-    !w.revokedAt && w.expiresAt ? ` · ${w.expiresAt < now ? 'expired' : 'expires'} <t:${Math.floor(w.expiresAt.getTime() / 1000)}:R>` : '';
-  return `**#${w.id}** · ${statusBadge(w, now)} · <t:${Math.floor(w.createdAt.getTime() / 1000)}:R> by <@${w.moderatorId}>${expiry}\n> ${w.reason}`;
+  const expiry = !w.revokedAt && w.expiresAt ? ` · ${w.expiresAt < now ? 'expired' : 'expires'} ${discordTimestamp(w.expiresAt, 'R')}` : '';
+  return `**#${w.id}** · ${statusBadge(w, now)} · ${discordTimestamp(w.createdAt, 'R')} by <@${w.moderatorId}>${expiry}\n> ${w.reason}`;
 };
 
 export default new Command<ApplicationCommandType.ChatInput>({
@@ -111,7 +110,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
         throw new BotException(client, `Failed to record warning against ${target.tag}`, error);
       }
 
-      const expiryLine = warning.expiresAt ? `Expires <t:${Math.floor(warning.expiresAt.getTime() / 1000)}:R>.` : 'No expiry.';
+      const expiryLine = warning.expiresAt ? `Expires ${discordTimestamp(warning.expiresAt, 'R')}.` : 'No expiry.';
 
       const dm = await target.createDM().catch(() => null);
       if (dm) {
@@ -124,8 +123,8 @@ export default new Command<ApplicationCommandType.ChatInput>({
                 .addFields(
                   { name: 'Reason', value: reason },
                   { name: 'Warning ID', value: `#${warning.id}`, inline: true },
-                  { name: 'Issued at', value: `<t:${Math.floor(warning.createdAt.getTime() / 1000)}:F>`, inline: true },
-                  { name: 'Expires', value: warning.expiresAt ? `<t:${Math.floor(warning.expiresAt.getTime() / 1000)}:F>` : 'Never', inline: true }
+                  { name: 'Issued at', value: `${discordTimestamp(warning.createdAt, 'F')}`, inline: true },
+                  { name: 'Expires', value: warning.expiresAt ? `${discordTimestamp(warning.expiresAt, 'F')}` : 'Never', inline: true }
                 )
                 .setTimestamp(),
             ],
@@ -145,7 +144,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
           .addFields(
             { name: 'Target', value: `<@${target.id}>`, inline: true },
             { name: 'Moderator', value: `<@${interaction.user.id}>`, inline: true },
-            { name: 'Expires', value: warning.expiresAt ? `<t:${Math.floor(warning.expiresAt.getTime() / 1000)}:R>` : 'Never', inline: true },
+            { name: 'Expires', value: warning.expiresAt ? `${discordTimestamp(warning.expiresAt, 'R')}` : 'Never', inline: true },
             { name: 'Reason', value: reason }
           )
           .setTimestamp(warning.createdAt),
@@ -197,7 +196,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
                   { name: 'Target', value: `<@${target.id}>`, inline: true },
                   { name: 'Active warnings', value: `${activeCount}`, inline: true },
                   { name: 'Duration', value: durationLabel, inline: true },
-                  { name: 'Expires', value: `<t:${Math.floor(muteExpiresAt.getTime() / 1000)}:F>`, inline: true }
+                  { name: 'Expires', value: `${discordTimestamp(muteExpiresAt, 'F')}`, inline: true }
                 )
                 .setTimestamp(),
               publicEmbed: new EmbedBuilder()
@@ -210,7 +209,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
                 )
                 .setTimestamp(),
             });
-            escalationNote += `\n\n🔇 **Auto-muted** for ${durationLabel} (${activeCount} active warnings, expires <t:${Math.floor(muteExpiresAt.getTime() / 1000)}:R>).`;
+            escalationNote += `\n\n🔇 **Auto-muted** for ${durationLabel} (${activeCount} active warnings, expires ${discordTimestamp(muteExpiresAt, 'R')}).`;
           }
         }
       }

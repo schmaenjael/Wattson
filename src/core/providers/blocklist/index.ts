@@ -4,8 +4,6 @@ import { join } from 'node:path';
 import { loadBlocklist } from './loader';
 import { BlocklistChecker } from './checker';
 
-export { BlocklistChecker } from './checker';
-
 const BLOCKLISTS_DIR = join(process.cwd(), 'config', 'blocklists');
 
 let instance: BlocklistChecker | null = null;

@@ -29,7 +29,7 @@ import {
   type CourtCase,
 } from '~/database';
 import { buildVoteEmbed, buildVoteRow } from '~/core/providers/court';
-import { attempt } from '~/utilities';
+import { attempt, discordTimestamp } from '~/utilities';
 
 const statusBadge = (s: CourtStatus): string => {
   switch (s) {
@@ -47,7 +47,7 @@ const statusBadge = (s: CourtStatus): string => {
 };
 
 const caseSummary = (c: CourtCase) =>
-  `**#${c.id}** · ${statusBadge(c.status)} · <t:${Math.floor(c.openedAt.getTime() / 1000)}:R> · <@${c.accusedUserId}>\n> ${c.reason}`;
+  `**#${c.id}** · ${statusBadge(c.status)} · ${discordTimestamp(c.openedAt, 'R')} · <@${c.accusedUserId}>\n> ${c.reason}`;
 
 export default new Command<ApplicationCommandType.ChatInput>({
   feature: AppFeature.System,
@@ -268,8 +268,8 @@ export default new Command<ApplicationCommandType.ChatInput>({
           { name: 'Accused', value: `<@${rec.accusedUserId}>`, inline: true },
           { name: 'Opened by', value: `<@${rec.openedByModeratorId}>`, inline: true },
           { name: 'Thread', value: `<#${rec.threadId}>`, inline: true },
-          { name: 'Opened', value: `<t:${Math.floor(rec.openedAt.getTime() / 1000)}:F>`, inline: true },
-          ...(rec.closedAt ? [{ name: 'Closed', value: `<t:${Math.floor(rec.closedAt.getTime() / 1000)}:F>`, inline: true }] : []),
+          { name: 'Opened', value: `${discordTimestamp(rec.openedAt, 'F')}`, inline: true },
+          ...(rec.closedAt ? [{ name: 'Closed', value: `${discordTimestamp(rec.closedAt, 'F')}`, inline: true }] : []),
           { name: 'Reason', value: rec.reason },
           ...(rec.verdict ? [{ name: 'Verdict', value: rec.verdict }] : []),
           ...(rec.summary ? [{ name: 'Notable Points (LLM Summary)', value: rec.summary.slice(0, 1024) }] : [])

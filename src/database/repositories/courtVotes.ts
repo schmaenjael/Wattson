@@ -20,7 +20,17 @@ export const getVoteTallies = async (caseId: number): Promise<{ ban: number; war
 
   const result = { ban: 0, warn: 0, dismiss: 0 };
   for (const row of rows) {
-    result[row.vote] = Number(row.c);
+    switch (row.vote) {
+      case CourtVoteOption.Ban:
+        result.ban = Number(row.c);
+        break;
+      case CourtVoteOption.Warn:
+        result.warn = Number(row.c);
+        break;
+      case CourtVoteOption.Dismiss:
+        result.dismiss = Number(row.c);
+        break;
+    }
   }
   return result;
 };

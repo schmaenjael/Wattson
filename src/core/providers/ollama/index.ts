@@ -37,21 +37,34 @@ interface OllamaGenerateResponse {
   response?: string;
 }
 
-export const queryOllama = async (question: string): Promise<string | null> => {
-  const endpoint = process.env.OLLAMA_ENDPOINT;
-  const model = process.env.OLLAMA_MODEL;
-  if (!endpoint || !model) return null;
+export interface OllamaGenerateParams {
+  endpoint: string;
+  model: string;
+  prompt: string;
+  system?: string;
+  timeoutMs: number;
+  logger: Logger;
+  failureMessage: string;
+}
 
-  const logger = Logger.getInstance(AppFeature.Ask);
+export const callOllamaGenerate = async ({
+  endpoint,
+  model,
+  prompt,
+  system,
+  timeoutMs,
+  logger,
+  failureMessage,
+}: OllamaGenerateParams): Promise<string | null> => {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), getConfig().config.timeouts.ollamaMs);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const res = await fetch(`${endpoint.replace(/\/$/, '')}/api/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: controller.signal,
-      body: JSON.stringify({ model, system: SYSTEM_PROMPT, prompt: question, stream: false }),
+      body: JSON.stringify({ model, prompt, stream: false, ...(system ? { system } : {}) }),
     });
 
     if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
@@ -59,9 +72,25 @@ export const queryOllama = async (question: string): Promise<string | null> => {
     if (!body.response) throw new Error('Ollama response missing "response" field');
     return body.response.trim() || null;
   } catch (err) {
-    logger.warn(Object(err), 'Ollama query failed.');
+    logger.warn(Object(err), failureMessage);
     return null;
   } finally {
     clearTimeout(timer);
   }
+};
+
+export const queryOllama = async (question: string): Promise<string | null> => {
+  const endpoint = process.env.OLLAMA_ENDPOINT;
+  const model = process.env.OLLAMA_MODEL;
+  if (!endpoint || !model) return null;
+
+  return callOllamaGenerate({
+    endpoint,
+    model,
+    prompt: question,
+    system: SYSTEM_PROMPT,
+    timeoutMs: getConfig().config.timeouts.ollamaMs,
+    logger: Logger.getInstance(AppFeature.Ask),
+    failureMessage: 'Ollama query failed.',
+  });
 };

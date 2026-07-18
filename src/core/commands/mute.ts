@@ -4,7 +4,7 @@ import { BotException, Command, Permission } from '~/core/models';
 import { logModAction } from '~/core/middleware';
 import { AppFeature, appFeatureMap } from '~/settings';
 import { AuditEventType, getSettings, insertMute, upsertUser } from '~/database';
-import { Logger, validateModerationTarget, resolveExpiresAt } from '~/utilities';
+import { Logger, validateModerationTarget, resolveExpiresAt, discordTimestamp } from '~/utilities';
 
 export default new Command<ApplicationCommandType.ChatInput>({
   feature: AppFeature.Mute,
@@ -82,7 +82,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
           { name: 'Target', value: `<@${target.id}>`, inline: true },
           { name: 'Moderator', value: `<@${interaction.user.id}>`, inline: true },
           { name: 'Reason', value: reason },
-          { name: 'Expires', value: expiresAt ? `<t:${Math.floor(expiresAt.getTime() / 1000)}:F>` : 'indefinite', inline: true }
+          { name: 'Expires', value: expiresAt ? `${discordTimestamp(expiresAt, 'F')}` : 'indefinite', inline: true }
         )
         .setTimestamp(mute.createdAt),
       publicEmbed: new EmbedBuilder()
@@ -90,14 +90,14 @@ export default new Command<ApplicationCommandType.ChatInput>({
         .setTitle('🔇 Member Muted')
         .addFields(
           { name: 'User', value: `<@${target.id}>` },
-          { name: 'Duration', value: expiresAt ? `<t:${Math.floor(expiresAt.getTime() / 1000)}:R>` : 'indefinite' },
+          { name: 'Duration', value: expiresAt ? `${discordTimestamp(expiresAt, 'R')}` : 'indefinite' },
           { name: 'Reason', value: reason }
         )
         .setTimestamp(mute.createdAt),
     });
 
     await interaction.editReply({
-      content: `Muted <@${target.id}>. Mute **#${mute.id}** recorded${expiresAt ? `; expires <t:${Math.floor(expiresAt.getTime() / 1000)}:R>` : ' (indefinite)'}.`,
+      content: `Muted <@${target.id}>. Mute **#${mute.id}** recorded${expiresAt ? `; expires ${discordTimestamp(expiresAt, 'R')}` : ' (indefinite)'}.`,
     });
 
     return {

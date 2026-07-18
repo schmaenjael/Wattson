@@ -80,13 +80,13 @@ export default new Command<ApplicationCommandType.ChatInput>({
 
 Exactly ONE file per Discord gateway event, flat in `src/core/events/`. Events contain NO business logic — they only call provider methods. Two archetypes:
 
-- **Fan-out** (multiple features react to one gateway event): `executeCommand` calls each provider in order, e.g. `messageReactionAdd.ts`, `guildMemberAdd.ts`, `guildMemberUpdate.ts`.
+- **Fan-out** (multiple features react to one gateway event): declare `handlers[]`, e.g. `messageReactionAdd.ts`, `guildMemberAdd.ts`, `guildMemberUpdate.ts`. The `Event` model runs them in declared order and isolates failures — one throwing handler does not block the others.
 
   ```ts
-  new Event({ type, feature, middleware, async executeCommand(event, client, ...args) { await providerA(...); await providerB(...); } });
+  new Event({ type, feature, middleware, handlers: [providerA, providerB] });
   ```
 
-- **Dispatch** (`interactionCreate.ts`): declare `routes[]` instead of `executeCommand`. The `Event` model dispatches by `kind` + first `:`-segment of the `customId` to a provider handler.
+- **Dispatch** (`interactionCreate.ts`): declare `routes[]` instead of `handlers`. The `Event` model dispatches by `kind` + first `:`-segment of the `customId` to a provider handler.
 
   ```ts
   new Event({

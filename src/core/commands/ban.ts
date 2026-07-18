@@ -4,7 +4,7 @@ import { BotException, Command, Permission } from '~/core/models';
 import { logModAction } from '~/core/middleware';
 import { AppFeature, appFeatureMap } from '~/settings';
 import { AuditEventType, insertBan, upsertUser } from '~/database';
-import { Logger, validateModerationTarget, resolveExpiresAt } from '~/utilities';
+import { Logger, validateModerationTarget, resolveExpiresAt, discordTimestamp } from '~/utilities';
 
 export default new Command<ApplicationCommandType.ChatInput>({
   feature: AppFeature.Ban,
@@ -76,7 +76,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
           { name: 'Target', value: `<@${target.id}>`, inline: true },
           { name: 'Moderator', value: `<@${interaction.user.id}>`, inline: true },
           { name: 'Reason', value: reason },
-          { name: 'Expires', value: expiresAt ? `<t:${Math.floor(expiresAt.getTime() / 1000)}:F>` : 'permanent', inline: true },
+          { name: 'Expires', value: expiresAt ? `${discordTimestamp(expiresAt, 'F')}` : 'permanent', inline: true },
           { name: 'Appealable', value: appealable ? 'yes' : 'no', inline: true }
         )
         .setTimestamp(ban.createdAt),
@@ -88,7 +88,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
     });
 
     await interaction.editReply({
-      content: `Banned <@${target.id}>. Ban **#${ban.id}** recorded${expiresAt ? `; expires <t:${Math.floor(expiresAt.getTime() / 1000)}:R>` : ' (permanent)'}.`,
+      content: `Banned <@${target.id}>. Ban **#${ban.id}** recorded${expiresAt ? `; expires ${discordTimestamp(expiresAt, 'R')}` : ' (permanent)'}.`,
     });
 
     return {

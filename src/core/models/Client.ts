@@ -32,7 +32,7 @@ export class Client extends _Client {
   }
 
   public setCommands(commands: Collection<string, Command<ApplicationCommandType>>) {
-    this.commands = Object.freeze(commands);
+    this.commands = commands;
   }
 
   public getCommands() {

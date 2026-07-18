@@ -16,6 +16,10 @@ export const measurePerformance = <T extends (...args: any[]) => any>(target: T,
 
 export const toTitleCase = (str: string) => str.replace(/\w\S*/g, (text) => text.charAt(0).toUpperCase() + text.substring(1).toLowerCase());
 
+export type DiscordTimestampStyle = 't' | 'T' | 'd' | 'D' | 'f' | 'F' | 'R';
+
+export const discordTimestamp = (date: Date, style: DiscordTimestampStyle): string => `<t:${Math.floor(date.getTime() / 1000)}:${style}>`;
+
 export const chunkText = (text: string, maxLen: number): string[] => {
   if (text.length <= maxLen) return [text];
   const chunks: string[] = [];

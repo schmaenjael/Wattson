@@ -30,7 +30,7 @@ import {
   deleteRegistrationsForEvent,
 } from '~/database';
 import { L } from '~/core/locales';
-import { attempt } from '~/utilities';
+import { attempt, discordTimestamp } from '~/utilities';
 
 const TIMEZONE_CHOICES = [
   { name: 'UTC', value: 'UTC' },
@@ -52,7 +52,7 @@ const toUtc = (dateStr: string, timeStr: string, tz: string): Date => {
   return new Date(local.getTime() + (local.getTime() - inTz.getTime()));
 };
 
-const ts = (date: Date) => `<t:${Math.floor(date.getTime() / 1000)}:F>`;
+const ts = (date: Date) => discordTimestamp(date, 'F');
 
 const isEventManager = (memberRoleIds: Set<string>, roleEventManagerId: string | null): boolean =>
   roleEventManagerId !== null && memberRoleIds.has(roleEventManagerId);

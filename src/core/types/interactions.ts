@@ -67,8 +67,11 @@ export type AfterwareFunctionCommand<T extends ApplicationCommandType> = (
   commandResult: unknown
 ) => Promise<void>;
 
-interface Interaction {
+interface FeatureOwned {
   feature: AppFeature;
+}
+
+interface Interaction extends FeatureOwned {
   requiredPermissions?: Permission[];
   allowDM?: boolean;
   dmOnly?: boolean;
@@ -123,14 +126,13 @@ export type InteractionRoute = CommandRoute | AutocompleteRoute | ButtonRoute | 
  */
 export type EventHandler<T extends keyof ClientEvents> = (client: Client, ...args: ClientEvents[T]) => Promise<void> | void;
 
-export interface EventOptions<T extends keyof ClientEvents> extends Interaction {
+export interface EventOptions<T extends keyof ClientEvents> extends FeatureOwned {
   type: T;
   once?: boolean;
   middleware?: Array<MiddlewareFunctionEvent<T>>;
   afterware?: Array<AfterwareFunctionEvent<T>>;
   routes?: InteractionRoute[];
   handlers?: Array<EventHandler<T>>;
-  executeCommand?(event: Event<T>, client: Client, ...args: ClientEvents[T]): Promise<unknown>;
 }
 
 export interface MiddlewareResult {

@@ -4,6 +4,7 @@ import { BaseEmbed } from '~/core/components/BaseEmbed';
 import type { Modmail } from '~/database';
 import { ModmailCategory, ModmailStatus } from '~/database';
 import { baseLocale } from '~/core/locales';
+import { discordTimestamp } from '~/utilities';
 
 export const CATEGORY_COLORS: Record<ModmailCategory, `#${string}`> = {
   [ModmailCategory.Partnerships]: '#5865F2',
@@ -49,7 +50,7 @@ export class ModmailOpenThreadEmbed extends BaseEmbed<{ modmail: Modmail; user: 
         { name: '​', value: '​', inline: true },
         { name: 'Reason', value: modmail.reason },
         { name: 'Account Created', value: `<t:${Math.floor(user.createdTimestamp / 1000)}:R>`, inline: true },
-        { name: 'Opened', value: `<t:${Math.floor(modmail.createdAt.getTime() / 1000)}:F>`, inline: true }
+        { name: 'Opened', value: `${discordTimestamp(modmail.createdAt, 'F')}`, inline: true }
       )
       .setThumbnail(user.displayAvatarURL())
       .setFooter({ text: 'Reply via /modmail message · /modmail attach · /modmail close' })
@@ -171,16 +172,16 @@ export class ModmailShowEmbed extends BaseEmbed<{ modmail: Modmail; user: User |
         { name: 'User ID', value: modmail.userId ?? '[deleted]', inline: true },
         { name: '​', value: '​', inline: true },
         { name: 'Thread', value: `<#${modmail.threadId}>`, inline: true },
-        { name: 'Opened', value: `<t:${Math.floor(modmail.createdAt.getTime() / 1000)}:F>`, inline: true },
+        { name: 'Opened', value: `${discordTimestamp(modmail.createdAt, 'F')}`, inline: true },
         { name: '​', value: '​', inline: true },
         { name: 'Reason', value: modmail.reason }
       );
 
     if (modmail.closedAt) {
-      embed.addFields({ name: 'Closed', value: `<t:${Math.floor(modmail.closedAt.getTime() / 1000)}:F>`, inline: true });
+      embed.addFields({ name: 'Closed', value: `${discordTimestamp(modmail.closedAt, 'F')}`, inline: true });
     }
     if (modmail.lastActivityAt) {
-      embed.addFields({ name: 'Last Activity', value: `<t:${Math.floor(modmail.lastActivityAt.getTime() / 1000)}:R>`, inline: true });
+      embed.addFields({ name: 'Last Activity', value: `${discordTimestamp(modmail.lastActivityAt, 'R')}`, inline: true });
     }
 
     return embed.setTimestamp();
@@ -223,7 +224,7 @@ export class ModmailChannelEmbed extends BaseEmbed<{ modmail: Modmail; user: Use
         { name: 'Status', value: STATUS_LABELS[modmail.status as ModmailStatus], inline: true },
         { name: '​', value: '​', inline: true },
         { name: 'Reason', value: modmail.reason },
-        { name: 'Opened', value: `<t:${Math.floor(modmail.createdAt.getTime() / 1000)}:R>`, inline: true }
+        { name: 'Opened', value: `${discordTimestamp(modmail.createdAt, 'R')}`, inline: true }
       );
 
     if (user) {
@@ -231,7 +232,7 @@ export class ModmailChannelEmbed extends BaseEmbed<{ modmail: Modmail; user: Use
     }
 
     if (modmail.closedAt) {
-      embed.addFields({ name: 'Closed', value: `<t:${Math.floor(modmail.closedAt.getTime() / 1000)}:R>`, inline: true });
+      embed.addFields({ name: 'Closed', value: `${discordTimestamp(modmail.closedAt, 'R')}`, inline: true });
     }
 
     return embed.setTimestamp();

@@ -3,7 +3,7 @@ import { ButtonInteraction, MessageFlags } from 'discord.js';
 import { Client } from '~/core/models';
 import { CourtStatus, CourtVoteOption, findCaseById, getSettings, getVoteTallies, upsertCourtVote, upsertUser } from '~/database';
 import { attempt } from '~/utilities';
-import { buildVoteEmbed, buildVoteRow, executeCaseOutcome, VOTE_THRESHOLD } from '~/core/providers/court/outcome';
+import { buildVoteEmbed, buildVoteRow, executeCaseOutcome, VOTE_THRESHOLD } from './outcome';
 
 export const handleCourtVote = async (client: Client, interaction: ButtonInteraction): Promise<void> => {
   const parts = interaction.customId.split(':');

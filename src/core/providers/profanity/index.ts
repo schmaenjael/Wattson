@@ -4,9 +4,6 @@ import { join } from 'node:path';
 import { loadProfanityList } from './loader';
 import { ProfanityChecker } from './checker';
 
-export { ProfanityChecker } from './checker';
-export type { ProfanityMatch } from './checker';
-
 const BAD_WORDS_DIR = join(process.cwd(), 'config', 'bad-words');
 
 let instance: ProfanityChecker | null = null;

@@ -3,6 +3,7 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'disc
 import { BaseEmbed } from '~/core/components/BaseEmbed';
 import { Colors } from '~/settings';
 import { L, baseLocale } from '~/core/locales';
+import { discordTimestamp } from '~/utilities';
 
 const T = L[baseLocale].MODERATION.APPEAL;
 
@@ -47,7 +48,7 @@ export class AppealEmbed extends BaseEmbed<AppealEmbedParams> {
 
     embed.addFields(
       { name: T.FIELD_ORIGINAL_BAN(), value: banReason.slice(0, 1024), inline: false },
-      { name: T.FIELD_BANNED(), value: `<t:${Math.floor(banCreatedAt.getTime() / 1000)}:R>`, inline: true },
+      { name: T.FIELD_BANNED(), value: `${discordTimestamp(banCreatedAt, 'R')}`, inline: true },
       { name: T.FIELD_APPROVALS(), value: `${voteCount}/${threshold}`, inline: true }
     );
 

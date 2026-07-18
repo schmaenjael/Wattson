@@ -44,26 +44,30 @@ export interface ActivityStats {
 
 export const getJoinStats = async (since: Date): Promise<JoinStats> => {
   const db = getDb();
-  const [{ joins }] = await db
-    .select({ joins: count() })
-    .from(auditLog)
-    .where(and(eq(auditLog.eventType, AuditEventType.MemberJoined), gte(auditLog.createdAt, since)));
-  const [{ leaves }] = await db
-    .select({ leaves: count() })
-    .from(auditLog)
-    .where(and(eq(auditLog.eventType, AuditEventType.MemberLeft), gte(auditLog.createdAt, since)));
+  const [[{ joins }], [{ leaves }]] = await Promise.all([
+    db
+      .select({ joins: count() })
+      .from(auditLog)
+      .where(and(eq(auditLog.eventType, AuditEventType.MemberJoined), gte(auditLog.createdAt, since))),
+    db
+      .select({ leaves: count() })
+      .from(auditLog)
+      .where(and(eq(auditLog.eventType, AuditEventType.MemberLeft), gte(auditLog.createdAt, since))),
+  ]);
   return { joins: Number(joins), leaves: Number(leaves), net: Number(joins) - Number(leaves) };
 };
 
 export const getModerationStats = async (since: Date): Promise<ModerationStats> => {
   const db = getDb();
-  const [{ w }] = await db.select({ w: count() }).from(warnings).where(gte(warnings.createdAt, since));
-  const [{ b }] = await db.select({ b: count() }).from(bans).where(gte(bans.createdAt, since));
-  const [{ rTotal }] = await db.select({ rTotal: count() }).from(reports).where(gte(reports.createdAt, since));
-  const [{ rOpen }] = await db
-    .select({ rOpen: count() })
-    .from(reports)
-    .where(and(gte(reports.createdAt, since), eq(reports.status, ReportStatus.Open)));
+  const [[{ w }], [{ b }], [{ rTotal }], [{ rOpen }]] = await Promise.all([
+    db.select({ w: count() }).from(warnings).where(gte(warnings.createdAt, since)),
+    db.select({ b: count() }).from(bans).where(gte(bans.createdAt, since)),
+    db.select({ rTotal: count() }).from(reports).where(gte(reports.createdAt, since)),
+    db
+      .select({ rOpen: count() })
+      .from(reports)
+      .where(and(gte(reports.createdAt, since), eq(reports.status, ReportStatus.Open))),
+  ]);
   return { warnings: Number(w), bans: Number(b), reports: { total: Number(rTotal), open: Number(rOpen) } };
 };
 
