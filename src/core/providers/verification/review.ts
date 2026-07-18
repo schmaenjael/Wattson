@@ -20,8 +20,8 @@ import { AppFeature, appFeatureMap } from '~/settings';
 import {
   AuditEventType,
   findOpenModmailByUserId,
-  getLatestVerificationAnswers,
   getSettings,
+  getVerificationAnswersById,
   ModmailCategory,
   ModmailStatus,
   openModmail,
@@ -144,7 +144,13 @@ const handleAskQuestion = async (interaction: ButtonInteraction, memberId: strin
   await interaction.editReply({ content: `✅ Verification follow-up modmail #${modmail.id} opened with <@${memberId}>.` });
 };
 
-const handleApprove = async (client: Client, interaction: ButtonInteraction, memberId: string, isDecided: boolean): Promise<void> => {
+const handleApprove = async (
+  client: Client,
+  interaction: ButtonInteraction,
+  memberId: string,
+  auditRowId: number | null,
+  isDecided: boolean
+): Promise<void> => {
   await interaction.deferUpdate();
 
   if (!(await isModerator(interaction))) {
@@ -164,7 +170,24 @@ const handleApprove = async (client: Client, interaction: ButtonInteraction, mem
     return;
   }
 
-  const answers = await getLatestVerificationAnswers(memberId);
+  const settings = await getSettings();
+  if (settings.roleCommunityId && member.roles.cache.has(settings.roleCommunityId)) {
+    await interaction.followUp({
+      content: `<@${memberId}> already has access — this looks like a stale duplicate approval request.`,
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  if (!auditRowId) {
+    await interaction.followUp({
+      content: `This approval button doesn't reference a specific verification submission. Cannot safely grant access.`,
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  const answers = await getVerificationAnswersById(auditRowId);
   if (!answers) {
     await interaction.followUp({
       content: `No recorded verification answers found for <@${memberId}>. Cannot grant access.`,
@@ -210,8 +233,10 @@ export const handleVerifyButton = async (client: Client, interaction: ButtonInte
       return handleReject(interaction, memberId, isDecided);
     case 'ask_question':
       return handleAskQuestion(interaction, memberId, isDecided);
-    case 'approve':
-      return handleApprove(client, interaction, memberId, isDecided);
+    case 'approve': {
+      const auditRowId = parts[3] ? Number(parts[3]) : null;
+      return handleApprove(client, interaction, memberId, auditRowId, isDecided);
+    }
     default:
       return;
   }

@@ -14,11 +14,13 @@ export interface AuditEntry {
   payload?: Record<string, unknown>;
 }
 
-export const recordAuditEvent = async (entry: AuditEntry): Promise<void> => {
+export const recordAuditEvent = async (entry: AuditEntry): Promise<AuditLogRecord> => {
   const db = getDb();
-  await db
+  const [row] = await db
     .insert(auditLog)
-    .values({ eventType: entry.eventType, actorUserId: entry.actorUserId, targetUserId: entry.targetUserId, payload: entry.payload ?? {} });
+    .values({ eventType: entry.eventType, actorUserId: entry.actorUserId, targetUserId: entry.targetUserId, payload: entry.payload ?? {} })
+    .returning();
+  return row;
 };
 
 export const listModActionsAsActor = async (actorUserId: string, eventTypes: AuditEventType[]): Promise<AuditLogRecord[]> => {
@@ -31,17 +33,17 @@ export const listModActionsAsActor = async (actorUserId: string, eventTypes: Aud
 };
 
 /**
- * Payload of the most recent `VerificationAnswered` audit event for a user, or null if none exists.
- * Latest by user, not scoped to a specific approval embed — if a user has two pending approvals
- * simultaneously, approving the older one grants access on their newer submission.
+ * Payload of the `VerificationAnswered` audit event with this specific row id, or null if it
+ * doesn't exist (or isn't actually a `VerificationAnswered` row). Scoped to one approval embed's
+ * specific submission — not "latest for this user" — so approving an older pending embed can't
+ * silently apply a different, newer submission's answers.
  */
-export const getLatestVerificationAnswers = async (targetUserId: string): Promise<Record<string, unknown> | null> => {
+export const getVerificationAnswersById = async (auditRowId: number): Promise<Record<string, unknown> | null> => {
   const db = getDb();
   const [row] = await db
     .select({ payload: auditLog.payload })
     .from(auditLog)
-    .where(and(eq(auditLog.targetUserId, targetUserId), eq(auditLog.eventType, AuditEventType.VerificationAnswered)))
-    .orderBy(desc(auditLog.createdAt))
+    .where(and(eq(auditLog.id, auditRowId), eq(auditLog.eventType, AuditEventType.VerificationAnswered)))
     .limit(1);
   return row?.payload ?? null;
 };

@@ -99,7 +99,7 @@ export const runVerification = async (client: Client, member: GuildMember): Prom
 
   activeVerifications.delete(member.id);
 
-  await recordAuditEvent({ eventType: AuditEventType.VerificationAnswered, targetUserId: member.id, payload: answers });
+  const answeredEvent = await recordAuditEvent({ eventType: AuditEventType.VerificationAnswered, targetUserId: member.id, payload: answers });
 
   await dm
     .send({
@@ -167,7 +167,7 @@ export const runVerification = async (client: Client, member: GuildMember): Prom
   approvalEmbed.addFields({ name: '⏱️ Flow duration', value: formatDuration(Date.now() - startedAt), inline: true });
 
   const approvalButtons: ButtonBuilder[] = [
-    new ButtonBuilder().setCustomId(`verify:approve:${member.id}`).setLabel('Approve').setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId(`verify:approve:${member.id}:${answeredEvent.id}`).setLabel('Approve').setStyle(ButtonStyle.Success),
     new ButtonBuilder().setCustomId(`verify:ask_question:${member.id}`).setLabel('Ask Question').setEmoji('📬').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId(`verify:reject:${member.id}`).setLabel('Reject & Kick').setStyle(ButtonStyle.Danger),
   ];
