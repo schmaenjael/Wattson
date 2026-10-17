@@ -2,7 +2,7 @@ import { Collection } from 'discord.js';
 
 import { Schedulable } from '~/core/models';
 import { Client } from '~/core/models';
-import { Logger } from '~/utilities';
+import { Logger, softFail } from '~/utilities';
 import { AppFeature } from '~/settings';
 import { getSchedulableConfig } from '~/database';
 
@@ -43,7 +43,9 @@ export const loadSchedulables = async (client: Client): Promise<void> => {
   for (const schedulable of ALL_SCHEDULABLES) {
     registry.set(schedulable.name, schedulable);
 
-    const config = await getSchedulableConfig(schedulable.name).catch(() => undefined);
+    const config = await getSchedulableConfig(schedulable.name).catch(
+      softFail(AppFeature.Scheduler, 'SCHEDULER_GET_SCHEDULABLE_CONFIG', { name: schedulable.name }, undefined)
+    );
     const cron = config?.cronExpression ?? schedulable.options.defaultCron();
 
     schedulable.start(client, cron);

@@ -9,6 +9,7 @@ import {
 } from 'discord.js';
 
 import { Command, Permission } from '~/core/models';
+import { useFeatureFlag } from '~/core/middleware';
 import { AppFeature } from '~/settings';
 import { getSettings } from '~/database';
 
@@ -18,7 +19,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
   feature: AppFeature.Suggestions,
   type: ApplicationCommandType.ChatInput,
   requiredPermissions: [Permission.Community],
-  middleware: [],
+  middleware: [useFeatureFlag('featureSuggestionsEnabled')],
   data: new SlashCommandBuilder().setName('suggest').setDescription('Submit a suggestion for the community to vote on.'),
 
   async executeCommand(_command, _client, interaction) {

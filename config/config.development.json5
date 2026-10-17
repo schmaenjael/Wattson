@@ -5,6 +5,7 @@
     publicLog: '1358461831055675623', // #modlog
     surveillanceLog: '1505669304492883978', // #surveillance
     reportsLog: '1358461717654409257', // #reports
+    reportsTodo: '1544716260917510296', // #reports-todo — open reports with action buttons; message removed once handled
     welcome: '1358461789519610077', // #introduction
     approval: '1358461727154634842', // #approval
     courtParent: '1358461724197388619', // #dis-court
@@ -23,13 +24,25 @@
     surveillance: true,
     verificationRequiresApproval: true,
     warnAutoMute: true,
-    harmDetection: true,
+    harmDetection: false,
     badWords: true,
     linkFilter: true,
     antiSpam: true,
     antiHoist: true,
     inviteTracking: true,
     autoSlowmode: true,
+    ask: false,
+    rag: false,
+    modmail: true,
+    appeal: true,
+    suggestions: true,
+    events: false,
+    sticky: true,
+    react: true,
+    forumRoles: false,
+    analytics: false,
+    statChannels: false,
+    reports: true,
   },
   thresholds: {
     starboard: 5,
@@ -40,6 +53,7 @@
     badWordDelete: 4, // value 1-5, 4 and 5 represent heavy insults, racial/sexist statements
     antiSpamMaxMessages: 5,
     antiSpamWindowMs: 10000,
+    antiSpamMuteMinutes: 10, // duration of the automatic mute applied when the flood threshold is exceeded
     inviteRaidThreshold: 3, // amount of joins of a single invite, which raises suspicion in MS specified in inviteRaidWindowMs
     inviteRaidWindowMs: 60000,
     autoSlowmodeThreshold: 10,
@@ -65,9 +79,9 @@
     permission: { moderation: '1358461382088986645', administration: '1358461380793077771', eventmanager: '1519413659015708842' },
     utility: {
       unregistered: '1101800526200447016',
-      community: '1519414295442493440',
-      member: '1519414335875711199',
-      muted: '1519414370969325689',
+      community: '1358461404713062481',
+      member: '1358461401127063725',
+      muted: '1358461393229058334',
       modmail_handler: '1519414443426185246',
     },
     // code -> roleId mappings for verification answers; codes reference config/catalog.json5.

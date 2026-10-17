@@ -13,7 +13,7 @@ import {
 
 import { Command } from '~/core/models';
 import { AppFeature, appFeatureMap } from '~/settings';
-import { discordTimestamp } from '~/utilities';
+import { discordTimestamp, softFail } from '~/utilities';
 import {
   AuditEventType,
   getSettings,
@@ -251,7 +251,9 @@ export default new Command<ApplicationCommandType.ChatInput>({
     const isSelf = targetUser.id === interaction.user.id;
 
     const settings = await getSettings();
-    const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+    const member = await interaction.guild.members
+      .fetch(interaction.user.id)
+      .catch(softFail(AppFeature.UserRecord, 'USERRECORD_MEMBER_FETCH', { userId: interaction.user.id }));
     const isMod = Boolean(
       member?.roles.cache.has(settings.roleModerationId ?? '') ||
       member?.roles.cache.has(settings.roleAdministrationId ?? '') ||
@@ -302,7 +304,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
     });
 
     collector.on('end', async () => {
-      await interaction.editReply({ components: [] }).catch(() => null);
+      await interaction.editReply({ components: [] }).catch(softFail(AppFeature.UserRecord, 'USERRECORD_INTERACTION_EDIT_REPLY'));
     });
   },
 });

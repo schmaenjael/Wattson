@@ -2,6 +2,7 @@ import { AppFeature } from '~/settings';
 import { AuditEventType, listExpiredActiveWarnings, ModerationStatus, recordAuditEvent, updateWarningStatus } from '~/database';
 import { getConfig } from '~/config';
 import { Schedulable } from '~/core/models/Schedulable';
+import { logSoftFailure } from '~/utilities';
 
 export const warningSchedulable = new Schedulable({
   name: 'warning-schedulable',
@@ -27,7 +28,7 @@ export const warningSchedulable = new Schedulable({
         logger.info({ warningId: warning.id }, 'Warning expired.');
         expired++;
       } catch (err) {
-        logger.error(Object(err), `Failed to expire warning #${warning.id}.`);
+        logSoftFailure(AppFeature.Warn, 'WARN_EXPIRY', { warningId: warning.id }, err);
       }
     }
 

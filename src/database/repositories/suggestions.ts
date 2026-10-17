@@ -1,4 +1,4 @@
-import { and, eq, inArray, lte, type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
+import { and, eq, inArray, isNull, lte, type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
 
 import { getDb } from '~/database/client';
 import { suggestions } from '~/database/schema/suggestions';
@@ -40,10 +40,21 @@ export const setSuggestionStatus = async (id: number, status: SuggestionStatus):
   await db.update(suggestions).set({ status }).where(eq(suggestions.id, id));
 };
 
+/**
+ * Rows the sweeper still has work for. `approvalMessageId IS NULL` is load-bearing: escalation does
+ * not change `status` and cannot move `expiresAt` into the future, so without it every tick would
+ * re-select an already-escalated suggestion and post another approval embed with live buttons.
+ */
 export const listExpiredActiveSuggestions = async (now: Date = new Date()): Promise<Suggestion[]> => {
   const db = getDb();
   return db
     .select()
     .from(suggestions)
-    .where(and(lte(suggestions.expiresAt, now), inArray(suggestions.status, [SuggestionStatus.Open, SuggestionStatus.InConsideration])));
+    .where(
+      and(
+        lte(suggestions.expiresAt, now),
+        inArray(suggestions.status, [SuggestionStatus.Open, SuggestionStatus.InConsideration]),
+        isNull(suggestions.approvalMessageId)
+      )
+    );
 };

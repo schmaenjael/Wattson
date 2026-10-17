@@ -21,7 +21,9 @@ export class Client extends _Client {
         GatewayIntentBits.MessageContent,
       ],
       presence: { status: 'dnd', activities: [{ name: 'Keeping the server tidy.. 🧹', type: ActivityType.Watching }] },
-      rest: { rejectOnRateLimit: async () => true, version: '10' },
+      // No rejectOnRateLimit: the REST queue must wait out 429s. Rejecting instead makes every request
+      // past a drained bucket throw a message-less RateLimitError (see /clear over old messages).
+      rest: { version: '10' },
       partials: [Partials.Channel, Partials.GuildMember, Partials.Message, Partials.Reaction, Partials.User],
     } satisfies ClientOptions);
   }

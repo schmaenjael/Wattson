@@ -12,7 +12,8 @@ import {
 } from '~/database';
 import { AppFeature } from '~/settings';
 import { Client } from '~/core/models';
-import { Logger, discordTimestamp } from '~/utilities';
+import type { MessageContext } from '~/core/types';
+import { discordTimestamp, Logger, logSoftFailure, runDiscordAction, softFail } from '~/utilities';
 import { getHarmDetector, type HarmCategory, type HarmDetectionResult } from '~/core/providers/harm';
 import { getBlocklistChecker } from '~/core/providers/blocklist';
 import { getProfanityChecker } from '~/core/providers/profanity';
@@ -43,19 +44,23 @@ const postHarmAlert = async (
   guild: NonNullable<TextChannel['guild']>,
   alertChannelId: string
 ): Promise<void> => {
-  const alertChannel = (await guild.channels.fetch(alertChannelId).catch(() => null)) as TextChannel | null;
+  const alertChannel = (await guild.channels
+    .fetch(alertChannelId)
+    .catch(softFail(AppFeature.AutomatedWarn, 'AUTOMATEDWARN_CHANNEL_FETCH', { alertChannelId }))) as TextChannel | null;
   if (!alertChannel) return;
 
   const jumpUrl = `https://discord.com/channels/${guild.id}/${channelId}/${messageId}`;
 
   const existing = _harmAlertState.get(messageId);
   if (existing) {
-    const existingMsg = await alertChannel.messages.fetch(existing.alertMessageId).catch(() => null);
+    const existingMsg = await alertChannel.messages
+      .fetch(existing.alertMessageId)
+      .catch(softFail(AppFeature.AutomatedWarn, 'AUTOMATEDWARN_MESSAGE_FETCH', { alertMessageId: existing.alertMessageId }));
     if (existingMsg) {
       const newCount = existing.count + 1;
       _harmAlertState.set(messageId, { alertMessageId: existing.alertMessageId, count: newCount });
       const updatedEmbed = EmbedBuilder.from(existingMsg.embeds[0]).setFooter({ text: `Message ID: ${messageId} · Reported ${newCount}× total` });
-      await existingMsg.edit({ embeds: [updatedEmbed] }).catch(() => null);
+      await existingMsg.edit({ embeds: [updatedEmbed] }).catch(softFail(AppFeature.AutomatedWarn, 'AUTOMATEDWARN_MESSAGE_EDIT'));
       return;
     }
     _harmAlertState.delete(messageId);
@@ -79,7 +84,7 @@ const postHarmAlert = async (
     .setFooter({ text: `Message ID: ${messageId}` })
     .setTimestamp();
 
-  const alertMsg = await alertChannel.send({ embeds: [embed] }).catch(() => null);
+  const alertMsg = await alertChannel.send({ embeds: [embed] }).catch(softFail(AppFeature.AutomatedWarn, 'AUTOMATEDWARN_CHANNEL_SEND'));
   if (alertMsg) {
     if (_harmAlertState.size >= MAX_HARM_ALERT_STATE_SIZE) {
       const oldestKey = _harmAlertState.keys().next().value;
@@ -111,7 +116,7 @@ const recordHarmSample = async (
       warningId,
     });
   } catch (err) {
-    Logger.getInstance(AppFeature.Surveillance).warn(Object(err), 'Failed to record harm detection sample.');
+    logSoftFailure(AppFeature.Surveillance, 'AUTOMOD_HARM_SAMPLE_RECORD', { messageId: message.id }, err);
   }
 };
 
@@ -132,7 +137,7 @@ const issueAutoWarn = async (message: Message<true>, result: HarmDetectionResult
     payload: { warningId: warning.id, reason, source: 'automod_harm' },
   });
 
-  const dm = await message.author.createDM().catch(() => null);
+  const dm = await message.author.createDM().catch(softFail(AppFeature.AutomatedWarn, 'AUTOMATEDWARN_DM_OPEN'));
   if (dm) {
     await dm
       .send({
@@ -149,7 +154,7 @@ const issueAutoWarn = async (message: Message<true>, result: HarmDetectionResult
             .setTimestamp(),
         ],
       })
-      .catch(() => null);
+      .catch(softFail(AppFeature.AutomatedWarn, 'AUTOMATEDWARN_DM_SEND'));
   }
 
   const autoWarnLogger = Logger.getInstance(AppFeature.Surveillance);
@@ -184,14 +189,15 @@ const runLlmCheck = async (content: string, settings: Awaited<ReturnType<typeof 
   if (!detector) return null;
   try {
     return await detector.detect(content);
-  } catch {
+  } catch (error) {
+    logSoftFailure(AppFeature.AutomatedWarn, 'AUTOMOD_HARM_DETECTION_FAILED', { contentLength: content.length }, error);
     return null;
   }
 };
 
 /** MessageUpdate fan-out entrypoint: re-runs automod on an edited message when its content changed. */
 export const runAutomodOnEdit = async (
-  _client: Client,
+  client: Client,
   oldMessage: Message<boolean> | PartialMessage,
   newMessage: Message<boolean> | PartialMessage
 ): Promise<void> => {
@@ -201,11 +207,11 @@ export const runAutomodOnEdit = async (
   if (!newMessage.content) return;
 
   const settings = await getSettings();
-  await runAutomod(newMessage, settings);
+  await runAutomod({ client, message: newMessage, settings, logger: Logger.getInstance(AppFeature.Surveillance) });
 };
 
-export const runAutomod = async (message: Message<true>, settings: Awaited<ReturnType<typeof getSettings>>): Promise<void> => {
-  const logger = Logger.getInstance(AppFeature.Surveillance);
+export const runAutomod = async (ctx: MessageContext): Promise<void> => {
+  const { message, settings, logger } = ctx;
 
   // ── Step 3: Link filter (O(1) Set lookup) ──────────────────────────────────
   if (settings.featureLinkFilterEnabled) {
@@ -213,12 +219,17 @@ export const runAutomod = async (message: Message<true>, settings: Awaited<Retur
     if (checker) {
       const blocked = checker.findBlockedDomain(message.content);
       if (blocked) {
-        await message.delete().catch(() => null);
+        const deleted = await runDiscordAction(
+          logger,
+          'message.delete',
+          { messageId: message.id, channelId: message.channelId, domain: blocked },
+          () => message.delete()
+        );
         await upsertUser({ id: message.author.id, username: message.author.username });
         await recordAuditEvent({
           eventType: AuditEventType.LinkFilterTriggered,
           targetUserId: message.author.id,
-          payload: { domain: blocked, messageId: message.id, channelId: message.channelId },
+          payload: { domain: blocked, messageId: message.id, channelId: message.channelId, deleted },
         });
         await logger.log({
           level: 'info',
@@ -227,7 +238,7 @@ export const runAutomod = async (message: Message<true>, settings: Awaited<Retur
           target: 'surveillance',
           internalEmbed: new EmbedBuilder()
             .setColor(Colors.Red)
-            .setTitle('🚫 Link Filter')
+            .setTitle(deleted ? '🚫 Link Filter — Deleted' : '🚫 Link Filter — DELETE FAILED')
             .setDescription(`<@${message.author.id}> in <#${message.channelId}>`)
             .addFields({ name: 'Blocked domain', value: `\`${blocked}\`` })
             .setTimestamp(),
@@ -265,8 +276,16 @@ export const runAutomod = async (message: Message<true>, settings: Awaited<Retur
 
         if (isImmediate) {
           // Severity ≥ threshold → delete immediately, no LLM
-          await message.delete().catch(() => null);
-          logger.info({ word: match.word, severity: match.severity, userId: message.author.id }, 'Profanity: immediate delete.');
+          const deletedImmediate = await runDiscordAction(
+            logger,
+            'message.delete',
+            { messageId: message.id, channelId: message.channelId, severity: match.severity },
+            () => message.delete()
+          );
+          logger.info(
+            { word: match.word, severity: match.severity, userId: message.author.id, deleted: deletedImmediate },
+            'Profanity: immediate delete.'
+          );
           await logger.log({
             level: 'info',
             message: `Profanity sev${match.severity} deleted: ${message.author.id}`,
@@ -274,7 +293,7 @@ export const runAutomod = async (message: Message<true>, settings: Awaited<Retur
             target: 'surveillance',
             internalEmbed: new EmbedBuilder()
               .setColor(Colors.Red)
-              .setTitle('🚫 Profanity — Deleted')
+              .setTitle(deletedImmediate ? '🚫 Profanity — Deleted' : '🚫 Profanity — DELETE FAILED')
               .setDescription(`<@${message.author.id}> in <#${message.channelId}>`)
               .addFields(
                 { name: 'Word', value: `\`${match.word}\``, inline: true },
@@ -292,9 +311,13 @@ export const runAutomod = async (message: Message<true>, settings: Awaited<Retur
         if (result?.anyDetected) {
           const isHighConfidence = result.detectedCategories.some((cat) => result.categories[cat].confidence === 'high');
           if (isHighConfidence) {
-            await message.delete().catch(() => null);
+            const deletedLlm = await runDiscordAction(logger, 'message.delete', { messageId: message.id, channelId: message.channelId }, () =>
+              message.delete()
+            );
             const warning = await issueAutoWarn(message, result);
-            await recordHarmSample(message, result, HarmSampleAction.DeletedWarned, warning.id);
+            // Only label the training sample DeletedWarned when the message really is gone —
+            // otherwise the harm model learns from rows that describe live content.
+            await recordHarmSample(message, result, deletedLlm ? HarmSampleAction.DeletedWarned : HarmSampleAction.Flagged, warning.id);
             logger.info(
               { word: match.word, categories: result.detectedCategories },
               'Profanity: LLM confirmed high confidence harm, deleted + warned.'
@@ -347,7 +370,7 @@ export const runAutomod = async (message: Message<true>, settings: Awaited<Retur
   try {
     result = await detector.detect(message.content);
   } catch (err) {
-    logger.error(Object(err), 'Harm detection threw unexpectedly.');
+    logSoftFailure(AppFeature.AutomatedWarn, 'AUTOMOD_HARM_DETECTION_THREW', { messageId: message.id, contentLength: message.content.length }, err);
     return;
   }
 
@@ -359,9 +382,11 @@ export const runAutomod = async (message: Message<true>, settings: Awaited<Retur
     return;
   }
 
-  await message.delete().catch(() => null);
+  const deletedHarm = await runDiscordAction(logger, 'message.delete', { messageId: message.id, channelId: message.channelId }, () =>
+    message.delete()
+  );
   const warning = await issueAutoWarn(message, result);
-  await recordHarmSample(message, result, HarmSampleAction.DeletedWarned, warning.id);
+  await recordHarmSample(message, result, deletedHarm ? HarmSampleAction.DeletedWarned : HarmSampleAction.Flagged, warning.id);
   logger.info({ categories: result.detectedCategories }, 'Harm detection: high confidence — deleted + warned.');
   await logger.log({
     level: 'info',

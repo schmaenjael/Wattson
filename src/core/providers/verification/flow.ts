@@ -15,6 +15,8 @@ import { createCanvas } from 'canvas';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createChoiceMenu } from './actions';
+import { AppFeature } from '~/settings';
+import { logSoftFailure, softFail } from '~/utilities';
 
 export type PromptRenderer = () => { title: string; description?: string };
 
@@ -76,6 +78,13 @@ export class Flow {
   }
 }
 
+/**
+ * Every collector in this flow must be time-bounded. Without a limit an abandoned DM verification
+ * leaves `flow.run()` pending forever, so the caller's `finally` never releases the single-flight
+ * guard and the member can never verify again for the lifetime of the process.
+ */
+const STEP_TIMEOUT_MS = 15 * 60 * 1000;
+
 export class FlowCancelled extends Error {
   constructor(
     public readonly step: Step,
@@ -136,7 +145,7 @@ export class FlowRunner {
     await channel.send({ embeds: [this.embed(step, color, index, total)] });
 
     while (true) {
-      const c = await channel.awaitMessages({ filter: (m) => m.author.id === user.id, max: 1 });
+      const c = await channel.awaitMessages({ filter: (m) => m.author.id === user.id, max: 1, time: STEP_TIMEOUT_MS });
       const collected = c.first() as Message<false> | undefined;
 
       if (!collected) throw new FlowCancelled(step, 'aborted');
@@ -214,7 +223,10 @@ export class FlowRunner {
     while (true) {
       let interaction;
       try {
-        interaction = await message.awaitMessageComponent({ filter: (i) => i.user.id === user.id && i.customId.startsWith(baseCustomId) });
+        interaction = await message.awaitMessageComponent({
+          filter: (i) => i.user.id === user.id && i.customId.startsWith(baseCustomId),
+          time: STEP_TIMEOUT_MS,
+        });
       } catch {
         throw new FlowCancelled(step, 'aborted');
       }
@@ -266,6 +278,7 @@ export class FlowRunner {
     const interaction = await message.awaitMessageComponent({
       componentType: ComponentType.Button,
       filter: (i) => i.user.id === user.id && i.customId.startsWith(customId),
+      time: STEP_TIMEOUT_MS,
     });
     await interaction.update({ components: [] });
     const choice = interaction.customId.endsWith(':yes') ? 'yes' : 'no';
@@ -324,6 +337,7 @@ export class FlowRunner {
       const collector = message.createMessageComponentCollector({
         componentType: ComponentType.Button,
         filter: (i) => i.user.id === user.id && i.customId.startsWith(baseId),
+        time: STEP_TIMEOUT_MS,
       });
 
       collector.on('collect', async (interaction) => {
@@ -338,7 +352,7 @@ export class FlowRunner {
         } else if (interaction.customId === `${baseId}:yes`) {
           await interaction.update({ components: [] });
           collector.stop('agreed');
-          channel.send(`> ✅ **You accepted the rules.**`).catch(() => null);
+          channel.send(`> ✅ **You accepted the rules.**`).catch(softFail(AppFeature.VolterVerification, 'VERIFICATION_CHANNEL_SEND'));
           resolve('yes');
         } else if (interaction.customId === `${baseId}:no`) {
           await interaction.update({ components: [] });
@@ -511,13 +525,13 @@ export class FlowRunner {
       const audioBuffer = await this.renderCaptchaAudio(code);
       files.push(new AttachmentBuilder(audioBuffer, { name: 'captcha.wav' }));
     } catch (err) {
-      console.error('[Captcha] Failed to render audio — falling back to image-only:', err);
+      logSoftFailure(AppFeature.VolterVerification, 'VERIFICATION_CAPTCHA_AUDIO_RENDER', { userId: user.id }, err);
     }
 
     await channel.send({ embeds: [this.embed(step, color, index, total)], files });
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      const collected = await channel.awaitMessages({ filter: (m) => m.author.id === user.id, max: 1 });
+      const collected = await channel.awaitMessages({ filter: (m) => m.author.id === user.id, max: 1, time: STEP_TIMEOUT_MS });
       const message = collected.first() as Message<false> | undefined;
 
       if (!message) throw new FlowCancelled(step, 'aborted');

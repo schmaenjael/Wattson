@@ -288,7 +288,7 @@ type RootTranslation = {
 			 */
 			EMBED_TITLE: string
 			/**
-			 * A​n​ ​e​r​r​o​r​ ​o​c​c​u​r​r​e​d​ ​w​h​i​l​e​ ​e​x​e​c​u​t​i​n​g​ ​t​h​e​ ​c​o​m​m​a​n​d​,​ ​t​h​i​s​ ​i​n​c​i​d​e​n​t​ ​w​i​l​l​ ​b​e​ ​r​e​p​o​r​t​e​d​.
+			 * A​n​ ​e​r​r​o​r​ ​o​c​c​u​r​r​e​d​ ​w​h​i​l​e​ ​e​x​e​c​u​t​i​n​g​ ​t​h​e​ ​c​o​m​m​a​n​d​.​ ​I​t​ ​h​a​s​ ​b​e​e​n​ ​l​o​g​g​e​d​ ​f​o​r​ ​t​h​e​ ​o​p​e​r​a​t​o​r​s​.
 			 */
 			EMBED_DESCRIPTION: string
 			/**
@@ -374,6 +374,18 @@ type RootTranslation = {
 		 * Y​o​u​ ​m​u​s​t​ ​b​e​ ​a​ ​m​e​m​b​e​r​ ​o​f​ ​t​h​e​ ​s​e​r​v​e​r​ ​t​o​ ​u​s​e​ ​t​h​i​s​ ​c​o​m​m​a​n​d​.
 		 */
 		COMMAND_NOT_A_MEMBER: string
+		/**
+		 * T​h​i​s​ ​f​e​a​t​u​r​e​ ​i​s​ ​c​u​r​r​e​n​t​l​y​ ​d​i​s​a​b​l​e​d​ ​o​n​ ​t​h​i​s​ ​b​o​t​ ​i​n​s​t​a​n​c​e​.
+		 */
+		COMMAND_FEATURE_DISABLED: string
+		/**
+		 * O​n​l​y​ ​t​h​e​ ​m​e​m​b​e​r​ ​w​h​o​ ​r​a​n​ ​t​h​i​s​ ​c​o​m​m​a​n​d​ ​c​a​n​ ​p​a​g​e​ ​t​h​r​o​u​g​h​ ​i​t​.
+		 */
+		COMMAND_PAGINATION_NOT_OWNER: string
+		/**
+		 * S​o​m​e​ ​D​i​s​c​o​r​d​ ​a​c​t​i​o​n​s​ ​c​o​u​l​d​ ​n​o​t​ ​b​e​ ​c​o​m​p​l​e​t​e​d​ ​—​ ​d​e​t​a​i​l​s​ ​w​e​r​e​ ​w​r​i​t​t​e​n​ ​t​o​ ​t​h​e​ ​b​o​t​ ​l​o​g​.
+		 */
+		ACTION_PARTIALLY_FAILED: string
 	}
 	UTIL: {
 		EVENT_WELCOME: {
@@ -1211,7 +1223,7 @@ export type TranslationFunctions = {
 			 */
 			EMBED_TITLE: () => LocalizedString
 			/**
-			 * An error occurred while executing the command, this incident will be reported.
+			 * An error occurred while executing the command. It has been logged for the operators.
 			 */
 			EMBED_DESCRIPTION: () => LocalizedString
 			/**
@@ -1297,6 +1309,18 @@ export type TranslationFunctions = {
 		 * You must be a member of the server to use this command.
 		 */
 		COMMAND_NOT_A_MEMBER: () => LocalizedString
+		/**
+		 * This feature is currently disabled on this bot instance.
+		 */
+		COMMAND_FEATURE_DISABLED: () => LocalizedString
+		/**
+		 * Only the member who ran this command can page through it.
+		 */
+		COMMAND_PAGINATION_NOT_OWNER: () => LocalizedString
+		/**
+		 * Some Discord actions could not be completed — details were written to the bot log.
+		 */
+		ACTION_PARTIALLY_FAILED: () => LocalizedString
 	}
 	UTIL: {
 		EVENT_WELCOME: {

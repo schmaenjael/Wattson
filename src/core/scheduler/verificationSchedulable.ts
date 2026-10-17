@@ -12,9 +12,9 @@ import {
   setReverificationNotified,
 } from '~/database';
 import { getConfig } from '~/config';
-import { getLogtoUser } from '~/core/providers/logto';
+import { logtoClient } from '~/core/providers/logto';
 import { Schedulable } from '~/core/models/Schedulable';
-import { Logger, discordTimestamp } from '~/utilities';
+import { logSoftFailure, discordTimestamp, Logger, runDiscordAction, softFail } from '~/utilities';
 
 export const verificationSchedulable = new Schedulable({
   name: 'verification-schedulable',
@@ -24,7 +24,7 @@ export const verificationSchedulable = new Schedulable({
   execute: async (client, logger) => {
     const reverifyWarnDays = getConfig().config.thresholds.reverifyWarnDays;
     const settings = await getSettings();
-    const guild = await client.guilds.fetch(process.env.GUILD_ID).catch(() => null);
+    const guild = await client.guilds.fetch(process.env.GUILD_ID).catch(softFail(AppFeature.VerificationSweeper, 'SWEEPER_GUILD_FETCH'));
     if (!guild) {
       logger.error('Verification sweeper: guild not found; skipping this tick.');
       return;
@@ -40,14 +40,18 @@ export const verificationSchedulable = new Schedulable({
     let kicked = 0;
     let suspended = 0;
 
-    const expiringSoon = await listVerificationsExpiringSoon(reverifyWarnDays).catch(() => []);
+    const expiringSoon = await listVerificationsExpiringSoon(reverifyWarnDays).catch(
+      softFail(AppFeature.VerificationSweeper, 'SWEEPER_LIST_VERIFICATIONS_EXPIRING_SOON', { reverifyWarnDays }, [])
+    );
     for (const row of expiringSoon) {
       try {
-        const member = await guild.members.fetch(row.discordUserId).catch(() => null);
+        const member = await guild.members
+          .fetch(row.discordUserId)
+          .catch(softFail(AppFeature.VerificationSweeper, 'SWEEPER_MEMBER_FETCH', { discordUserId: row.discordUserId }));
         if (!member) {
           continue;
         }
-        const dm = await member.createDM().catch(() => null);
+        const dm = await member.createDM().catch(softFail(AppFeature.VerificationSweeper, 'SWEEPER_DM_OPEN'));
         if (!dm) {
           logger.warn({ discordUserId: row.discordUserId }, 'Could not open DM for reverification notice.');
           continue;
@@ -66,18 +70,22 @@ export const verificationSchedulable = new Schedulable({
         logger.info({ discordUserId: row.discordUserId }, 'Reverification DM sent.');
         dmsSent++;
       } catch (err) {
-        logger.warn(Object(err), `Failed to send reverification DM to ${row.discordUserId}.`);
+        logSoftFailure(AppFeature.VerificationSweeper, 'SWEEPER_REVERIFICATION_DM', { discordUserId: row.discordUserId }, err);
       }
     }
 
-    const pendingNotice = await listExpiredPendingKickNotice().catch(() => []);
+    const pendingNotice = await listExpiredPendingKickNotice().catch(
+      softFail(AppFeature.VerificationSweeper, 'SWEEPER_LIST_EXPIRED_PENDING_KICK_NOTICE', {}, [])
+    );
     for (const row of pendingNotice) {
       try {
-        const member = await guild.members.fetch(row.discordUserId).catch(() => null);
+        const member = await guild.members
+          .fetch(row.discordUserId)
+          .catch(softFail(AppFeature.VerificationSweeper, 'SWEEPER_MEMBER_FETCH', { discordUserId: row.discordUserId }));
         if (!member) {
           continue;
         }
-        const dm = await member.createDM().catch(() => null);
+        const dm = await member.createDM().catch(softFail(AppFeature.VerificationSweeper, 'SWEEPER_DM_OPEN'));
         if (!dm) {
           logger.warn({ discordUserId: row.discordUserId }, 'Could not open DM for kick notice.');
           continue;
@@ -90,16 +98,27 @@ export const verificationSchedulable = new Schedulable({
         logger.info({ discordUserId: row.discordUserId }, 'Kick notice DM sent.');
         kickNoticesSent++;
       } catch (err) {
-        logger.warn(Object(err), `Failed to send kick notice DM to ${row.discordUserId}.`);
+        logSoftFailure(AppFeature.VerificationSweeper, 'SWEEPER_KICK_NOTICE_DM', { discordUserId: row.discordUserId }, err);
       }
     }
 
-    const pastDeadline = await listExpiredPastKickDeadline().catch(() => []);
+    const pastDeadline = await listExpiredPastKickDeadline().catch(
+      softFail(AppFeature.VerificationSweeper, 'SWEEPER_LIST_EXPIRED_PAST_KICK_DEADLINE', {}, [])
+    );
     for (const row of pastDeadline) {
       try {
-        const member = await guild.members.fetch(row.discordUserId).catch(() => null);
+        const member = await guild.members
+          .fetch(row.discordUserId)
+          .catch(softFail(AppFeature.VerificationSweeper, 'SWEEPER_MEMBER_FETCH', { discordUserId: row.discordUserId }));
         if (member) {
-          await member.kick('Volt verification expired — no re-verification after 7-day notice').catch(() => null);
+          const wasKicked = await runDiscordAction(logger, 'member.kick', { userId: row.discordUserId }, () =>
+            member.kick('Volt verification expired — no re-verification after 7-day notice')
+          );
+          if (!wasKicked) {
+            // Deleting the row here would drop the only record that this member is overdue,
+            // so no later tick could ever retry the kick.
+            continue;
+          }
         }
         await deleteVerification(row.discordUserId);
         await log(
@@ -114,20 +133,28 @@ export const verificationSchedulable = new Schedulable({
         logger.info({ discordUserId: row.discordUserId }, 'Volt verification expired — member kicked.');
         kicked++;
       } catch (err) {
-        logger.error(Object(err), `Failed to kick ${row.discordUserId}.`);
+        logSoftFailure(AppFeature.VerificationSweeper, 'SWEEPER_MEMBER_KICK', { discordUserId: row.discordUserId }, err);
       }
     }
 
-    const all = await listAllVerifications().catch(() => []);
+    const all = await listAllVerifications().catch(softFail(AppFeature.VerificationSweeper, 'SWEEPER_LIST_ALL_VERIFICATIONS', {}, []));
     for (const row of all) {
       try {
-        const { isSuspended } = await getLogtoUser(row.logtoSub);
+        const { isSuspended } = await logtoClient.getUser(row.logtoSub);
         if (!isSuspended) {
           continue;
         }
-        const member = await guild.members.fetch(row.discordUserId).catch(() => null);
+        const member = await guild.members
+          .fetch(row.discordUserId)
+          .catch(softFail(AppFeature.VerificationSweeper, 'SWEEPER_MEMBER_FETCH', { discordUserId: row.discordUserId }));
         if (member && settings.roleMemberId) {
-          await member.roles.remove(settings.roleMemberId, 'LogTo account suspended').catch(() => null);
+          const removed = await runDiscordAction(logger, 'member.roles.remove', { userId: row.discordUserId, roleId: settings.roleMemberId }, () =>
+            member.roles.remove(settings.roleMemberId!, 'LogTo account suspended')
+          );
+          if (!removed) {
+            // Keep the row: it is what makes the suspension check run again next tick.
+            continue;
+          }
         }
         await deleteVerification(row.discordUserId);
         await log(
@@ -142,7 +169,7 @@ export const verificationSchedulable = new Schedulable({
         logger.info({ discordUserId: row.discordUserId }, 'LogTo account suspended — Volt role removed.');
         suspended++;
       } catch (err) {
-        logger.warn(Object(err), `Failed suspension check for ${row.discordUserId}.`);
+        logSoftFailure(AppFeature.VerificationSweeper, 'SWEEPER_SUSPENSION_CHECK', { discordUserId: row.discordUserId }, err);
       }
     }
 

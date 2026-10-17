@@ -7,7 +7,7 @@ import { usePermissions } from '~/core/middleware';
 import { Logger } from '~/utilities';
 import { handleCourtVote } from '~/core/providers/court';
 import { handleGdprButton } from '~/core/providers/gdpr';
-import { handleReportButton } from '~/core/providers/report';
+import { handleReportButton, handleReportModal } from '~/core/providers/report';
 import { handleAppealButton, handleAppealModal } from '~/core/providers/appeal';
 import { handleSuggestionButton, handleSuggestionModal } from '~/core/providers/suggestions';
 import { handleVerifyButton, handleVerifyModal } from '~/core/providers/verification';
@@ -63,6 +63,7 @@ export default new Event({
     { kind: 'button', name: 'suggestion', handler: handleSuggestionButton },
     { kind: 'button', name: 'verify', handler: handleVerifyButton },
     { kind: 'button', name: 'modmail_keep_open', handler: handleKeepOpenButton },
+    { kind: 'modal', name: 'report', rights: MODERATOR, handler: handleReportModal },
     { kind: 'modal', name: 'appeal', handler: handleAppealModal },
     { kind: 'modal', name: 'suggestion', handler: handleSuggestionModal },
     { kind: 'modal', name: 'verify', handler: handleVerifyModal },

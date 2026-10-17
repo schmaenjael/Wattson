@@ -11,6 +11,7 @@ import {
 } from 'discord.js';
 
 import { Command } from '~/core/models';
+import { useFeatureFlag } from '~/core/middleware';
 import { AppFeature } from '~/settings';
 import { findAppealableBan, upsertUser } from '~/database';
 import { L } from '~/core/locales';
@@ -21,7 +22,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
   requiredPermissions: [],
   allowDM: true,
   dmOnly: true,
-  middleware: [],
+  middleware: [useFeatureFlag('featureAppealEnabled')],
   data: new SlashCommandBuilder()
     .setName('appeal')
     .setDescription('Submit a ban appeal.')

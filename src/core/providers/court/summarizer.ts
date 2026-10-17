@@ -1,7 +1,6 @@
 import { getConfig } from '~/config';
-import { callOllamaGenerate } from '~/core/providers/ollama';
+import { ollamaClient } from '~/core/providers/ollama';
 import { AppFeature } from '~/settings';
-import { Logger } from '~/utilities';
 
 export interface CourtThreadMessage {
   author: string;
@@ -24,12 +23,12 @@ export const summarizeCourtThread = async (endpoint: string, model: string, mess
 
   const conversation = relevant.map((m) => `[${m.author}]: ${m.content}`).join('\n');
 
-  return callOllamaGenerate({
+  return ollamaClient.generate({
     endpoint,
     model,
     prompt: `${SYSTEM_PROMPT}\n\nCONVERSATION:\n${conversation}`,
     timeoutMs: getConfig().config.timeouts.summarizerMs,
-    logger: Logger.getInstance(AppFeature.System),
-    failureMessage: 'Court thread summarization failed — skipping summary.',
+    feature: AppFeature.System,
+    errorCode: 'COURT_THREAD_SUMMARIZE',
   });
 };

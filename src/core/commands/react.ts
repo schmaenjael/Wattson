@@ -1,8 +1,10 @@
 import { ApplicationCommandType, MessageFlags, SlashCommandBuilder } from 'discord.js';
 
 import { Command, Permission } from '~/core/models';
+import { useFeatureFlag } from '~/core/middleware';
 import { AppFeature } from '~/settings';
 import { getSettings } from '~/database';
+import { logSoftFailure, softFail } from '~/utilities';
 
 const CUSTOM_EMOJI_RE = /^<a?:(\w+):(\d+)>$/;
 // Discord API hard limit: max 20 reactions per message.
@@ -22,7 +24,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
   feature: AppFeature.React,
   type: ApplicationCommandType.ChatInput,
   requiredPermissions: [Permission.Community, Permission.Member, Permission.Moderation, Permission.Administration],
-  middleware: [],
+  middleware: [useFeatureFlag('featureReactEnabled')],
   data: new SlashCommandBuilder()
     .setName('react')
     .setDescription('Add reactions to a message in this channel.')
@@ -62,7 +64,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    const message = await interaction.channel?.messages.fetch(messageId).catch(() => null);
+    const message = await interaction.channel?.messages.fetch(messageId).catch(softFail(AppFeature.React, 'REACT_MESSAGE_FETCH', { messageId }));
     if (!message) {
       await interaction.editReply({ content: 'Message not found in this channel.' });
       return;
@@ -70,7 +72,8 @@ export default new Command<ApplicationCommandType.ChatInput>({
 
     const failed: string[] = [];
     for (const emoji of emojis) {
-      await message.react(emoji).catch(() => {
+      await message.react(emoji).catch((error: unknown) => {
+        logSoftFailure(AppFeature.React, 'REACT_REACTION_ADD', { messageId, emoji }, error);
         failed.push(emoji);
       });
     }

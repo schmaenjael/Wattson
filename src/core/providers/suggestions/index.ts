@@ -13,7 +13,7 @@ import { AppFeature } from '~/settings';
 import { Client } from '~/core/models';
 import { Permission } from '~/core/models/Permission';
 import { memberHasAnyPermission } from '~/core/middleware/permissionCore';
-import { Logger } from '~/utilities';
+import { logSoftFailure, softFail } from '~/utilities';
 import {
   countSuggestionVotes,
   createSuggestion,
@@ -30,9 +30,9 @@ import {
   upsertUser,
 } from '~/database';
 import { SuggestionEmbed, buildSuggestionApprovalRow, buildSuggestionVoteRow } from '~/core/components/Suggestion';
+import { ensureFeatureEnabled } from '~/core/middleware/useFeatureFlag';
 
 const DECLINE_REASON_PREFIX = 'suggestion:decline-reason:';
-const logger = Logger.getInstance(AppFeature.Suggestions);
 
 type ButtonHandler = (client: Client, interaction: ButtonInteraction) => Promise<void>;
 type ModalHandler = (client: Client, interaction: ModalSubmitInteraction) => Promise<void>;
@@ -41,12 +41,18 @@ const refreshSuggestionMessage = async (client: Client, settings: Settings, sugg
   if (!settings.suggestionChannelId || !suggestion.messageId) {
     return;
   }
-  const guild = await client.guilds.fetch(process.env.GUILD_ID).catch(() => null);
-  const channel = guild ? await guild.channels.fetch(settings.suggestionChannelId).catch(() => null) : null;
+  const guild = await client.guilds.fetch(process.env.GUILD_ID).catch(softFail(AppFeature.Suggestions, 'SUGGESTIONS_GUILD_FETCH'));
+  const channel = guild
+    ? await guild.channels
+        .fetch(settings.suggestionChannelId)
+        .catch(softFail(AppFeature.Suggestions, 'SUGGESTIONS_CHANNEL_FETCH', { suggestionChannelId: settings.suggestionChannelId }))
+    : null;
   if (!channel?.isTextBased()) {
     return;
   }
-  const message = await (channel as TextChannel).messages.fetch(suggestion.messageId).catch(() => null);
+  const message = await (channel as TextChannel).messages
+    .fetch(suggestion.messageId)
+    .catch(softFail(AppFeature.Suggestions, 'SUGGESTIONS_MESSAGE_FETCH', { messageId: suggestion.messageId }));
   if (!message) {
     return;
   }
@@ -56,11 +62,13 @@ const refreshSuggestionMessage = async (client: Client, settings: Settings, sugg
       embeds: [new SuggestionEmbed({ suggestion, author, declineReason }).render()],
       components: [buildSuggestionVoteRow(suggestion, undefined, true)],
     })
-    .catch(() => null);
+    .catch(softFail(AppFeature.Suggestions, 'SUGGESTIONS_MESSAGE_EDIT'));
 };
 
 const isModerator = async (interaction: ButtonInteraction, settings: Settings): Promise<boolean> => {
-  const member = await interaction.guild?.members.fetch(interaction.user.id).catch(() => null);
+  const member = await interaction.guild?.members
+    .fetch(interaction.user.id)
+    .catch(softFail(AppFeature.Suggestions, 'SUGGESTIONS_MEMBER_FETCH', { userId: interaction.user.id }));
   return member ? memberHasAnyPermission(member, settings, [Permission.Moderation, Permission.Administration]) : false;
 };
 
@@ -73,8 +81,12 @@ const handleCreate: ModalHandler = async (client, interaction) => {
     return;
   }
 
-  const guild = await client.guilds.fetch(process.env.GUILD_ID).catch(() => null);
-  const channel = guild ? await guild.channels.fetch(settings.suggestionChannelId).catch(() => null) : null;
+  const guild = await client.guilds.fetch(process.env.GUILD_ID).catch(softFail(AppFeature.Suggestions, 'SUGGESTIONS_GUILD_FETCH'));
+  const channel = guild
+    ? await guild.channels
+        .fetch(settings.suggestionChannelId)
+        .catch(softFail(AppFeature.Suggestions, 'SUGGESTIONS_CHANNEL_FETCH', { suggestionChannelId: settings.suggestionChannelId }))
+    : null;
   if (!channel?.isTextBased() || !channel.isSendable()) {
     await interaction.editReply({ content: 'The suggestion channel is unavailable. Please contact an administrator.' });
     return;
@@ -119,7 +131,9 @@ const handleDeclineReason: ModalHandler = async (client, interaction) => {
 
   const settings = await getSettings();
   await refreshSuggestionMessage(client, settings, suggestion, reason);
-  await interaction.message?.edit({ components: [buildSuggestionApprovalRow(suggestion.id, true)] }).catch(() => null);
+  await interaction.message
+    ?.edit({ components: [buildSuggestionApprovalRow(suggestion.id, true)] })
+    .catch(softFail(AppFeature.Suggestions, 'SUGGESTIONS_MESSAGE_EDIT'));
 
   await interaction.editReply({ content: `❌ Suggestion **#${suggestion.id}** declined.` });
 };
@@ -161,13 +175,15 @@ const handleVote: ButtonHandler = async (client, interaction) => {
         embeds: [new SuggestionEmbed({ suggestion, author, declineReason: null, tally }).render()],
         components: [buildSuggestionVoteRow(suggestion, tally)],
       })
-      .catch(() => null);
+      .catch(softFail(AppFeature.Suggestions, 'SUGGESTIONS_MESSAGE_EDIT'));
 
     await interaction.editReply({ content: `Your ${isUp ? '👍' : '👎'} vote has been recorded.` });
   } catch (err) {
-    logger.error(Object(err), 'Suggestion vote handler failed.');
+    logSoftFailure(AppFeature.Suggestions, 'SUGGESTIONS_VOTE_HANDLER', { userId: interaction.user.id, customId: interaction.customId }, err, 'error');
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({ content: 'An error occurred while recording your vote.', flags: MessageFlags.Ephemeral }).catch(() => null);
+      await interaction
+        .reply({ content: 'An error occurred while recording your vote.', flags: MessageFlags.Ephemeral })
+        .catch(softFail(AppFeature.Suggestions, 'SUGGESTIONS_INTERACTION_REPLY'));
     }
   }
 };
@@ -218,7 +234,9 @@ const resolveApproval = async (client: Client, interaction: ButtonInteraction, a
   suggestion.status = SuggestionStatus.Accepted;
 
   await refreshSuggestionMessage(client, settings, suggestion);
-  await interaction.message.edit({ components: [buildSuggestionApprovalRow(suggestion.id, true)] }).catch(() => null);
+  await interaction.message
+    .edit({ components: [buildSuggestionApprovalRow(suggestion.id, true)] })
+    .catch(softFail(AppFeature.Suggestions, 'SUGGESTIONS_MESSAGE_EDIT'));
 
   await interaction.editReply({ content: `✅ Suggestion **#${suggestion.id}** accepted.` });
 };
@@ -232,9 +250,13 @@ const BUTTON_ACTIONS: Record<string, ButtonHandler> = {
 const MODAL_ACTIONS: Record<string, ModalHandler> = { create: handleCreate, 'decline-reason': handleDeclineReason };
 
 export const handleSuggestionButton: ButtonHandler = async (client, interaction) => {
+  if (!(await ensureFeatureEnabled(interaction, 'featureSuggestionsEnabled'))) return;
+
   await BUTTON_ACTIONS[interaction.customId.split(':')[1]]?.(client, interaction);
 };
 
 export const handleSuggestionModal: ModalHandler = async (client, interaction) => {
+  if (!(await ensureFeatureEnabled(interaction, 'featureSuggestionsEnabled'))) return;
+
   await MODAL_ACTIONS[interaction.customId.split(':')[1]]?.(client, interaction);
 };

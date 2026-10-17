@@ -34,19 +34,19 @@ These are non-negotiable. Do not design around them.
 
 ```
 src/index.ts
+  loadConfig()               // env + config/config.<NODE_ENV>.json5 + static JSON5, Zod-validated; throws on invalid
   Promise.all([
-    loadEnvironment()        // assert REQUIRED_ENV_VARS; exit on missing
     loadAllLocales()         // typesafe-i18n node adapter
     connectDatabase()        // drizzle() with pg pool + retry, camelCase JS ↔ snake_case SQL
   ])
-  .then(() => ensureSettingsSeeded())   // idempotent INSERT of settings id=1 singleton row
-  .then(() => Client.getInstance().start())
+  .then(() => client.start())
         loadEvents()         // readdir src/core/events/**/*.ts → client.on(type, handler)
-        loadSlashCommands()  // readdir src/core/commands/**/*.ts → Collection<name, Command>
+        loadCommands()       // readdir src/core/commands/**/*.ts → Collection<name, Command>
         client.login(TOKEN)
+  .then(() => startHealthServer(client))
 ```
 
-Any failure in the initial `Promise.all` is fatal (`process.exit(ProcessExitCode.ERROR)`). The order matters: environment must be validated before database, and settings must be seeded before the bot can process interactions.
+`loadConfig()` runs first and synchronously — every later stage reads from it, so an invalid or incomplete config file aborts the boot before any connection is opened. Any failure in the `Promise.all` is likewise fatal (`process.exit(ProcessExitCode.ERROR)`).
 
 ---
 
@@ -69,49 +69,27 @@ src/
 │
 ├── database/
 │   ├── client.ts                   # connectDatabase() + getDb() singleton (drizzle instance)
-│   ├── settings.ts                 # getSettings() / updateSettings() / invalidateSettingsCache()
+│   ├── settings.ts                 # getSettings() — flattens the JSON5 config into the legacy column shape
 │   ├── index.ts                    # barrel — re-exports everything below
-│   ├── schema/
+│   ├── schema/                     # one pgTable per file
 │   │   ├── shared.ts               # SNOWFLAKE_LENGTH, REASON_LENGTH, createdAt(), updatedAt() helpers
 │   │   ├── enums.ts                # ALL pgEnum definitions + mirrored TypeScript enums
 │   │   ├── relations.ts            # Drizzle relation definitions (for query joins)
 │   │   ├── index.ts                # barrel
-│   │   ├── users.ts
-│   │   ├── usernameHistory.ts
-│   │   ├── warnings.ts
-│   │   ├── bans.ts
-│   │   ├── reports.ts
-│   │   ├── courtCases.ts
-│   │   ├── courtVotes.ts
-│   │   ├── auditLog.ts
-│   │   ├── settings.ts             # singleton settings table (id=1, CHECK constraint)
-│   │   ├── slurPatterns.ts
-│   │   ├── slurViolations.ts
-│   │   ├── starboardEntries.ts
-│   │   ├── externalPosts.ts
-│   │   ├── languages.ts
-│   │   ├── roleMappings.ts
-│   │   ├── forumRoleMappings.ts
-│   │   └── countries.ts
+│   │   ├── users.ts, usernameHistory.ts, memberHistory.ts
+│   │   ├── warnings.ts, bans.ts, mutes.ts, reports.ts, lockedChannels.ts
+│   │   ├── courtCases.ts, courtVotes.ts, appeals.ts, appealVotes.ts
+│   │   ├── modmails.ts, suggestions.ts, suggestionVotes.ts
+│   │   ├── events.ts, eventRegistrations.ts, stickyMessages.ts
+│   │   ├── starboardEntries.ts, externalPosts.ts
+│   │   ├── auditLog.ts, harmDetectionSamples.ts, inviteSnapshot.ts
+│   │   ├── memberActivityDaily.ts, schedulableConfigs.ts
+│   │   └── voltVerifications.ts
 │   └── repositories/               # one file per domain, pure async functions only
 │       ├── index.ts                # barrel — import everything via ~/database
-│       ├── users.ts
-│       ├── usernameHistory.ts
-│       ├── warnings.ts
-│       ├── bans.ts
-│       ├── reports.ts
-│       ├── courtCases.ts
-│       ├── courtVotes.ts
-│       ├── auditLog.ts
-│       ├── slurs.ts
-│       ├── starboard.ts
 │       ├── stats.ts                # cross-table aggregation queries (joins/stats)
-│       ├── languages.ts
-│       ├── roleMappings.ts
-│       ├── forumRoleMappings.ts
-│       ├── countries.ts
 │       ├── gdprDeletion.ts         # cascaded user data wipe
-│       └── volterExport.ts
+│       └── …                       # one file mirroring each schema domain above
 │
 └── core/
     ├── loaders/
@@ -135,8 +113,10 @@ src/
     │   └── index.ts
     │
     ├── middleware/
-    │   ├── usePermissions.ts       # cross-references member roles against settings.role*Id columns
-    │   ├── useAdmin.ts             # checks settings.roleAdministrationId or ManageGuild fallback
+    │   ├── permissionCore.ts       # ROLE_COLUMN_BY_PERMISSION + memberHasAll/AnyPermission — shared core
+    │   ├── usePermissions.ts       # event middleware on interactionCreate; enforces requiredPermissions
+    │   ├── useFeatureFlag.ts       # useFeatureFlag(flag) command middleware + ensureFeatureEnabled()
+    │   ├── logModAction.ts         # afterware: turns a command's returned AuditEntry into an audit row
     │   └── index.ts
     │
     ├── components/                 # reusable EmbedBuilder wrappers, named after their UI role
@@ -158,32 +138,25 @@ src/
     │   ├── i18n-util.sync.ts
     │   └── index.ts                # exports L (locale accessor)
     │
-    ├── scheduler/
-    │   └── banSweeper.ts           # polls bans table every 60s for expired active rows; lifts ban + deactivates
+    ├── scheduler/                  # one Schedulable per file; cron from config.schedules, overridable per row
+    │   ├── banSchedulable.ts       # lifts expired bans
+    │   ├── muteSchedulable.ts      # removes the muted role when a mute expires
+    │   ├── warningSchedulable.ts   # expires warnings past the escalation window
+    │   ├── modmailSchedulable.ts   # stale-thread reminders + auto-close
+    │   ├── suggestionSchedulable.ts, eventSchedulable.ts
+    │   ├── verificationSchedulable.ts  # re-verification sweep
+    │   └── analyticsSchedulable.ts, statChannelsSchedulable.ts
     │
-    ├── commands/                   # auto-discovered; one file per command, flat within category
-    │   ├── general/                # available to all members (no requiredPermissions)
-    │   │   ├── help.ts
-    │   │   ├── ping.ts
-    │   │   ├── request-data-deletion.ts
-    │   │   ├── rules.ts
-    │   │   ├── stats.ts            # /stats joins|moderation|activity|chart verifications|moderation
-    │   │   └── verify.ts           # triggers verification flow via DM
-    │   ├── moderation/             # requires Permission.Moderation
-    │   │   ├── ban.ts
-    │   │   ├── court.ts            # /court open|finalize|list|history|record
-    │   │   ├── gdpr-delete.ts
-    │   │   ├── report.ts           # file a report
-    │   │   ├── reports.ts          # list/resolve reports
-    │   │   ├── unban.ts
-    │   │   ├── warn.ts
-    │   │   └── warnings.ts         # list/revoke warnings
-    │   └── administration/         # requires useAdmin middleware
-    │       ├── automod.ts          # /automod configure
-    │       ├── config.ts           # /config channel|role|feature|threshold
-    │       ├── export-volters.ts   # /export-volters
-    │       ├── purge.ts            # /purge <n> messages
-    │       └── rolemapping.ts      # /rolemapping add|remove|list
+    ├── commands/                   # auto-discovered; FLAT — one file per command, no category folders
+    │   │                           # access is declared per command via requiredPermissions, not by folder
+    │   ├── help.ts, ping.ts, rules.ts, stats.ts, verify.ts, request-data-deletion.ts
+    │   ├── ask.ts                  # AI Q&A via Ollama (gated by features.ask)
+    │   ├── ban.ts, unban.ts, mute.ts, warn.ts, purge.ts, clear.ts, lockdown.ts, say.ts
+    │   ├── court.ts                # /court open|finalize|list|history|record
+    │   ├── report.ts, reports.ts, userRecord.ts, gdpr-delete.ts
+    │   ├── modmail.ts, appeal.ts, suggest.ts, event.ts
+    │   ├── sticky.ts, react.ts
+    │   └── config.ts               # /config show|schedulable|run — display + cron management only
     │
     ├── events/                     # auto-discovered; flat — exactly ONE file per Discord gateway event
     │   ├── interactionCreate.ts    # config-driven router: slash/context/autocomplete + button/select/modal
@@ -202,9 +175,20 @@ src/
     │
     └── providers/                  # domain services; isolated, injected, swappable
         ├── automod/
-        │   ├── index.ts            # getAutomodProvider() — cached factory, switches on settings.automodProvider
-        │   ├── types.ts            # AutomodProvider interface
-        │   ├── regex.ts            # RegexAutomod — pattern matching against slur_patterns table
+        │   ├── run.ts             # runAutomod() — link filter → profanity → LLM harm check, in order
+        │   ├── autoMute.ts        # warn-count escalation → muted role + mutes row
+        │   └── index.ts           # barrel
+        ├── moderation/             # single code path for warn / mute / ban (commands + report actions)
+        │   ├── warn.ts             # issueWarning() — row, DM, mod log, audit, warn auto-mute escalation
+        │   ├── mute.ts             # applyMute() — muted role + row, discriminated result (not_configured / not_in_guild / already_muted)
+        │   ├── ban.ts              # applyBan() — Discord ban first, then row + mod log + audit
+        │   └── index.ts            # barrel
+        ├── report/
+        │   ├── publish.ts          # publishReport() — plain copy → reportsLog, buttons copy → reportsTodo, stores both message IDs
+        │   ├── actions.ts          # handleReportButton() (dismiss / showModal), handleReportModal() (execute action, then close)
+        │   ├── close.ts            # closeReport() — status + audit, delete todo copy, stamp resolution on log copy
+        │   └── index.ts            # barrel
+        ├── profanity/             # file-based word list (config/bad-words), severity-scored
         │   └── ollama.ts           # OllamaAutomod — sends message to Ollama for classification
         ├── charts/
         │   └── index.ts            # renderVerificationsChart(), renderModerationChart() → Buffer (PNG)
@@ -248,17 +232,20 @@ export default new Command<ApplicationCommandType.ChatInput>({
   data: new SlashCommandBuilder().setName('x').setDescription('…'),
 
   async executeCommand(command, client, interaction, middlewareData) {
-    if (middlewareData.some((m) => m.status !== ProcessExitCode.OK)) return; // ALWAYS first line
-    // … implementation
+    // … implementation — no middleware guard needed, see below
   },
 });
 ```
 
-**Where it belongs:** `src/core/commands/<category>/<name>.ts`
+`Command.execute()` short-circuits on the first non-OK middleware result: it logs a debug line and
+returns **before** calling `executeCommand`. Commands therefore do not guard on `middlewareData`.
 
-- `general/` — no role requirements; any member can run.
-- `moderation/` — set `requiredPermissions: [Permission.Moderation]`.
-- `administration/` — add `middleware: [useAdmin]` instead of `requiredPermissions`.
+**Where it belongs:** `src/core/commands/<name>.ts` — the directory is **flat**, with no category
+subfolders. Access is declared on the command itself:
+
+- No gate — omit `requiredPermissions` or leave it `[]`.
+- Role gate — `requiredPermissions: [Permission.Moderation]` (AND semantics, enforced by `usePermissions`).
+- Feature gate — `middleware: [useFeatureFlag('featureXEnabled')]`.
 
 **After adding a command:** run `bun run script:register-commands` to sync with Discord.
 
@@ -327,29 +314,41 @@ middleware: [fn1, fn2, fn3]
   → fn1() → OK → fn2() → NOPERM → (stop) executeCommand never called
 ```
 
-`middlewareData` array is passed to `executeCommand` — the first-line guard `middlewareData.some(m => m.status !== ProcessExitCode.OK)` is a safety net for cases where event middleware (not command middleware) may have non-OK results.
+The `middlewareData` array is still passed to `executeCommand` so a command can read a middleware's
+`payload`, but it never needs to inspect `status` — a non-OK result means `executeCommand` was not
+reached at all.
 
 **Available middleware:**
 
-| Function         | File                           | What it checks                                                                                                                                                                                                                   |
-| ---------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `usePermissions` | `middleware/usePermissions.ts` | Runs on `InteractionCreate` event for slash/context commands. Cross-references `member.roles` against `settings.role{Permission}Id` columns via `permissionCore.ts`. ManageGuild bypasses as bootstrap fallback (AND semantics). |
-| `useAdmin`       | `middleware/useAdmin.ts`       | Checks `settings.roleAdministrationId` or ManageGuild. Used directly in command's `middleware: [useAdmin]`.                                                                                                                      |
+| Function         | File                           | What it checks                                                                                                                                                                                                                                     |
+| ---------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `usePermissions` | `middleware/usePermissions.ts` | Runs on `InteractionCreate` event for slash/context commands. Cross-references `member.roles` against `settings.role{Permission}Id` columns via `permissionCore.ts`. ManageGuild bypasses as bootstrap fallback (AND semantics).                   |
+| `useFeatureFlag` | `middleware/useFeatureFlag.ts` | Factory: `useFeatureFlag('featureAskEnabled')` short-circuits the command with `UNAVAILABLE` and an ephemeral reply when the flag is off. Its `ensureFeatureEnabled(interaction, flag)` counterpart guards button/modal handlers inside providers. |
 
 Route-level `rights[]` on interaction routes reuse the same role columns via
 `memberHasAnyPermission` (OR semantics; `ManageGuild` always passes), also in `permissionCore.ts`.
 
-**Permission → settings column mapping** (inside `middleware/permissionCore.ts`):
+`logModAction` (`middleware/logModAction.ts`) is **afterware**, not middleware: it runs after
+`executeCommand` and writes an audit row when the command returned an `AuditEntry`.
 
-| Permission       | Column                 |
-| ---------------- | ---------------------- |
-| `Unregistered`   | `roleUnregisteredId`   |
-| `Community`      | `roleCommunityId`      |
-| `Member`         | `roleMemberId`         |
-| `Moderation`     | `roleModerationId`     |
-| `Administration` | `roleAdministrationId` |
+**Permission → settings key mapping** (`ROLE_COLUMN_BY_PERMISSION` in `middleware/permissionCore.ts`):
 
-**How to add a new permission gate:** add it to `Permission` enum in `Permission.ts`, add a `role<Name>Id` column to the `settings` schema, wire it in `ROLE_COLUMN_BY_PERMISSION` in `middleware/permissionCore.ts`.
+| Permission       | Settings key           | Config key                        |
+| ---------------- | ---------------------- | --------------------------------- |
+| `Unregistered`   | `roleUnregisteredId`   | `roles.utility.unregistered`      |
+| `Community`      | `roleCommunityId`      | `roles.utility.community`         |
+| `Member`         | `roleMemberId`         | `roles.utility.member`            |
+| `EventManager`   | `roleEventManagerId`   | `roles.permission.eventmanager`   |
+| `Moderation`     | `roleModerationId`     | `roles.permission.moderation`     |
+| `Administration` | `roleAdministrationId` | `roles.permission.administration` |
+
+**How to add a new permission gate:** add it to the `Permission` enum in `models/Permission.ts`, add
+the role to `roles.*` in `config/schema.ts` and the JSON5 file, expose it as `role<Name>Id` on the
+`Settings` type in `database/settings.ts`, then wire it into `ROLE_COLUMN_BY_PERMISSION`.
+
+**Bootstrap fallback asymmetry, worth knowing:** `memberHasAllPermissions` (commands) honours bare
+`ManageGuild` **only while `roleAdministrationId` is unconfigured**; `memberHasAnyPermission` (route
+`rights[]`) always lets `ManageGuild` through.
 
 ---
 
@@ -380,24 +379,37 @@ has the same shape regardless of handler count.
 
 ## Settings (runtime configuration)
 
-`src/database/settings.ts` wraps the `settings` table — a **singleton row** (`id = 1`, enforced by a `CHECK (id = 1)` constraint). This is the operator's control surface for everything that changes post-deploy.
+Settings are **file-backed and read-only at runtime**. `config/config.<NODE_ENV>.json5` is loaded and Zod-validated once at boot (`src/config/loader.ts`); the `settings` table no longer exists. `src/database/settings.ts` survives only as an adapter — `getSettings()` flattens the in-memory config into the legacy flat column shape so the ~40 existing consumers were untouched by the migration. It is `async` to preserve that contract and performs no I/O.
 
 ```ts
-const settings = await getSettings(); // in-process cache; fast
-await updateSettings({ channelId: '…' }); // writes to DB, invalidates cache
+const settings = await getSettings(); // flattened view of the JSON5 config; no I/O
+const { config } = getConfig(); // the validated config itself, for new code
 ```
 
-**What lives in settings:**
+**What lives in the config:**
 
-| Group         | Examples                                                                                                 |
-| ------------- | -------------------------------------------------------------------------------------------------------- |
-| Channel IDs   | `notificationChannelId`, `courtParentChannelId`, `starboardChannelId`, `approvalChannelId`               |
-| Role IDs      | `roleModerationId`, `roleMutedId`, `roleUnregisteredId`, `roleCommunityId`                               |
-| Feature flags | `featureCourtEnabled`, `featureAutomodEnabled`, `featureStarboardEnabled`, `featureHarmDetectionEnabled` |
-| LLM config    | `ollamaEndpoint`, `ollamaModel`, `automodProvider`                                                       |
-| Thresholds    | `starboardThreshold`, `warnAutoEscalateCount`, `warnAutoEscalateWindowDays`                              |
+| Group         | Config key                              | Flattened as                                            |
+| ------------- | --------------------------------------- | ------------------------------------------------------- |
+| Channel IDs   | `channels.courtParent`                  | `courtParentChannelId`                                  |
+| Role IDs      | `roles.permission.*`, `roles.utility.*` | `roleModerationId`, `roleMutedId`, `roleUnregisteredId` |
+| Feature flags | `features.court`                        | `featureCourtEnabled`                                   |
+| Thresholds    | `thresholds.starboard`                  | `starboardThreshold`                                    |
+| Schedules     | `schedules.muteSweep`                   | read via `getConfig()` directly                         |
 
-**Modified via** `/config channel`, `/config role`, `/config feature`, `/config threshold`, `/automod configure`.
+**Changing a setting** means editing the JSON5 file and restarting the bot. There is no write path and no `/config` mutation subcommand — `/config` is display-only (`show`), plus `schedulable` / `run` for cron management. Missing or malformed keys fail Zod loudly at boot rather than silently defaulting.
+
+**Adding a feature flag** — five touch points, all required:
+
+1. `src/config/schema.ts` — add the key to the `features` Zod object
+2. `config/config.<env>.json5` — set the value (Zod fails loudly at boot if missing)
+3. `src/database/settings.ts` — add `featureXEnabled: boolean` to the `Settings` type and map it in `getSettings()`
+4. `src/core/commands/config.ts` — add a `FEATURES` registry entry so `/config` documents it
+5. At least one guard — commands use `middleware: [useFeatureFlag('featureXEnabled')]`, provider interaction handlers use
+   `ensureFeatureEnabled(interaction, 'featureXEnabled')`, and silent paths (gateway events, schedulers) read
+   `getConfig().config.features.x` at the top of the provider's exported function
+
+Silent paths guard **inside the provider**, not at the caller — a feature usually has several entry points (command,
+interaction route, scheduler) and gating only the command leaves the scheduler running.
 
 **Env vars** are only for secrets and IDs that must be known before the DB is reachable: `TOKEN`, `CLIENT_ID`, `APPLICATION_ID`, `GUILD_ID`, Postgres credentials, and optional external API keys (`OLLAMA_ENDPOINT`, `BSKY_*`, etc.).
 
@@ -429,26 +441,35 @@ The TypeScript enum is used everywhere in application code; the pgEnum is used o
 
 ### Tables reference
 
-| Table                       | Purpose                                                                                                                                                                                                                                                                           |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `users`                     | Snowflake ID + username cache. Must exist before any FK reference. Always `upsertUser()` before inserting moderation records.                                                                                                                                                     |
-| `username_history`          | Append-only log of username changes.                                                                                                                                                                                                                                              |
-| `warnings`                  | Moderation warnings. `revokedAt`/`revokedBy` nullable — revocation doesn't delete.                                                                                                                                                                                                |
-| `bans`                      | Bans with `active` flag and optional `expiresAt`. `banSweeper.ts` polls for expired active bans.                                                                                                                                                                                  |
-| `reports`                   | User-filed reports with `ReportStatus` (open/resolved/dismissed).                                                                                                                                                                                                                 |
-| `court_cases`               | Judicial thread records. Statuses: open → finalizing → resolved/dismissed/escalated. Stores `threadId`, `verdict`, `summary` (LLM-generated), `voteMessageId`.                                                                                                                    |
-| `court_votes`               | One row per moderator per case. Unique on `(case_id, moderator_id)` — supports vote changes via upsert.                                                                                                                                                                           |
-| `audit_log`                 | Append-only event stream. `eventType` from `AuditEventType` enum, `payload` is `jsonb`.                                                                                                                                                                                           |
-| `settings`                  | Singleton row (id=1). All runtime config.                                                                                                                                                                                                                                         |
-| `slur_patterns`             | Regex patterns for automod. `severity`: warn/ban/review.                                                                                                                                                                                                                          |
-| `slur_violations`           | Log of automod triggers per user per pattern.                                                                                                                                                                                                                                     |
-| `ml.harm_detection_samples` | Training-data capture (lives in the dedicated **`ml`** schema, no FKs into `public`): every harm-detector hit with text, context, raw scores, `modelVersion`, and `action`. Retro-labelled (`humanLabel`) from revoked auto-warnings and report outcomes. Purged on GDPR erasure. |
-| `starboard_entries`         | Tracks which messages have been posted to starboard (prevents duplicates).                                                                                                                                                                                                        |
-| `external_posts`            | Queue/log for cross-platform posts (BSKY/Instagram/Haiilo). Status: queued/posted/failed.                                                                                                                                                                                         |
-| `role_mappings`             | Maps verification answer values (country/language/pronouns) to Discord role IDs. Managed via `/rolemapping`.                                                                                                                                                                      |
-| `forum_role_mappings`       | Maps Discord role IDs to forum thread channel IDs. On role assignment, bot calls `thread.members.add()` for each mapped thread. Managed via `/config forum`.                                                                                                                      |
-| `member_activity_daily`     | Per-user, per-UTC-day activity buckets (`messageCount`, `voiceSeconds`, `reactionCount`). Composite PK `(userId, day)`. Written by the analytics flush job, never per-event. Existence of a row = "member was active that day".                                                   |
-| `stat_channels`             | Maps a `StatChannelType` (PK) to a voice channel ID whose name is refreshed daily with the live stat value. Managed via `/config statchannel`.                                                                                                                                    |
+| Table                              | Purpose                                                                                                                                                                                                                                                                           |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `users`                            | Snowflake ID + username cache. Must exist before any FK reference. Always `upsertUser()` before inserting moderation records.                                                                                                                                                     |
+| `username_history`                 | Append-only log of username changes.                                                                                                                                                                                                                                              |
+| `warnings`                         | Moderation warnings. `revokedAt`/`revokedBy` nullable — revocation doesn't delete.                                                                                                                                                                                                |
+| `bans`                             | Bans with `active` flag and optional `expiresAt`. `banSchedulable.ts` sweeps expired active bans.                                                                                                                                                                                 |
+| `reports`                          | User-filed reports with `ReportStatus` (open/resolved/dismissed). `logMessageId` / `todoMessageId` locate the two delivered copies so closure can edit / delete them.                                                                                                             |
+| `court_cases`                      | Judicial thread records. Statuses: open → finalizing → resolved/dismissed/escalated. Stores `threadId`, `verdict`, `summary` (LLM-generated), `voteMessageId`.                                                                                                                    |
+| `court_votes`                      | One row per moderator per case. Unique on `(case_id, moderator_id)` — supports vote changes via upsert.                                                                                                                                                                           |
+| `audit_log`                        | Append-only event stream. `eventType` from `AuditEventType` enum, `payload` is `jsonb`.                                                                                                                                                                                           |
+| `mutes`                            | Active mutes with `expiresAt`. `muteSchedulable.ts` removes the muted role on expiry. Anti-spam and warn auto-escalation both write here.                                                                                                                                         |
+| `locked_channels`                  | Channels currently locked down, so `/lockdown` can restore the prior permission overwrites.                                                                                                                                                                                       |
+| `appeals` / `appeal_votes`         | Ban appeals and the moderator vote tally that resolves them.                                                                                                                                                                                                                      |
+| `modmails`                         | Modmail threads with status, category, and close bookkeeping.                                                                                                                                                                                                                     |
+| `suggestions` / `suggestion_votes` | Community suggestions and their vote rows.                                                                                                                                                                                                                                        |
+| `events` / `event_registrations`   | Server events and per-member signups.                                                                                                                                                                                                                                             |
+| `sticky_messages`                  | Per-channel sticky text, level, and repost interval.                                                                                                                                                                                                                              |
+| `schedulable_configs`              | Per-schedulable cron override, edited via `/config schedulable`.                                                                                                                                                                                                                  |
+| `member_history`                   | Join/leave history per member.                                                                                                                                                                                                                                                    |
+| `invite_snapshot`                  | Invite-use counts cached between gateway events, for attributing a join to an invite.                                                                                                                                                                                             |
+| `volt_verifications`               | Verification submissions and their approval state.                                                                                                                                                                                                                                |
+| `ml.harm_detection_samples`        | Training-data capture (lives in the dedicated **`ml`** schema, no FKs into `public`): every harm-detector hit with text, context, raw scores, `modelVersion`, and `action`. Retro-labelled (`humanLabel`) from revoked auto-warnings and report outcomes. Purged on GDPR erasure. |
+| `starboard_entries`                | Tracks which messages have been posted to starboard (prevents duplicates).                                                                                                                                                                                                        |
+| `external_posts`                   | Queue/log for cross-platform posts (BSKY/Instagram/Haiilo). Status: queued/posted/failed.                                                                                                                                                                                         |
+| `member_activity_daily`            | Per-user, per-UTC-day activity buckets (`messageCount`, `voiceSeconds`, `reactionCount`). Composite PK `(userId, day)`. Written by the analytics flush job, never per-event. Existence of a row = "member was active that day".                                                   |
+
+Role mappings (verification answers → role IDs), forum-thread mappings, and stat-channel IDs are **not** tables —
+they live in `config/config.<NODE_ENV>.json5` under `roles.countryMappings`, `roles.languageMappings`,
+`roles.forumMappings`, and `statChannels`.
 
 ### Repositories (`src/database/repositories/`)
 
@@ -463,7 +484,6 @@ export type NewWarning = Omit<InferInsertModel<typeof warnings>, 'id' | 'created
 
 - `stats.ts` — cross-table aggregation queries used by `/stats`. Uses `sql` template + `date_trunc` for monthly/daily bucketing. Not tied to a single table.
 - `gdprDeletion.ts` — cascaded wipe of all data for a user across all tables.
-- `volterExport.ts` — exports data for Volt's internal member system (Volter).
 - `auditLog.ts` — `recordAuditEvent()` is the single write path for the entire audit stream.
 
 **Import pattern:** always import via the barrel:
@@ -588,14 +608,41 @@ The court system is a formal judicial process for server members.
 
 **summarizer.ts:** fetches up to 200 thread messages (paginated, oldest-first), filters bot messages, sends to Ollama with a prompt that returns a bullet-point list of notable points made by participants. Returns `null` if Ollama is not configured or the call fails.
 
+### Moderation (`providers/moderation/`)
+
+`issueWarning()`, `applyMute()`, `applyBan()` own the full side effects of a moderation action — user upsert,
+Discord call, DB row, DM (warn), mod-log embeds, and the `audit_log` entry. `/warn`, `/mute`, `/ban` are thin
+boundaries (option parsing, target validation, duration parsing, reply) over these; report buttons reuse the
+same functions, so there is exactly one path per action. `applyMute()` returns a discriminated result instead
+of throwing for the expected cases (role unconfigured, target not in guild, already muted).
+
+### Reports (`providers/report/`)
+
+`/report` inserts the row, then `publishReport()` posts the embed twice: a plain copy to `channels.reportsLog`
+(permanent record) and a copy with the Dismiss / Warn / Mute / Ban row to `channels.reportsTodo` (open work
+queue). Both message IDs are stored on the `reports` row (`logMessageId`, `todoMessageId`).
+
+- **Dismiss** closes directly. **Warn / Mute / Ban** open a modal (reason prefilled with the message link;
+  optional duration for mute and ban) and, on submit, call the moderation provider. Mute runs _before_ the
+  implicit warn so warn auto-mute escalation does not double-mute. Ban from a report defaults to
+  `appealable = false`, `deleteMessageSeconds = 0`.
+- `closeReport()` is the single closure path for buttons, modals, and `/reports resolve|dismiss`: it sets the
+  status (warn/mute/ban → `resolved`, dismiss → `dismissed`, preserving the harm-sample label mapping),
+  records `ReportResolved`, deletes the todo copy, and appends a _Resolution_ field to the log copy.
+- Both handlers re-check `status === open` (buttons before `showModal`, modals after `deferReply`) so the
+  second of two concurrent moderators gets "already handled by …" instead of a double action.
+
 ### Automod (`providers/automod/`)
 
-Pluggable provider switched via `settings.automodProvider`:
+`runAutomod()` is a fixed, ordered pipeline rather than a pluggable provider — each stage is
+independently toggleable and returns early once a message is actioned:
 
-- `regex` (default) — matches against `slur_patterns` table; instant, no external call.
-- `ollama` — sends the message to Ollama for semantic classification. Requires `settings.ollamaModel`.
-
-`getAutomodProvider()` is cached per `provider:model` key. Call `invalidateAutomodProvider()` after changing settings.
+1. **Link filter** (`features.linkFilter`) — `BlocklistChecker` extracts every URL and bare hostname from the
+   content and tests each against an in-memory `Set` of Pi-hole-format domains.
+2. **Profanity** (`features.badWords`) — file-based word list from `config/bad-words`, severity-scored;
+   deletes at or above `thresholds.badWordDelete`.
+3. **Harm detection** (`features.harmDetection`) — sends the message to Ollama for semantic classification.
+   Skipped entirely when the feature is off or no model is configured.
 
 ### Surveillance (`providers/antispam/`, `providers/autoslowmode/`, `providers/sticky/`)
 
@@ -646,14 +693,16 @@ BSKY, Instagram, and Haiilo are **interface-only stubs**. They implement `Extern
 
 ## Scheduler
 
-`src/core/scheduler/banSweeper.ts` — started in the `ClientReady` event handler. Polls `bans` table every 60 seconds for rows where `active = true AND expiresAt <= NOW()`. For each: lifts the Discord-side ban via `guild.bans.remove()`, then `deactivateBan()` in DB. Logs counts.
+Every recurring job is a `Schedulable` in `src/core/scheduler/`, registered by `loadSchedulables.ts` at boot. Each declares a `defaultCron` read lazily from `config.schedules`; a row in `schedulable_configs` overrides it, and `/config schedulable` edits that row (`/config run` fires one tick immediately). A tick that throws is caught, logged, and posted to the notification channel — it never kills the job.
+
+`banSchedulable.ts` is the reference example: it lists expired active bans, lifts each via `guild.bans.remove()`, then `deactivateBan()` in the DB, and returns a summary string that becomes the tick's notification.
 
 Single-process, single-server assumption. If the bot ever runs multi-process, this needs to move to a proper distributed scheduler.
 
 Recurring jobs are `Schedulable` instances registered in `loaders/loadSchedulables.ts` (cron via Croner; overridable per job via `/config schedulable`, runnable on demand via `/config run`). Analytics jobs:
 
 - `analytics-schedulable` (`*/5 * * * *`) — flushes the in-memory activity buffer to `member_activity_daily`.
-- `stat-channels-schedulable` (`0 1 * * *`, 01:00 daily) — renames each configured stat voice channel to `"Label: value"`. Per-channel try/catch (the client uses `rejectOnRateLimit`), and skips `setName` when the name is unchanged to conserve the channel-rename rate limit.
+- `stat-channels-schedulable` (`0 1 * * *`, 01:00 daily) — renames each configured stat voice channel to `"Label: value"`. Per-channel try/catch, and skips `setName` when the name is unchanged to conserve the channel-rename rate limit (Discord allows only 2 renames per 10 minutes per channel).
 
 ---
 
@@ -706,6 +755,64 @@ throw new BotException(client, 'Human-readable context', originalError);
 `process.exit()` is reserved for boot-time failures (missing env vars, failed DB connection) and the DB singleton exhaustion case in `database/client.ts`.
 
 Plain `new Error()` is allowed only inside provider internals where it is immediately caught in the same function and no Discord client is available.
+
+### Soft failures — `softFail` / `logSoftFailure`
+
+Best-effort calls (`members.fetch`, `createDM`, `messages.fetch`, a DM send to a user who may have
+DMs closed) must not raise a `BotException` embed into the guild, but they must never be silent
+either. `src/utilities/attempt.ts` is the single seam for that:
+
+```ts
+const member = await guild.members.fetch(id).catch(softFail(AppFeature.Mute, 'MUTE_MEMBER_FETCH', { targetUserId: id }));
+const rows = await listAllVerifications().catch(softFail(AppFeature.VerificationSweeper, 'SWEEPER_LIST_ALL_VERIFICATIONS', {}, []));
+
+try {
+  return await detector.detect(content);
+} catch (error) {
+  logSoftFailure(AppFeature.AutomatedWarn, 'AUTOMOD_HARM_DETECTION_FAILED', { contentLength: content.length }, error);
+  return null;
+}
+```
+
+- `softFail(feature, errorCode, context?, fallback?)` builds a `.catch()` handler. It logs, then
+  resolves to `fallback` (default `null`), so the call site keeps its original inferred type.
+- `logSoftFailure(feature, errorCode, context, error, level?)` is the same log for `try/catch` blocks.
+- `attempt(fn, { feature, errorCode, context, level, onError })` wraps a whole best-effort block.
+
+**Error codes** are stable, greppable, `SCREAMING_SNAKE_CASE` strings scoped by area
+(`MODMAIL_THREAD_SEND`, `VERIFICATION_DM_OPEN`). They are not a numeric registry — the upstream
+error's own code is logged separately as `upstreamCode` (Discord REST JSON code, Postgres SQLSTATE,
+or Node `errno`), alongside `httpStatus`, `httpMethod`, `httpUrl`, `errorName` and `reason`.
+
+**Severity is derived, not uniform.** Discord rejections that are part of the normal path
+(`UnknownMember`, `UnknownMessage`, `UnknownChannel`, `CannotSendMessagesToThisUser`, …) log at
+`debug`; everything else logs at `warn`. Pass an explicit `level` to override — e.g. `debug` for a
+component-collector timeout, `error` for a failed DB health probe.
+
+Pino's level defaults to `info` in production, so the `debug` tier — the bulk of what actually fires
+on a healthy bot — is suppressed there. Set `LOG_LEVEL=debug` (see README) to surface it when
+diagnosing; the default keeps production quiet.
+
+`logSoftFailure` returns the `SoftFailureDetails` it logged (`upstreamCode`, `errorName`, `reason`,
+`httpStatus`, …), so a caller that needs to branch on the failure — or surface it to the user — reads
+it off the return value instead of re-deriving it:
+
+```ts
+const details = logSoftFailure(AppFeature.Clear, 'CLEAR_OLD_MESSAGE_DELETE', { messageId }, error);
+if (details.upstreamCode === RESTJSONErrorCodes.MissingPermissions) break;
+```
+
+`stack` is attached only when the failure is _not_ expected — an expected-absence line stays terse,
+while a genuine throw keeps its trace.
+
+**Only these stay outside the seam:** boot and shutdown (`config/loader.ts`, `database/client.ts`,
+`index.ts`), the framework's own handler isolation (`Event`, `MessagePipeline`, the command/event
+loaders, `interactionCreate` autocomplete), the health HTTP handler, and `runDiscordAction` — which
+is the sibling seam for Discord side effects whose success the database depends on.
+
+Everything here is console-only; nothing reaches Discord. Two call sites stay deliberately silent:
+`Logger.log()`'s own Discord delivery path (logging there would recurse) and the shutdown notifier
+in `src/index.ts`.
 
 ---
 

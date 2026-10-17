@@ -2,6 +2,7 @@ import { AppFeature } from '~/settings';
 import { AuditEventType, deactivateBan, listExpiredActiveBans, recordAuditEvent } from '~/database';
 import { getConfig } from '~/config';
 import { Schedulable } from '~/core/models/Schedulable';
+import { logSoftFailure, softFail } from '~/utilities';
 
 export const banSchedulable = new Schedulable({
   name: 'ban-schedulable',
@@ -14,7 +15,7 @@ export const banSchedulable = new Schedulable({
       return;
     }
 
-    const guild = await client.guilds.fetch(process.env.GUILD_ID).catch(() => null);
+    const guild = await client.guilds.fetch(process.env.GUILD_ID).catch(softFail(AppFeature.Scheduler, 'SCHEDULER_GUILD_FETCH'));
     if (!guild) {
       logger.error('Ban sweeper: guild not found; skipping this tick.');
       return;
@@ -37,7 +38,7 @@ export const banSchedulable = new Schedulable({
         logger.info({ banId: ban.id }, 'Ban expired and was lifted.');
         lifted++;
       } catch (err) {
-        logger.error(Object(err), `Failed to lift ban #${ban.id} for ${ban.targetUserId}.`);
+        logSoftFailure(AppFeature.Ban, 'BAN_EXPIRY_LIFT', { banId: ban.id, targetUserId: ban.targetUserId }, err);
       }
     }
 

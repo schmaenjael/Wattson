@@ -2,6 +2,7 @@ import { AppFeature } from '~/settings';
 import { AuditEventType, deactivateMute, getSettings, listExpiredActiveMutes, recordAuditEvent } from '~/database';
 import { getConfig } from '~/config';
 import { Schedulable } from '~/core/models/Schedulable';
+import { logSoftFailure, softFail } from '~/utilities';
 
 export const muteSchedulable = new Schedulable({
   name: 'mute-schedulable',
@@ -19,7 +20,7 @@ export const muteSchedulable = new Schedulable({
       return;
     }
 
-    const guild = await client.guilds.fetch(process.env.GUILD_ID).catch(() => null);
+    const guild = await client.guilds.fetch(process.env.GUILD_ID).catch(softFail(AppFeature.Mute, 'MUTE_GUILD_FETCH'));
     if (!guild) {
       logger.error('Mute sweeper: guild not found; skipping this tick.');
       return;
@@ -32,8 +33,12 @@ export const muteSchedulable = new Schedulable({
         continue;
       }
       try {
-        const member = await guild.members.fetch(mute.targetUserId).catch(() => null);
+        const member = await guild.members
+          .fetch(mute.targetUserId)
+          .catch(softFail(AppFeature.Mute, 'MUTE_MEMBER_FETCH', { targetUserId: mute.targetUserId }));
         if (member) {
+          // Not caught here on purpose: a throw skips deactivateMute so the next tick retries,
+          // instead of recording a lift that never reached Discord.
           await member.roles.remove(settings.roleMutedId!, 'Automatic unmute — mute expired');
         }
         await deactivateMute(mute.id);
@@ -45,7 +50,7 @@ export const muteSchedulable = new Schedulable({
         logger.info({ muteId: mute.id }, 'Mute expired and was lifted.');
         lifted++;
       } catch (err) {
-        logger.error(Object(err), `Failed to lift mute #${mute.id} for ${mute.targetUserId}.`);
+        logSoftFailure(AppFeature.Mute, 'MUTE_EXPIRY_LIFT', { muteId: mute.id, targetUserId: mute.targetUserId }, err);
       }
     }
 

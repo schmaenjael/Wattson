@@ -5,6 +5,7 @@ import { getConfig, listStatChannels } from '~/config';
 import { Schedulable } from '~/core/models/Schedulable';
 import { type StatChannelType } from '~/database';
 import { computeStatValue, STAT_CHANNEL_LABELS } from '~/core/providers/statChannels';
+import { logSoftFailure, softFail } from '~/utilities';
 
 export const statChannelsSchedulable = new Schedulable({
   name: 'stat-channels-schedulable',
@@ -12,12 +13,14 @@ export const statChannelsSchedulable = new Schedulable({
   description: 'Updates configured voice-channel names with daily server statistics.',
   defaultCron: () => getConfig().config.schedules.statChannels,
   execute: async (client, logger) => {
+    if (!getConfig().config.features.statChannels) return;
+
     const mappings = await listStatChannels();
     if (mappings.length === 0) {
       return;
     }
 
-    const guild = await client.guilds.fetch(process.env.GUILD_ID).catch(() => null);
+    const guild = await client.guilds.fetch(process.env.GUILD_ID).catch(softFail(AppFeature.Stats, 'STATS_GUILD_FETCH'));
     if (!guild) {
       logger.error('Stat channels: guild not found; skipping this tick.');
       return;
@@ -27,7 +30,9 @@ export const statChannelsSchedulable = new Schedulable({
     for (const mapping of mappings) {
       const statType = mapping.statType as StatChannelType;
       try {
-        const channel = await guild.channels.fetch(mapping.channelId).catch(() => null);
+        const channel = await guild.channels
+          .fetch(mapping.channelId)
+          .catch(softFail(AppFeature.Stats, 'STATS_CHANNEL_FETCH', { channelId: mapping.channelId }));
         if (!channel || channel.type !== ChannelType.GuildVoice) {
           logger.warn({ channelId: mapping.channelId, statType }, 'Stat channel missing or not a voice channel; skipping.');
           continue;
@@ -42,7 +47,7 @@ export const statChannelsSchedulable = new Schedulable({
         await channel.setName(name);
         updated++;
       } catch (err) {
-        logger.error(Object(err), `Failed to update stat channel ${mapping.channelId} (${statType}).`);
+        logSoftFailure(AppFeature.Stats, 'STATS_CHANNEL_RENAME', { channelId: mapping.channelId, statType }, err);
       }
     }
 

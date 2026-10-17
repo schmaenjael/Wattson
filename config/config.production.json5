@@ -1,0 +1,127 @@
+{
+  channels: {
+    notification: '1505668684771754009', // #bot-status
+    modLog: '1358461729960628415', // #internal-mod-log
+    publicLog: '1358461831055675623', // #modlog
+    surveillanceLog: '1505669304492883978', // #surveillance
+    reportsLog: '1358461717654409257', // #reports
+    // reportsTodo: '', // #reports-todo — open reports with action buttons; message removed once handled
+    welcome: '1358461789519610077', // #introduction
+    approval: '1358461727154634842', // #approval
+    courtParent: '1358461724197388619', // #dis-court
+    starboard: '1358462032395112610', // #starboard
+    modmail: '1358461747450744882', // #modmail-log
+    appeal: '1358461727154634842', // #approval
+    eventAnnouncement: '1358461766677299250', // #announcements
+    suggestion: '1358461826614165505', // #idea-box
+    suggestionApproval: '1358461714022011000', // #discord-team-polls
+  },
+  features: {
+    welcome: true,
+    starboard: true,
+    court: true,
+    systemNotifications: true,
+    surveillance: true,
+    verificationRequiresApproval: true,
+    warnAutoMute: true,
+    harmDetection: false,
+    badWords: true,
+    linkFilter: true,
+    antiSpam: true,
+    antiHoist: true,
+    inviteTracking: true,
+    autoSlowmode: true,
+    ask: false,
+    rag: false,
+    modmail: true,
+    appeal: true,
+    suggestions: true,
+    events: false,
+    sticky: true,
+    react: true,
+    forumRoles: false,
+    analytics: false,
+    statChannels: false,
+    reports: true,
+  },
+  thresholds: {
+    starboard: 5,
+    starboardExternal: 10,
+    warnAutoEscalateCount: 3, // only after N warns, the first mute takes effect
+    warnAutoEscalateWindowDays: 30, // days for which the warns are taken into considerationw hen applying the auto warn
+    warnAutoMuteBaseMinutes: 60,
+    badWordDelete: 4, // value 1-5, 4 and 5 represent heavy insults, racial/sexist statements
+    antiSpamMaxMessages: 5,
+    antiSpamWindowMs: 10000,
+    antiSpamMuteMinutes: 10, // duration of the automatic mute applied when the flood threshold is exceeded
+    inviteRaidThreshold: 3, // amount of joins of a single invite, which raises suspicion in MS specified in inviteRaidWindowMs
+    inviteRaidWindowMs: 60000,
+    autoSlowmodeThreshold: 10,
+    autoSlowmodeWindowMs: 5000,
+    appealVote: 4, // threshhold for ban appeal votes
+    suggestionVote: 10,
+    suggestionVoteDurationHours: 72, // time for suggestion votes by community
+    autoSlowmodeTiers: [5, 15, 30, 60],
+    autoSlowmodeStepDownFactor: 2,
+    muteCapMinutes: 20160,
+    reverifyWarnDays: 7,
+  },
+  starboard: {
+    emojiTiers: [
+      { threshold: 1, emoji: '⭐' },
+      { threshold: 5, emoji: '🌟' },
+      { threshold: 10, emoji: '💫' },
+      { threshold: 25, emoji: '🌠' },
+    ],
+  },
+  react: { defaultEmojis: ['👍', '👎'] },
+  roles: {
+    permission: { moderation: '1358461382088986645', administration: '1358461380793077771', eventmanager: '1519413659015708842' },
+    utility: {
+      unregistered: '1101800526200447016',
+      community: '1519414295442493440',
+      member: '1519414335875711199',
+      muted: '1519414370969325689',
+      modmail_handler: '1519414443426185246',
+    },
+    // code -> roleId mappings for verification answers; codes reference config/catalog.json5.
+    countryMappings: [
+      { code: 'FR', roleId: '1519415512122003556' }, // France
+      { code: 'AT', roleId: '1519415512122003556' }, // Austria
+      { code: 'DE', roleId: '1519415512122003556' }, // Germany
+    ],
+    languageMappings: [],
+    forumMappings: [
+      // example-forum
+      { roleId: '1519415512122003556', channelId: '1519415449702367352' }, // France
+      { roleId: '1519415512122003556', channelId: '1519416082962579537' }, // Austria
+      { roleId: '1519415512122003556', channelId: '1519416122284310709' }, // Germany
+    ],
+  },
+  pronouns: [
+    { value: 'she', label: 'she/her' },
+    { value: 'he', label: 'he/him' },
+    { value: 'they', label: 'they/them' },
+    { value: 'any', label: 'any' },
+    { value: 'ask', label: 'ask me' },
+  ],
+  statChannels: {
+    all_members: '1519414973145809017',
+    active_members: '1101800526875742271',
+    total_roles: '1519415050320744588',
+    text_channels: '1519415086450475129',
+    messages_today: '1519415121624043741',
+  },
+  schedules: {
+    banSweep: '* * * * *',
+    muteSweep: '* * * * *',
+    warningSweep: '0 * * * *',
+    suggestionSweep: '0 * * * *',
+    modmailStale: '0 * * * *',
+    analyticsFlush: '*/5 * * * *',
+    eventDigest: '*/10 * * * *',
+    reverify: '0 0 * * *',
+    statChannels: '0 1 * * *',
+  },
+  timeouts: { ragMs: 60000, ollamaMs: 45000, summarizerMs: 60000, harmMs: 120000, healthProbeMs: 1500, logtoPollMs: 1000 },
+}

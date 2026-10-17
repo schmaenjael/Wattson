@@ -29,16 +29,19 @@ export const handleCourtVote = async (client: Client, interaction: ButtonInterac
   const tallies = await getVoteTallies(caseId);
   const winner = ([CourtVoteOption.Ban, CourtVoteOption.Warn, CourtVoteOption.Dismiss] as const).find((o) => tallies[o] >= VOTE_THRESHOLD);
 
-  await attempt(() =>
-    interaction.message.edit({
-      embeds: [buildVoteEmbed(caseRow, tallies, winner)],
-      components: winner ? [buildVoteRow(caseId, true)] : [buildVoteRow(caseId)],
-    })
+  await attempt(
+    () =>
+      interaction.message.edit({
+        embeds: [buildVoteEmbed(caseRow, tallies, winner)],
+        components: winner ? [buildVoteRow(caseId, true)] : [buildVoteRow(caseId)],
+      }),
+    { errorCode: 'COURT_VOTE_MESSAGE_EDIT', context: { caseId, messageId: interaction.message.id } }
   );
 
   if (winner) {
-    await interaction.editReply({ content: `Vote recorded. **${VOTE_THRESHOLD}** votes reached — executing verdict: **${winner}**.` });
-    await executeCaseOutcome(client, interaction.guild!, caseRow, winner, settings);
+    const failures = await executeCaseOutcome(client, interaction.guild!, caseRow, winner, settings);
+    const suffix = failures.length > 0 ? `\n⚠️ ${failures.join('; ')}.` : '';
+    await interaction.editReply({ content: `Vote recorded. **${VOTE_THRESHOLD}** votes reached — verdict executed: **${winner}**.${suffix}` });
   } else {
     await interaction.editReply({
       content: `Vote recorded (**${vote}**). Current tally: 🔨 ${tallies.ban} · ⚠️ ${tallies.warn} · 🚫 ${tallies.dismiss} — need ${VOTE_THRESHOLD} to close.`,

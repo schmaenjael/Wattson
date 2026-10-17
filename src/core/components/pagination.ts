@@ -8,10 +8,12 @@ import {
   ChatInputCommandInteraction,
   InteractionDeferReplyOptions,
   BaseMessageOptions,
+  MessageFlags,
 } from 'discord.js';
 import { BotException } from '~/core/models';
-import { ErrorEmbed } from './Error';
-import { Colors } from '~/settings';
+import { L } from '~/core/locales';
+import { AppFeature } from '~/settings';
+import { softFail } from '~/utilities';
 
 export const handlePaginatedEmbeds = async (
   embeds: EmbedBuilder[],
@@ -46,12 +48,8 @@ export const handlePaginatedEmbeds = async (
       .createMessageComponentCollector({ componentType: ComponentType.Button, time: duration })
       .on('collect', async (i) => {
         if (i.user.id !== interaction.user.id) {
-          const errorEmbed = new ErrorEmbed({
-            color: Colors.Red,
-            locale: interaction.locale,
-            error: new BotException(interaction.client, 'Unauthorized interaction'),
-          });
-          return i.reply({ embeds: [errorEmbed.render()], files: errorEmbed.attachments, flags: errorEmbed.flags });
+          // Someone else clicking another member's paginator is normal, not an error — no BotException, no error log.
+          return i.reply({ content: L[i.locale].GENERAL.COMMAND_PAGINATION_NOT_OWNER(), flags: MessageFlags.Ephemeral });
         }
 
         if (i.customId === 'prev' && currentPage > 0) currentPage--;
@@ -59,7 +57,7 @@ export const handlePaginatedEmbeds = async (
 
         await i.update({ embeds: [embeds[currentPage]], components: [updatePaginationButtons()] });
       })
-      .on('end', async () => await message.edit({ components: [] }).catch(() => null));
+      .on('end', async () => await message.edit({ components: [] }).catch(softFail(AppFeature.System, 'PAGINATION_COMPONENT_STRIP')));
   } catch (error) {
     throw new BotException(interaction.client, 'Failed to handle paginated embeds', error);
   }

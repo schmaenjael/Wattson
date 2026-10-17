@@ -13,6 +13,8 @@ export const reports = pgTable(
     channelId: varchar({ length: SNOWFLAKE_LENGTH }).notNull(),
     messageId: varchar({ length: SNOWFLAKE_LENGTH }),
     messageContent: text(),
+    logMessageId: varchar({ length: SNOWFLAKE_LENGTH }),
+    todoMessageId: varchar({ length: SNOWFLAKE_LENGTH }),
     status: reportStatusEnum().notNull().default('open').$type<ReportStatus>(),
     resolvedBy: varchar({ length: SNOWFLAKE_LENGTH }).references(() => users.id, { onDelete: 'set null' }),
     resolvedAt: timestamp({ withTimezone: true }),

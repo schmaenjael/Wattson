@@ -7,6 +7,7 @@ import {
   AppealOutcome,
   AuditEventType,
   countAppealVotes,
+  deleteAppeal,
   findAppealByBanId,
   findAppealById,
   findBanById,
@@ -21,8 +22,12 @@ import {
 } from '~/database';
 import { L, baseLocale } from '~/core/locales';
 import { AppealEmbed, buildAppealVoteRow } from '~/core/components/Appeal';
+import { ensureFeatureEnabled } from '~/core/middleware/useFeatureFlag';
+import { AppFeature } from '~/settings';
+import { Logger, runDiscordAction, softFail } from '~/utilities';
 
 const T = L[baseLocale].MODERATION.APPEAL;
+const logger = Logger.getInstance(AppFeature.Appeal);
 
 type ButtonHandler = (client: Client, interaction: ButtonInteraction) => Promise<void>;
 type ModalHandler = (client: Client, interaction: ModalSubmitInteraction) => Promise<void>;
@@ -51,8 +56,12 @@ const handleSubmit: ModalHandler = async (client, interaction) => {
     return;
   }
 
-  const guild = await client.guilds.fetch(process.env.GUILD_ID).catch(() => null);
-  const appealChannel = guild ? await guild.channels.fetch(settings.appealChannelId).catch(() => null) : null;
+  const guild = await client.guilds.fetch(process.env.GUILD_ID).catch(softFail(AppFeature.Appeal, 'APPEAL_GUILD_FETCH'));
+  const appealChannel = guild
+    ? await guild.channels
+        .fetch(settings.appealChannelId)
+        .catch(softFail(AppFeature.Appeal, 'APPEAL_CHANNEL_FETCH', { appealChannelId: settings.appealChannelId }))
+    : null;
 
   if (!appealChannel?.isTextBased()) {
     await interaction.editReply({ content: T.CHANNEL_UNAVAILABLE() });
@@ -77,7 +86,16 @@ const handleSubmit: ModalHandler = async (client, interaction) => {
     threshold,
   }).render();
 
-  await (appealChannel as TextChannel).send({ embeds: [embed], components: [buildAppealVoteRow(appeal.id, 0, threshold)] });
+  const posted = await runDiscordAction(logger, 'appealChannel.send', { appealId: appeal.id, channelId: appealChannel.id }, () =>
+    (appealChannel as TextChannel).send({ embeds: [embed], components: [buildAppealVoteRow(appeal.id, 0, threshold)] })
+  );
+  if (!posted) {
+    // The row would otherwise block every resubmission via the `existingAppeal` guard while no
+    // moderator can ever see the appeal.
+    await deleteAppeal(appeal.id);
+    await interaction.editReply({ content: T.CHANNEL_UNAVAILABLE() });
+    return;
+  }
 
   await recordAuditEvent({
     eventType: AuditEventType.BanAppealFiled,
@@ -132,7 +150,15 @@ const handleApprove = async (client: Client, interaction: ButtonInteraction, app
 
   const guild = interaction.guild!;
   if (ban.targetUserId) {
-    await guild.bans.remove(ban.targetUserId, `Appeal #${appealId} granted — ${voteCount} moderator votes`).catch(() => null);
+    const unbanned = await runDiscordAction(logger, 'guild.bans.remove', { userId: ban.targetUserId, appealId }, () =>
+      guild.bans.remove(ban.targetUserId!, `Appeal #${appealId} granted — ${voteCount} moderator votes`)
+    );
+    if (!unbanned) {
+      // Leaving the appeal undecided keeps the vote retryable; granting it here would tell the
+      // applicant they are unbanned while they are still banned, with no path back.
+      await interaction.editReply({ content: T.VOTE_RECORDED({ voteCount, threshold }) + ' ⚠️ The unban could not be applied — see the bot log.' });
+      return;
+    }
   }
   await liftBan(ban.id);
   await setAppealOutcome(appealId, AppealOutcome.Granted, interaction.user.id);
@@ -156,8 +182,10 @@ const handleApprove = async (client: Client, interaction: ButtonInteraction, app
   await interaction.message.edit({ embeds: [resolvedEmbed], components: [] });
 
   if (ban.targetUserId) {
-    const targetUser = await client.users.fetch(ban.targetUserId).catch(() => null);
-    const dm = await targetUser?.createDM().catch(() => null);
+    const targetUser = await client.users
+      .fetch(ban.targetUserId)
+      .catch(softFail(AppFeature.Appeal, 'APPEAL_USER_FETCH', { targetUserId: ban.targetUserId }));
+    const dm = await targetUser?.createDM().catch(softFail(AppFeature.Appeal, 'APPEAL_DM_OPEN'));
     await dm
       ?.send({
         embeds: [
@@ -169,7 +197,7 @@ const handleApprove = async (client: Client, interaction: ButtonInteraction, app
             .setTimestamp(),
         ],
       })
-      .catch(() => null);
+      .catch(softFail(AppFeature.Appeal, 'APPEAL_DM_SEND'));
   }
 
   await interaction.editReply({ content: ban.targetUserId ? T.GRANTED_REPLY_UNBANNED({ userId: ban.targetUserId }) : T.GRANTED_REPLY() });
@@ -210,8 +238,10 @@ const handleDeny = async (client: Client, interaction: ButtonInteraction, appeal
   await interaction.message.edit({ embeds: [resolvedEmbed], components: [] });
 
   if (ban.targetUserId) {
-    const targetUser = await client.users.fetch(ban.targetUserId).catch(() => null);
-    const dm = await targetUser?.createDM().catch(() => null);
+    const targetUser = await client.users
+      .fetch(ban.targetUserId)
+      .catch(softFail(AppFeature.Appeal, 'APPEAL_USER_FETCH', { targetUserId: ban.targetUserId }));
+    const dm = await targetUser?.createDM().catch(softFail(AppFeature.Appeal, 'APPEAL_DM_OPEN'));
     await dm
       ?.send({
         embeds: [
@@ -223,7 +253,7 @@ const handleDeny = async (client: Client, interaction: ButtonInteraction, appeal
             .setTimestamp(),
         ],
       })
-      .catch(() => null);
+      .catch(softFail(AppFeature.Appeal, 'APPEAL_DM_SEND'));
   }
 
   await interaction.editReply({ content: ban.targetUserId ? T.DENIED_REPLY_REMAINS({ userId: ban.targetUserId }) : T.DENIED_REPLY() });
@@ -235,6 +265,8 @@ const BUTTON_ACTIONS: Record<string, (client: Client, interaction: ButtonInterac
 };
 
 export const handleAppealButton: ButtonHandler = async (client, interaction) => {
+  if (!(await ensureFeatureEnabled(interaction, 'featureAppealEnabled'))) return;
+
   const parts = interaction.customId.split(':');
   const appealId = parseInt(parts[2] ?? '', 10);
   if (isNaN(appealId)) return;
@@ -242,6 +274,8 @@ export const handleAppealButton: ButtonHandler = async (client, interaction) => 
 };
 
 export const handleAppealModal: ModalHandler = async (client, interaction) => {
+  if (!(await ensureFeatureEnabled(interaction, 'featureAppealEnabled'))) return;
+
   if (interaction.customId.split(':')[1] === 'submit') {
     await handleSubmit(client, interaction);
   }

@@ -16,6 +16,7 @@ import { Command } from '~/core/models';
 import { AppFeature, Colors } from '~/settings';
 import { AuditEventType, getSettings, recordAuditEvent } from '~/database';
 import { L } from '~/core/locales';
+import { logSoftFailure } from '~/utilities';
 
 const CONFIRM_ID = 'gdpr_user_confirm';
 const CANCEL_ID = 'gdpr_user_cancel';
@@ -60,7 +61,8 @@ export default new Command<ApplicationCommandType.ChatInput>({
         filter: (i) => i.user.id === interaction.user.id,
         time: CONFIRM_TIMEOUT_MS,
       });
-    } catch {
+    } catch (error) {
+      logSoftFailure(AppFeature.GdprDeletion, 'DATA_DELETION_CONFIRMATION_TIMEOUT', { userId: interaction.user.id }, error, 'debug');
       await interaction.editReply({ embeds: [], components: [], content: T.CANCELLED() });
       return;
     }

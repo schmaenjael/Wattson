@@ -4,7 +4,7 @@ import { AppFeature, appFeatureMap, assets } from '~/settings';
 import { getSettings } from '~/database';
 import { Client } from '~/core/models';
 import { ROLE_COLUMN_BY_PERMISSION } from '~/core/middleware/permissionCore';
-import { Logger } from '~/utilities';
+import { Logger, softFail } from '~/utilities';
 import { L } from '~/core/locales';
 import { loadSchedulables, getSchedulables } from '~/core/loaders/loadSchedulables';
 import { warmupHarmDetector } from '~/core/providers/harm';
@@ -23,11 +23,11 @@ export const bootstrap = async (client: Client, readyClient: DiscordClient<true>
   for (const guildInCache of client.guilds.cache.values()) {
     if (guildInCache.id !== expectedGuildId) {
       logger.warn(`Leaving unexpected guild ${guildInCache.name} (${guildInCache.id}).`);
-      await guildInCache.leave().catch((e) => logger.error(Object(e), 'leave() failed'));
+      await guildInCache.leave().catch(softFail(AppFeature.System, 'SYSTEM_UNEXPECTED_GUILD_LEAVE', { guildId: guildInCache.id }));
     }
   }
 
-  const guild = await client.guilds.fetch(expectedGuildId).catch(() => null);
+  const guild = await client.guilds.fetch(expectedGuildId).catch(softFail(AppFeature.System, 'SYSTEM_GUILD_FETCH', { expectedGuildId }));
   if (!guild) {
     logger.fatal(`Bot is not a member of configured GUILD_ID=${expectedGuildId}. Invite the bot before starting.`);
     return;
@@ -46,7 +46,7 @@ export const bootstrap = async (client: Client, readyClient: DiscordClient<true>
   }
 
   if (settings.featureHarmDetectionEnabled) {
-    warmupHarmDetector().catch(() => null);
+    warmupHarmDetector().catch(softFail(AppFeature.System, 'SYSTEM_WARMUP_HARM_DETECTOR'));
   }
 
   if (!settings.featureSystemNotificationsEnabled) {
@@ -69,7 +69,8 @@ export const bootstrap = async (client: Client, readyClient: DiscordClient<true>
   const serviceLines = [
     `🟢 Schedulables · ${[...getSchedulables().keys()].join(' / ')}`,
     `${on(!!ollamaModel)} Ollama · ${ollamaModel ?? 'not configured'}${ollamaEndpoint ? ` @ ${ollamaEndpoint}` : ''}`,
-    `${on(!!ragEndpoint)} RAG · ${ragEndpoint ?? 'not configured'}`,
+    `${on(settings.featureAskEnabled)} AI Ask · ${settings.featureAskEnabled ? 'enabled' : 'disabled'}`,
+    `${on(settings.featureRagEnabled && !!ragEndpoint)} RAG · ${settings.featureRagEnabled ? (ragEndpoint ?? 'not configured') : 'disabled'}`,
     `${on(settings.featureInviteTrackingEnabled)} Invite cache · ${settings.featureInviteTrackingEnabled ? 'active' : 'disabled'}`,
   ];
 

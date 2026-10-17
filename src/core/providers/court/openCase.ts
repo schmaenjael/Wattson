@@ -13,8 +13,10 @@ import {
 } from '~/database';
 import { BotException } from '~/core/models';
 import type { Client } from '~/core/models';
+import { Logger, runDiscordAction, softFail } from '~/utilities';
 
 const COLOR = appFeatureMap[AppFeature.System].color;
+const logger = Logger.getInstance(AppFeature.System);
 
 /**
  * Opens a court case: creates the private thread, mutes the accused, records
@@ -36,7 +38,7 @@ export const openCourtCase = async (
 
   await Promise.all([upsertUser({ id: accused.id, username: accused.username }), upsertUser({ id: moderator.id, username: moderator.username })]);
 
-  const accusedMember = await guild.members.fetch(accused.id).catch(() => null);
+  const accusedMember = await guild.members.fetch(accused.id).catch(softFail(AppFeature.System, 'COURT_MEMBER_FETCH', { accusedId: accused.id }));
   if (!accusedMember) throw new BotException(client, `Accused user ${accused.tag} is not in the guild.`);
 
   const [reportCount, warnCount, banCount] = await Promise.all([
@@ -53,10 +55,12 @@ export const openCourtCase = async (
     reason: `Court case opened by ${moderator.tag}`,
   });
 
-  await thread.members.add(accused.id).catch(() => null);
-  await thread.members.add(moderator.id).catch(() => null);
+  await thread.members.add(accused.id).catch(softFail(AppFeature.System, 'COURT_THREAD_MEMBER_ADD', { accusedId: accused.id }));
+  await thread.members.add(moderator.id).catch(softFail(AppFeature.System, 'COURT_THREAD_MEMBER_ADD', { moderatorId: moderator.id }));
 
-  await accusedMember.roles.add(roleMutedId, `Court case opened: ${reason}`).catch(() => null);
+  const muted = await runDiscordAction(logger, 'member.roles.add', { userId: accused.id, roleId: roleMutedId }, () =>
+    accusedMember.roles.add(roleMutedId, `Court case opened: ${reason}`)
+  );
 
   const record = await insertCourtCase({
     accusedUserId: accused.id,
@@ -81,7 +85,7 @@ export const openCourtCase = async (
         .setDescription(
           [
             `<@${accused.id}>, a court case has been opened against you.`,
-            `You are currently **muted server-wide** and may only respond **in this thread**.`,
+            muted ? `You are currently **muted server-wide** and may only respond **in this thread**.` : `Please respond **in this thread**.`,
             ``,
             `**Reason**`,
             reason,

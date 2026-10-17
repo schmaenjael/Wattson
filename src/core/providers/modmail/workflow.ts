@@ -26,7 +26,8 @@ import {
 } from '~/core/components/Modmail';
 import type { Client } from '~/core/models';
 import { fetchModmailSummary } from './summarizer';
-import { attempt } from '~/utilities';
+import { attempt, softFail } from '~/utilities';
+import { AppFeature } from '~/settings';
 
 export const openModmailFlow = async (
   channel: TextChannel,
@@ -45,7 +46,7 @@ export const openModmailFlow = async (
 
   const modmail = await openModmail({ userId: user.id, threadId: thread.id, category, reason, status: ModmailStatus.Open });
 
-  await thread.setName(`📬 Modmail #${modmail.id} — ${user.username}`).catch(() => null);
+  await thread.setName(`📬 Modmail #${modmail.id} — ${user.username}`).catch(softFail(AppFeature.Modmail, 'MODMAIL_THREAD_RENAME'));
   await channelMsg.edit({ content: null, embeds: [new ModmailChannelEmbed({ modmail, user }).render()] });
   await setModmailChannelMessage(modmail.id, channelMsg.id);
 
@@ -74,7 +75,9 @@ export const sendModmailAttachment = async (
   file: Attachment
 ): Promise<boolean> => {
   const guild = client.guilds.cache.get(process.env.GUILD_ID);
-  const thread = await guild?.channels.fetch(modmail.threadId).catch(() => null);
+  const thread = await guild?.channels
+    .fetch(modmail.threadId)
+    .catch(softFail(AppFeature.Modmail, 'MODMAIL_CHANNEL_FETCH', { threadId: modmail.threadId }));
   if (!thread?.isThread()) return false;
 
   const embed =
@@ -94,7 +97,9 @@ export const sendModmailAttachment = async (
   await thread.send({ embeds: [embed], files: [{ attachment: file.url, name: file.name }] });
 
   if (side === 'mod') {
-    const targetUser = modmail.userId ? await client.users.fetch(modmail.userId).catch(() => null) : null;
+    const targetUser = modmail.userId
+      ? await client.users.fetch(modmail.userId).catch(softFail(AppFeature.Modmail, 'MODMAIL_USER_FETCH', { userId: modmail.userId }))
+      : null;
     if (targetUser) {
       const dmEmbed = new EmbedBuilder()
         .setColor(Colors.Green)
@@ -102,8 +107,10 @@ export const sendModmailAttachment = async (
         .setDescription('📎 A moderator sent an attachment.')
         .setFooter({ text: 'Reply via /modmail message · /modmail attach · /modmail close' })
         .setTimestamp();
-      const dmChannel = await targetUser.createDM().catch(() => null);
-      await dmChannel?.send({ embeds: [dmEmbed], files: [{ attachment: file.url, name: file.name }] }).catch(() => null);
+      const dmChannel = await targetUser.createDM().catch(softFail(AppFeature.Modmail, 'MODMAIL_DM_OPEN'));
+      await dmChannel
+        ?.send({ embeds: [dmEmbed], files: [{ attachment: file.url, name: file.name }] })
+        .catch(softFail(AppFeature.Modmail, 'MODMAIL_DM_SEND'));
     }
   }
 
@@ -127,9 +134,13 @@ export const finalizeModmailClose = async (client: Client, modmail: Modmail, clo
     payload: { modmailId: modmail.id, closedBy },
   });
 
-  const targetUser = modmail.userId ? await client.users.fetch(modmail.userId).catch(() => null) : null;
+  const targetUser = modmail.userId
+    ? await client.users.fetch(modmail.userId).catch(softFail(AppFeature.Modmail, 'MODMAIL_USER_FETCH', { userId: modmail.userId }))
+    : null;
   const guild = client.guilds.cache.get(process.env.GUILD_ID);
-  const thread = await guild?.channels.fetch(modmail.threadId).catch(() => null);
+  const thread = await guild?.channels
+    .fetch(modmail.threadId)
+    .catch(softFail(AppFeature.Modmail, 'MODMAIL_CHANNEL_FETCH', { threadId: modmail.threadId }));
 
   if (thread?.isThread()) {
     const summary = await fetchModmailSummary(client, modmail.threadId);
@@ -138,16 +149,20 @@ export const finalizeModmailClose = async (client: Client, modmail: Modmail, clo
     }
 
     if (modmail.channelMessageId && thread.parentId) {
-      const parentChannel = await guild?.channels.fetch(thread.parentId).catch(() => null);
+      const parentChannel = await guild?.channels
+        .fetch(thread.parentId)
+        .catch(softFail(AppFeature.Modmail, 'MODMAIL_CHANNEL_FETCH', { parentId: thread.parentId }));
       if (parentChannel?.isTextBased()) {
-        const channelMsg = await parentChannel.messages.fetch(modmail.channelMessageId).catch(() => null);
+        const channelMsg = await parentChannel.messages
+          .fetch(modmail.channelMessageId)
+          .catch(softFail(AppFeature.Modmail, 'MODMAIL_MESSAGE_FETCH', { channelMessageId: modmail.channelMessageId }));
         if (channelMsg) {
           const closedModmail = { ...modmail, status: ModmailStatus.Closed, closedAt: new Date() };
           const embeds: EmbedBuilder[] = [
             new ModmailChannelEmbed({ modmail: closedModmail, user: closedBy === 'user' ? closer : targetUser }).render(),
           ];
           if (summary) embeds.push(new ModmailSummaryEmbed({ summary, modmailId: modmail.id }).render());
-          await channelMsg.edit({ embeds }).catch(() => null);
+          await channelMsg.edit({ embeds }).catch(softFail(AppFeature.Modmail, 'MODMAIL_MESSAGE_EDIT'));
         }
       }
     }
@@ -159,17 +174,21 @@ export const finalizeModmailClose = async (client: Client, modmail: Modmail, clo
     }
 
     if (modmail.staleMessageId) {
-      const msg = await thread.messages.fetch(modmail.staleMessageId).catch(() => null);
-      await msg?.edit({ components: [buildKeepOpenDisabledRow(modmail.id)] }).catch(() => null);
+      const msg = await thread.messages
+        .fetch(modmail.staleMessageId)
+        .catch(softFail(AppFeature.Modmail, 'MODMAIL_MESSAGE_FETCH', { staleMessageId: modmail.staleMessageId }));
+      await msg?.edit({ components: [buildKeepOpenDisabledRow(modmail.id)] }).catch(softFail(AppFeature.Modmail, 'MODMAIL_MESSAGE_EDIT'));
     }
 
-    await attempt(async () => {
-      await thread.setArchived(true);
+    await attempt(async () => await thread.setArchived(true), {
+      feature: AppFeature.Modmail,
+      errorCode: 'MODMAIL_THREAD_ARCHIVE',
+      context: { modmailId: modmail.id, threadId: modmail.threadId },
     });
   }
 
   if (closedBy === 'mod' && targetUser) {
-    const dmChannel = await targetUser.createDM().catch(() => null);
-    await dmChannel?.send({ embeds: [new ModmailClosedEmbed({ variant: 'dm' }).render()] }).catch(() => null);
+    const dmChannel = await targetUser.createDM().catch(softFail(AppFeature.Modmail, 'MODMAIL_DM_OPEN'));
+    await dmChannel?.send({ embeds: [new ModmailClosedEmbed({ variant: 'dm' }).render()] }).catch(softFail(AppFeature.Modmail, 'MODMAIL_DM_SEND'));
   }
 };

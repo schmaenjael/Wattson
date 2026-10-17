@@ -83,7 +83,7 @@ const de = {
     },
     ERROR: {
       EMBED_TITLE: 'Ein unerwarteter Fehler ist aufgetreten!',
-      EMBED_DESCRIPTION: 'Ein Fehler ist beim Ausführen des Befehls aufgetreten, dieser Vorfall wird gemeldet.',
+      EMBED_DESCRIPTION: 'Beim Ausführen des Befehls ist ein Fehler aufgetreten. Er wurde für die Betreiber protokolliert.',
       EMBED_RECOVERABLE: 'Automatische Wiederherstellung',
       EMBED_MESSAGE: 'Fehlermeldung',
       EMBED_STACK: 'Fehlerprotokoll',
@@ -124,6 +124,9 @@ const de = {
     COMMAND_DM_ONLY: 'Dieser Befehl ist nur in Direktnachrichten verfügbar.',
     COMMAND_GUILD_UNAVAILABLE: 'Der Server ist vorübergehend nicht erreichbar. Bitte versuche es gleich noch einmal.',
     COMMAND_NOT_A_MEMBER: 'Du musst Mitglied des Servers sein, um diesen Befehl zu verwenden.',
+    COMMAND_FEATURE_DISABLED: 'Diese Funktion ist auf dieser Bot-Instanz derzeit deaktiviert.',
+    COMMAND_PAGINATION_NOT_OWNER: 'Nur das Mitglied, das diesen Befehl ausgeführt hat, kann darin blättern.',
+    ACTION_PARTIALLY_FAILED: 'Einige Discord-Aktionen konnten nicht ausgeführt werden — Details stehen im Bot-Log.',
   },
   UTIL: {
     EVENT_WELCOME: { EMBED_TITLE: 'Willkommen!', EMBED_DESCRIPTION: 'Willkommen <@{name:string}>!' },

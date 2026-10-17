@@ -4,19 +4,20 @@ import { join } from 'path';
 import JSON5 from 'json5';
 
 import { AppFeature } from '~/settings';
-import { Logger } from '~/utilities';
+import { logSoftFailure } from '~/utilities';
 
 import type { HarmDetectionConfig } from './types';
-import { HateSpeechDetector } from './hsd';
+import { HateSpeechDetector, type HarmDetectionClient } from './hsd';
 
 export type { HarmCategory, HarmDetectionResult } from './types';
+export type { HarmDetectionClient } from './hsd';
 
 const CONFIG_PATH = join(process.cwd(), 'config', 'harm-detection.json5');
 const DEFAULT_ENDPOINT = 'http://hate-speech-detector:8000';
 
 let cached: HateSpeechDetector | null = null;
 
-export const getHarmDetector = (): HateSpeechDetector | null => {
+export const getHarmDetector = (): HarmDetectionClient | null => {
   if (cached) return cached;
 
   const endpoint = process.env.HATE_SPEECH_DETECTOR_ENDPOINT ?? DEFAULT_ENDPOINT;
@@ -25,7 +26,7 @@ export const getHarmDetector = (): HateSpeechDetector | null => {
   try {
     config = JSON5.parse(readFileSync(CONFIG_PATH, 'utf-8')) as HarmDetectionConfig;
   } catch (err) {
-    Logger.getInstance(AppFeature.Surveillance).warn(Object(err), 'harm-detection.json5 not found — harm detection disabled.');
+    logSoftFailure(AppFeature.Surveillance, 'HARM_CONFIG_LOAD', { configPath: CONFIG_PATH }, err, 'error');
     return null;
   }
 

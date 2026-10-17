@@ -1,8 +1,10 @@
 import { GuildMember, Invite } from 'discord.js';
 
 import { Client } from '~/core/models';
-import { getSettings, insertMemberJoin, markInviteDeleted, upsertInviteSnapshot } from '~/database';
+import { getSettings, insertMemberJoin, markInviteDeleted, upsertInviteSnapshot, upsertUser } from '~/database';
 import { inviteCache, vanityState } from '~/core/loaders/inviteCache';
+import { AppFeature } from '~/settings';
+import { softFail } from '~/utilities';
 
 /** Resolves which invite a joining member used by diffing cached vs fresh invite uses, then records the join. */
 export const trackMemberJoin = async (_client: Client, member: GuildMember): Promise<void> => {
@@ -12,7 +14,7 @@ export const trackMemberJoin = async (_client: Client, member: GuildMember): Pro
   let usedCode = 'UNKNOWN';
   let inviterId: string | null = null;
 
-  const freshInvites = await member.guild.invites.fetch().catch(() => null);
+  const freshInvites = await member.guild.invites.fetch().catch(softFail(AppFeature.InviteTracking, 'INVITETRACKING_INVITE_FETCH'));
   if (freshInvites) {
     for (const invite of freshInvites.values()) {
       const cachedUses = inviteCache.get(invite.code) ?? 0;
@@ -27,10 +29,22 @@ export const trackMemberJoin = async (_client: Client, member: GuildMember): Pro
   }
 
   if (usedCode === 'UNKNOWN') {
-    const vanityData = await member.guild.fetchVanityData().catch(() => null);
+    const vanityData = await member.guild.fetchVanityData().catch(softFail(AppFeature.InviteTracking, 'INVITETRACKING_VANITY_FETCH'));
     if (vanityData && vanityData.uses > vanityState.uses) {
       usedCode = 'VANITY';
       vanityState.uses = vanityData.uses;
+    }
+  }
+
+  // memberHistory.userId and .inviterId are FK-constrained to users; this handler runs first on
+  // guildMemberAdd, before the welcome provider's upsert.
+  await upsertUser({ id: member.id, username: member.user.username });
+  if (inviterId) {
+    const inviter = await member.client.users.fetch(inviterId).catch(softFail(AppFeature.InviteTracking, 'INVITETRACKING_USER_FETCH', { inviterId }));
+    if (inviter) {
+      await upsertUser({ id: inviter.id, username: inviter.username });
+    } else {
+      inviterId = null;
     }
   }
 

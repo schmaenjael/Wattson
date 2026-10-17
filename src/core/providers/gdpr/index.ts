@@ -1,7 +1,7 @@
 import { ButtonInteraction, EmbedBuilder, MessageFlags } from 'discord.js';
 
 import { BotException, Client } from '~/core/models';
-import { Colors } from '~/settings';
+import { AppFeature, Colors } from '~/settings';
 import { AuditEventType, executeGdprDeletion, recordAuditEvent, upsertUser } from '~/database';
 import { L, baseLocale } from '~/core/locales';
 import { attempt } from '~/utilities';
@@ -19,27 +19,31 @@ const handleApprove = async (client: Client, interaction: ButtonInteraction, tar
     throw new BotException(client, `GDPR deletion transaction failed for user ${targetId}`, error);
   }
 
-  await attempt(() =>
-    interaction.guild!.bans.create(targetId, { reason: `[GDPR] Data Deletion Request — approved by ${interaction.user.username}` })
+  await attempt(
+    () => interaction.guild!.bans.create(targetId, { reason: `[GDPR] Data Deletion Request — approved by ${interaction.user.username}` }),
+    { feature: AppFeature.GdprDeletion, errorCode: 'DATA_DELETION_BAN_CREATE', context: { targetId } }
   );
 
-  await attempt(async () => {
-    const dmChannel = await client.users.createDM(targetId);
-    await dmChannel.send({
-      embeds: [
-        new EmbedBuilder()
-          .setColor(Colors.Red)
-          .setTitle(DM.DM_EXECUTED_TITLE())
-          .setDescription(DM.DM_EXECUTED_DESCRIPTION())
-          .addFields(
-            { name: DM.DM_DELETED_TITLE(), value: DM.DM_DELETED_VALUE() },
-            { name: DM.DM_NOT_DELETED_TITLE(), value: DM.DM_NOT_DELETED_VALUE() },
-            { name: '​', value: DM.DM_BAN_NOTICE() }
-          )
-          .setTimestamp(),
-      ],
-    });
-  });
+  await attempt(
+    async () => {
+      const dmChannel = await client.users.createDM(targetId);
+      await dmChannel.send({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(Colors.Red)
+            .setTitle(DM.DM_EXECUTED_TITLE())
+            .setDescription(DM.DM_EXECUTED_DESCRIPTION())
+            .addFields(
+              { name: DM.DM_DELETED_TITLE(), value: DM.DM_DELETED_VALUE() },
+              { name: DM.DM_NOT_DELETED_TITLE(), value: DM.DM_NOT_DELETED_VALUE() },
+              { name: '​', value: DM.DM_BAN_NOTICE() }
+            )
+            .setTimestamp(),
+        ],
+      });
+    },
+    { feature: AppFeature.GdprDeletion, errorCode: 'DATA_DELETION_EXECUTED_DM_SEND', context: { targetId } }
+  );
 
   await recordAuditEvent({
     eventType: AuditEventType.DataDeletionExecuted,
@@ -65,12 +69,15 @@ const handleApprove = async (client: Client, interaction: ButtonInteraction, tar
 };
 
 const handleDeny = async (client: Client, interaction: ButtonInteraction, targetId: string, requesterId: string): Promise<void> => {
-  await attempt(async () => {
-    const dmChannel = await client.users.createDM(targetId);
-    await dmChannel.send({
-      embeds: [new EmbedBuilder().setColor(Colors.White).setTitle(DM.DM_DENIED_TITLE()).setDescription(DM.DM_DENIED_DESCRIPTION()).setTimestamp()],
-    });
-  });
+  await attempt(
+    async () => {
+      const dmChannel = await client.users.createDM(targetId);
+      await dmChannel.send({
+        embeds: [new EmbedBuilder().setColor(Colors.White).setTitle(DM.DM_DENIED_TITLE()).setDescription(DM.DM_DENIED_DESCRIPTION()).setTimestamp()],
+      });
+    },
+    { feature: AppFeature.GdprDeletion, errorCode: 'DATA_DELETION_DENIED_DM_SEND', context: { targetId } }
+  );
 
   await recordAuditEvent({
     eventType: AuditEventType.DataDeletionDenied,

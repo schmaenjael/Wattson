@@ -100,7 +100,7 @@ const en = {
     },
     ERROR: {
       EMBED_TITLE: 'An unexpected Error occured!',
-      EMBED_DESCRIPTION: 'An error occurred while executing the command, this incident will be reported.',
+      EMBED_DESCRIPTION: 'An error occurred while executing the command. It has been logged for the operators.',
       EMBED_RECOVERABLE: 'Automatic Recovery',
       EMBED_MESSAGE: 'Error Message',
       EMBED_STACK: 'Stacktrace',
@@ -127,6 +127,9 @@ const en = {
     COMMAND_DM_ONLY: 'This command is only available in direct messages.',
     COMMAND_GUILD_UNAVAILABLE: 'The server is temporarily unavailable. Please try again in a moment.',
     COMMAND_NOT_A_MEMBER: 'You must be a member of the server to use this command.',
+    COMMAND_FEATURE_DISABLED: 'This feature is currently disabled on this bot instance.',
+    COMMAND_PAGINATION_NOT_OWNER: 'Only the member who ran this command can page through it.',
+    ACTION_PARTIALLY_FAILED: 'Some Discord actions could not be completed — details were written to the bot log.',
   },
   UTIL: {
     EVENT_WELCOME: { EMBED_TITLE: 'Welcome', EMBED_DESCRIPTION: 'Welcome <@{name:string}>!' },

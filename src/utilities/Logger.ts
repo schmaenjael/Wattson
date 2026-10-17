@@ -46,7 +46,8 @@ export class Logger {
 
   private constructor() {
     this.logger = pino({
-      level: process.env.NODE_ENV === 'production' ? 'info' : process.env.NODE_ENV === 'test' ? 'info' : 'trace',
+      // LOG_LEVEL exists so an operator can surface the `debug`-tier soft failures (see `utilities/attempt.ts`) in production.
+      level: process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'test' ? 'info' : 'trace'),
       redact: { paths: REDACT_PATHS, censor: '[REDACTED]' },
       timestamp: () => `,"timestamp":"${new Date(Date.now()).toISOString()}"`,
       formatters: { level: (label: string) => ({ level: label.toUpperCase() }) },

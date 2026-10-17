@@ -3,7 +3,7 @@ import { Colors, EmbedBuilder, GuildMember, PartialGuildMember } from 'discord.j
 import { AuditEventType, getSettings, insertWarning, recordAuditEvent, upsertUser } from '~/database';
 import { AppFeature } from '~/settings';
 import { Client } from '~/core/models';
-import { Logger } from '~/utilities';
+import { Logger, runDiscordAction, softFail } from '~/utilities';
 
 const POLICY_TEXT =
   'Your display name must be easily readable and pronounceable, and ' +
@@ -27,9 +27,13 @@ export const enforceNickname = async (client: Client, oldMember: GuildMember | P
   const stripped = newNick.replace(/^[^a-zA-Z0-9]+/, '');
   const fixed = stripped.length >= 2 ? stripped : newMember.user.username;
 
-  await newMember.setNickname(fixed, '[anti-hoist] nickname violates display name policy').catch((err) => {
-    logger.warn(Object(err), 'Failed to reset hoisted nickname.');
-  });
+  const renamed = await runDiscordAction(logger, 'member.setNickname', { userId: newMember.id, from: newNick, to: fixed }, () =>
+    newMember.setNickname(fixed, '[anti-hoist] nickname violates display name policy')
+  );
+  if (!renamed) {
+    // No rename means no violation was corrected — warning the member for it would be a false record.
+    return;
+  }
 
   await upsertUser({ id: newMember.id, username: newMember.user.username });
   await upsertUser({ id: client.user!.id, username: client.user!.username });
@@ -42,7 +46,7 @@ export const enforceNickname = async (client: Client, oldMember: GuildMember | P
     payload: { from: newNick, to: fixed, warningId: warning.id },
   });
 
-  const dmChannel = await newMember.user.createDM().catch(() => null);
+  const dmChannel = await newMember.user.createDM().catch(softFail(AppFeature.AntiHoist, 'ANTIHOIST_DM_OPEN'));
   await dmChannel
     ?.send({
       embeds: [
@@ -55,7 +59,7 @@ export const enforceNickname = async (client: Client, oldMember: GuildMember | P
           .setTimestamp(),
       ],
     })
-    .catch(() => null);
+    .catch(softFail(AppFeature.AntiHoist, 'ANTIHOIST_DM_SEND'));
 
   await logger.log({
     level: 'info',

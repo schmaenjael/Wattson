@@ -12,18 +12,22 @@ import {
 } from 'discord.js';
 
 import { Command, Permission } from '~/core/models';
+import { useFeatureFlag } from '~/core/middleware';
 import { memberHasAnyPermission } from '~/core/middleware/permissionCore';
 import { AppFeature } from '~/settings';
 import { ModmailCategory, ModmailStatus, findModmailById, findModmailByThreadId, findOpenModmailByUserId, getSettings } from '~/database';
 import { ModmailShowEmbed } from '~/core/components/Modmail';
 import { dispatchCloseAction, finalizeModmailClose, openModmailFlow, sendModmailAttachment } from '~/core/providers/modmail';
 import { L } from '~/core/locales';
+import { softFail } from '~/utilities';
 
 export const MODMAIL_MSG_MODAL_PREFIX = 'modmail_msg:';
 
 const checkModRole = async (interaction: ChatInputCommandInteraction): Promise<boolean> => {
   const settings = await getSettings();
-  const member = await interaction.guild?.members.fetch(interaction.user.id).catch(() => null);
+  const member = await interaction.guild?.members
+    .fetch(interaction.user.id)
+    .catch(softFail(AppFeature.Modmail, 'MODMAIL_MEMBER_FETCH', { userId: interaction.user.id }));
   if (!member) return false;
   return memberHasAnyPermission(member, settings, [Permission.Moderation]);
 };
@@ -32,7 +36,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
   feature: AppFeature.Modmail,
   type: ApplicationCommandType.ChatInput,
   global: true,
-  middleware: [],
+  middleware: [useFeatureFlag('featureModmailEnabled')],
   requiredPermissions: [],
   allowDM: true,
   data: new SlashCommandBuilder()
@@ -109,13 +113,17 @@ export default new Command<ApplicationCommandType.ChatInput>({
       }
 
       // Verify the user is a guild member
-      const member = await guild.members.fetch(interaction.user.id).catch(() => null);
+      const member = await guild.members
+        .fetch(interaction.user.id)
+        .catch(softFail(AppFeature.Modmail, 'MODMAIL_MEMBER_FETCH', { userId: interaction.user.id }));
       if (!member) {
         await interaction.reply({ content: L[guild.preferredLocale].GENERAL.COMMAND_NOT_A_MEMBER(), flags: MessageFlags.Ephemeral });
         return;
       }
 
-      const channel = (await guild.channels.fetch(settings.modmailChannelId).catch(() => null)) as TextChannel | null;
+      const channel = (await guild.channels
+        .fetch(settings.modmailChannelId)
+        .catch(softFail(AppFeature.Modmail, 'MODMAIL_CHANNEL_FETCH', { modmailChannelId: settings.modmailChannelId }))) as TextChannel | null;
       if (!channel) {
         await interaction.reply({ content: 'Modmail channel not found. Contact an administrator.', flags: MessageFlags.Ephemeral });
         return;
@@ -129,8 +137,8 @@ export default new Command<ApplicationCommandType.ChatInput>({
         await interaction.editReply({ embeds: [guideEmbed] });
       } else {
         await interaction.editReply({ content: `✅ Modmail #${modmail.id} opened. Check your DMs for next steps.` });
-        const dmChannel = await interaction.user.createDM().catch(() => null);
-        await dmChannel?.send({ embeds: [guideEmbed] }).catch(() => null);
+        const dmChannel = await interaction.user.createDM().catch(softFail(AppFeature.Modmail, 'MODMAIL_DM_OPEN'));
+        await dmChannel?.send({ embeds: [guideEmbed] }).catch(softFail(AppFeature.Modmail, 'MODMAIL_DM_SEND'));
       }
       return;
     }
@@ -289,7 +297,9 @@ export default new Command<ApplicationCommandType.ChatInput>({
         return;
       }
 
-      const targetUser = modmail.userId ? await client.users.fetch(modmail.userId).catch(() => null) : null;
+      const targetUser = modmail.userId
+        ? await client.users.fetch(modmail.userId).catch(softFail(AppFeature.Modmail, 'MODMAIL_USER_FETCH', { userId: modmail.userId }))
+        : null;
       await interaction.reply({ embeds: [new ModmailShowEmbed({ modmail, user: targetUser }).render()], flags: MessageFlags.Ephemeral });
       return;
     }

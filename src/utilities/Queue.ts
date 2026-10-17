@@ -1,3 +1,6 @@
+import { AppFeature } from '~/settings';
+import { logSoftFailure } from '~/utilities/attempt';
+
 export type QueueTask<T> = () => Promise<T>;
 
 export class AsyncQueue<T = void> {
@@ -33,6 +36,7 @@ export class AsyncQueue<T = void> {
       try {
         await task();
       } catch (err) {
+        logSoftFailure(AppFeature.System, 'ASYNC_QUEUE_TASK_FAILED', { pending: this.queue.length, maxSize: this.maxSize }, err);
         this.onError?.(err);
       }
     }

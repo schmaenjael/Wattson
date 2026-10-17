@@ -4,7 +4,7 @@ import { getConfig } from '~/config';
 import { AuditEventType, insertMute, recordAuditEvent, upsertUser, type Settings } from '~/database';
 import type { Client } from '~/core/models';
 import { AppFeature, appFeatureMap } from '~/settings';
-import { discordTimestamp, Logger } from '~/utilities';
+import { discordTimestamp, Logger, runDiscordAction, softFail } from '~/utilities';
 
 const COLOR = appFeatureMap[AppFeature.Warn].color;
 
@@ -40,14 +40,22 @@ export const applyWarnAutoMute = async (
   const muteMinutes = computeAutoMuteMinutes(activeCount, settings.warnAutoMuteBaseMinutes);
   if (muteMinutes <= 0) return null;
 
-  const member = await guild.members.fetch(target.id).catch(() => null);
+  const member = await guild.members
+    .fetch(target.id)
+    .catch(softFail(AppFeature.AutomatedWarn, 'AUTOMATEDWARN_MEMBER_FETCH', { targetId: target.id }));
   if (!member || member.roles.cache.has(settings.roleMutedId)) return null;
 
   const muteExpiresAt = new Date(Date.now() + muteMinutes * 60 * 1000);
   const durationLabel = formatMuteDuration(muteMinutes);
 
   await upsertUser({ id: client.user!.id, username: client.user!.username });
-  await member.roles.add(settings.roleMutedId, `[warn auto-mute] ${activeCount} active warnings`).catch(() => null);
+  const muted = await runDiscordAction(logger, 'member.roles.add', { userId: member.id, roleId: settings.roleMutedId }, () =>
+    member.roles.add(settings.roleMutedId!, `[warn auto-mute] ${activeCount} active warnings`)
+  );
+  if (!muted) {
+    // No role means no mute; a row here would make the sweeper later "lift" a mute that never existed.
+    return null;
+  }
 
   const autoMute = await insertMute({
     targetUserId: target.id,

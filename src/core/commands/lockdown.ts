@@ -2,7 +2,7 @@ import { ApplicationCommandType, ChannelType, Colors, EmbedBuilder, MessageFlags
 
 import { Command, Permission } from '~/core/models';
 import { AppFeature } from '~/settings';
-import { Logger } from '~/utilities';
+import { logSoftFailure, Logger, softFail } from '~/utilities';
 import { AuditEventType, findLockedChannel, listLockedChannels, lockChannel, recordAuditEvent, unlockChannel, upsertUser } from '~/database';
 
 // Discord API hard limit: max slowmode is 21600s (6h).
@@ -104,11 +104,11 @@ export default new Command<ApplicationCommandType.ChatInput>({
                   .setTimestamp(),
               ],
             }) as Promise<unknown>
-          ).catch(() => null);
+          ).catch(softFail(AppFeature.Lockdown, 'LOCKDOWN_SLOWMODE_NOTICE_SEND'));
 
           lockedIds.push(channel.id);
         } catch (err) {
-          logger.warn({ channelId: channel.id, err: Object(err) }, 'Failed to set slowmode on channel — skipping.');
+          logSoftFailure(AppFeature.Lockdown, 'LOCKDOWN_CHANNEL_LOCK', { channelId: channel.id }, err);
         }
       }
 
@@ -172,7 +172,9 @@ export default new Command<ApplicationCommandType.ChatInput>({
 
       for (const record of records) {
         try {
-          const channel = await client.channels.fetch(record.channelId).catch(() => null);
+          const channel = await client.channels
+            .fetch(record.channelId)
+            .catch(softFail(AppFeature.Lockdown, 'LOCKDOWN_CHANNEL_FETCH', { channelId: record.channelId }));
           if (channel?.isSendable() && isSlowmodeChannel(channel as GuildTextBasedChannel)) {
             await (channel as GuildTextBasedChannel).setRateLimitPerUser(record.previousSlowmode);
 
@@ -186,13 +188,13 @@ export default new Command<ApplicationCommandType.ChatInput>({
                     .setTimestamp(),
                 ],
               }) as Promise<unknown>
-            ).catch(() => null);
+            ).catch(softFail(AppFeature.Lockdown, 'LOCKDOWN_SLOWMODE_RESTORE_NOTICE_SEND'));
           }
 
           await unlockChannel(record.channelId);
           unlockedIds.push(record.channelId);
         } catch (err) {
-          logger.warn({ channelId: record.channelId, err: Object(err) }, 'Failed to restore slowmode on channel — skipping.');
+          logSoftFailure(AppFeature.Lockdown, 'LOCKDOWN_CHANNEL_UNLOCK', { channelId: record.channelId }, err);
         }
       }
 

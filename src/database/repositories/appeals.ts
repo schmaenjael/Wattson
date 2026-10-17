@@ -12,6 +12,15 @@ export const insertAppeal = async (banId: number): Promise<Appeal> => {
   return row;
 };
 
+/**
+ * Removes an appeal row that was never published. Not a moderation record — the appeal only becomes
+ * one once it is visible to moderators, and an orphan row permanently blocks the applicant's retry.
+ */
+export const deleteAppeal = async (id: number): Promise<void> => {
+  const db = getDb();
+  await db.delete(appeals).where(eq(appeals.id, id));
+};
+
 export const findAppealById = async (id: number): Promise<Appeal | null> => {
   const db = getDb();
   const [row] = await db.select().from(appeals).where(eq(appeals.id, id)).limit(1);

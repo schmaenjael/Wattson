@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, ApplicationCommandType, MessageFlags } from 'discord.js';
 
-import { appFeatureMap, AppFeature } from '~/settings';
+import { AppFeature, appFeatureMap } from '~/settings';
 import { Command, Permission } from '~/core/models';
 
 import { PingEmbed } from '~/core/components';

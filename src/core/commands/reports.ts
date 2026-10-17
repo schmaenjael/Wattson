@@ -1,8 +1,10 @@
 import { ApplicationCommandType, EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
 
-import { Command, Permission, BotException } from '~/core/models';
+import { Command, Permission } from '~/core/models';
+import { useFeatureFlag } from '~/core/middleware';
 import { AppFeature, appFeatureMap, MOD_LIST_PAGE_SIZE } from '~/settings';
-import { AuditEventType, findReportById, listReports, recordAuditEvent, ReportStatus, resolveReport, type Report } from '~/database';
+import { findReportById, listReports, ReportStatus, type Report } from '~/database';
+import { closeReport } from '~/core/providers/report';
 import { discordTimestamp } from '~/utilities';
 
 const messageUrl = (r: Report): string =>
@@ -48,7 +50,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
   feature: AppFeature.Report,
   type: ApplicationCommandType.ChatInput,
   requiredPermissions: [Permission.Moderation, Permission.Administration],
-  middleware: [],
+  middleware: [useFeatureFlag('featureReportsEnabled')],
   data: new SlashCommandBuilder()
     .setName('reports')
     .setDescription('Review user reports.')
@@ -120,18 +122,9 @@ export default new Command<ApplicationCommandType.ChatInput>({
         await interaction.reply({ content: `Report #${id} is already ${r.status}.`, flags: MessageFlags.Ephemeral });
         return;
       }
-      const target = sub === 'resolve' ? ReportStatus.Resolved : ReportStatus.Dismissed;
-      const updated = await resolveReport(id, interaction.user.id, target);
-      if (!updated) throw new BotException(client, `Failed to update report #${id}`);
-
-      await recordAuditEvent({
-        eventType: AuditEventType.ReportResolved,
-        actorUserId: interaction.user.id,
-        targetUserId: updated.reportedUserId ?? undefined,
-        payload: { reportId: id, outcome: target },
-      });
-
-      await interaction.reply({ embeds: [renderDetailEmbed(updated)], flags: MessageFlags.Ephemeral });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+      const updated = await closeReport(interaction.guild!, r, interaction.user, sub);
+      await interaction.editReply({ embeds: [renderDetailEmbed(updated)] });
       return;
     }
   },

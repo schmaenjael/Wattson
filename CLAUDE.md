@@ -149,6 +149,9 @@ Decide with a single question: **does the bot's ORM read/write it?**
 - Plain `new Error(...)` allowed only inside provider internals where it's immediately caught in the same function and a Discord client is unavailable (e.g. ollama providers)
 - Only validate at system boundaries (user input, Discord options, external APIs)
 - No defensive checks on internal invariants
+- Best-effort calls NEVER swallow silently: replace `.catch(() => null)` with `.catch(softFail(AppFeature.X, 'AREA_OPERATION', { context }, fallback?))`, and give every `try/catch` that returns a fallback a `logSoftFailure(AppFeature.X, 'AREA_OPERATION', { context }, error, level?)` call. Both live in `~/utilities` and log to the console only — never to Discord.
+- Error codes are stable `SCREAMING_SNAKE_CASE` strings scoped by area (`MODMAIL_THREAD_SEND`), not a numeric registry. The upstream error's own code is logged separately as `upstreamCode`.
+- Severity is derived from the Discord error code: expected-absence codes log `debug`, everything else `warn`. Pass an explicit `level` only to override.
 
 ## i18n
 

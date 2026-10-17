@@ -1,6 +1,6 @@
 import { getConfig } from '~/config';
 import { AppFeature } from '~/settings';
-import { Logger } from '~/utilities';
+import { logSoftFailure } from '~/utilities';
 
 interface RagQueryResponse {
   answer: string;
@@ -13,13 +13,17 @@ export interface RagResult {
   sources: string[];
 }
 
-export const queryRag = async (question: string): Promise<RagResult | null> => {
+/** Public contract for the RAG (retrieval-augmented Q&A) service. */
+export interface RagClient {
+  query(question: string): Promise<RagResult | null>;
+}
+
+const query = async (question: string): Promise<RagResult | null> => {
   const endpoint = process.env.RAG_ENDPOINT;
-  if (!endpoint) {
+  if (!getConfig().config.features.rag || !endpoint) {
     return null;
   }
 
-  const logger = Logger.getInstance(AppFeature.Ask);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), getConfig().config.timeouts.ragMs);
 
@@ -38,9 +42,11 @@ export const queryRag = async (question: string): Promise<RagResult | null> => {
     const body = (await res.json()) as RagQueryResponse;
     return { answer: body.answer, sources: body.sources };
   } catch (err) {
-    logger.warn(Object(err), 'RAG query failed.');
+    logSoftFailure(AppFeature.Ask, 'RAG_QUERY', { endpoint }, err);
     return null;
   } finally {
     clearTimeout(timer);
   }
 };
+
+export const ragClient: RagClient = { query };

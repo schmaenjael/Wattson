@@ -11,7 +11,7 @@ import {
 
 import { Command, Permission } from '~/core/models';
 import { AppFeature, appFeatureMap } from '~/settings';
-import { Logger } from '~/utilities';
+import { Logger, softFail } from '~/utilities';
 
 export default new Command<ApplicationCommandType.ChatInput>({
   feature: AppFeature.Say,
@@ -47,7 +47,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
 
     let replyTarget: Message | null = null;
     if (replyToId) {
-      replyTarget = await targetChannel.messages.fetch(replyToId).catch(() => null);
+      replyTarget = await targetChannel.messages.fetch(replyToId).catch(softFail(AppFeature.Say, 'SAY_MESSAGE_FETCH', { replyToId }));
       if (!replyTarget) {
         await interaction.editReply({ content: `Message \`${replyToId}\` not found in <#${targetChannel.id}>.` });
         return;

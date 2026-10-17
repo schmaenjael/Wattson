@@ -69,7 +69,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
     const color = appFeatureMap[command.options.feature].color;
 
     if (!settings.featureCourtEnabled) {
-      await interaction.reply({ content: 'Court feature is disabled. Enable it via `/config feature`.', flags: MessageFlags.Ephemeral });
+      await interaction.reply({ content: 'Court feature is disabled. Enable `features.court` in the bot config.', flags: MessageFlags.Ephemeral });
       return;
     }
 
@@ -82,11 +82,11 @@ export default new Command<ApplicationCommandType.ChatInput>({
         return;
       }
       if (!settings.courtParentChannelId) {
-        await interaction.reply({ content: 'Set the court parent channel via `/config channel` first.', flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: 'Set `channels.courtParent` in the bot config first.', flags: MessageFlags.Ephemeral });
         return;
       }
       if (!settings.roleMutedId) {
-        await interaction.reply({ content: 'Set the Muted role via `/config role` first.', flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: 'Set `roles.utility.muted` in the bot config first.', flags: MessageFlags.Ephemeral });
         return;
       }
 

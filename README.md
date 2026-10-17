@@ -31,7 +31,7 @@ src/database/
   schema/                      One Drizzle pgTable per file + shared/enums/relations
   repositories/                Named async functions per domain — only place DB writes occur
   client.ts                    Drizzle connection singleton (getDb())
-  settings.ts                  Cached guild settings singleton row
+  settings.ts                  getSettings() — flattened, read-only view of the JSON5 config
 src/settings/                  env.ts, system.ts (AppFeature/LogNamespace/ProcessExitCode), theme.ts
 src/utilities/                 Logger (Pino), duration parser, misc helpers
 ```
@@ -42,14 +42,14 @@ src/utilities/                 Logger (Pino), duration parser, misc helpers
 
 ### Moderation
 
-- [x] **Reports** — `/report` submission, `/reports list|view|resolve|dismiss`
+- [x] **Reports** — `/report` context-menu submission posts a permanent copy to `channels.reportsLog` and an actionable copy (Dismiss / Warn / Mute / Ban buttons) to `channels.reportsTodo`; the todo copy is deleted once handled, the log copy is stamped with the resolution. Warn/Mute/Ban open a reason modal and execute the real moderation action (mute also warns). `/reports list|view|resolve|dismiss` for the slash path
 - [x] **Warnings** — `/warn`, `/warnings list|revoke`
-- [x] **Bans** — `/ban`, `/unban`, automatic expiry sweeper (`banSweeper` scheduler job)
+- [x] **Bans** — `/ban`, `/unban`, automatic expiry sweeper (`banSchedulable` scheduler job)
 - [x] **Mutes** — timed mutes with automatic lift
 - [x] **Court system** — peer-review workflow: `/court open|close|dismiss|escalate|list|history`
-- [x] **Link filter** — blocks messages containing domains from Pi-hole-format blocklists (up to 5M entries, sub-millisecond in-memory `Set` lookup); configurable via `/config feature`
+- [x] **Link filter** — blocks messages containing domains from Pi-hole-format blocklists (up to 5M entries, sub-millisecond in-memory `Set` lookup); toggled via `features.linkFilter`
 - [x] **Profanity filter** — pattern-based bad-word detection with configurable delete thresholds
-- [x] **Automod** — message + profile description scanning via self-hosted Ollama; `/automod` pattern management
+- [x] **Automod** — ordered link-filter → profanity → Ollama harm-detection pipeline; each stage toggled via `features.*`
 - [x] **GDPR deletion** — `/gdpr delete` — full moderation history erasure for a user with audit trail
 
 ### Utility
@@ -115,28 +115,29 @@ Copy `.env.example` to `.env` and fill in all required values:
 cp .env.example .env
 ```
 
-| Variable              | Required | Description                                                    |
-| --------------------- | -------- | -------------------------------------------------------------- |
-| `TOKEN`               | ✅       | Discord bot token                                              |
-| `CLIENT_ID`           | ✅       | Discord application client ID                                  |
-| `APPLICATION_ID`      | ✅       | Discord application ID                                         |
-| `GUILD_ID`            | ✅       | The single guild this bot serves                               |
-| `NODE_ENV`            | ✅       | `development` or `production`                                  |
-| `POSTGRES_USER`       | ✅       | Superuser for DB initialisation                                |
-| `POSTGRES_PASSWORD`   | ✅       | Superuser password                                             |
-| `POSTGRES_DB`         | ✅       | Database name                                                  |
-| `POSTGRES_HOST`       | ✅       | Postgres host (`localhost` for local dev)                      |
-| `POSTGRES_PORT`       |          | Postgres port (default: `5432`)                                |
-| `BOT_USERNAME`        | ✅       | Least-privilege bot DB role                                    |
-| `BOT_PASSWORD`        | ✅       | Bot DB role password                                           |
-| `RAG_DB_USER`         | ✅       | RAG DB role (owns `rag_data` schema only)                      |
-| `RAG_DB_PASSWORD`     | ✅       | RAG DB role password                                           |
-| `ML_DB_USER`          | ✅       | ML training role (read-only on `ml` schema, no public access)  |
-| `ML_DB_PASSWORD`      | ✅       | ML training role password                                      |
-| `OLLAMA_ENDPOINT`     | ✅       | `http://localhost:11434` for local dev                         |
-| `OLLAMA_MODEL`        | ✅       | Ollama model name                                              |
-| `BLOCKLIST_PATHS`     |          | Comma-separated paths to Pi-hole blocklist files (link filter) |
-| `PROFANITY_LIST_PATH` |          | Path to bad-words list (profanity filter)                      |
+| Variable              | Required | Description                                                                                                                                                                                                      |
+| --------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TOKEN`               | ✅       | Discord bot token                                                                                                                                                                                                |
+| `CLIENT_ID`           | ✅       | Discord application client ID                                                                                                                                                                                    |
+| `APPLICATION_ID`      | ✅       | Discord application ID                                                                                                                                                                                           |
+| `GUILD_ID`            | ✅       | The single guild this bot serves                                                                                                                                                                                 |
+| `NODE_ENV`            | ✅       | `development` or `production`                                                                                                                                                                                    |
+| `LOG_LEVEL`           |          | Pino level override (`trace`…`fatal`). Default: `info` in production/test, `trace` otherwise. Set to `debug` in production to surface expected-absence soft failures (member left, DMs closed, message deleted). |
+| `POSTGRES_USER`       | ✅       | Superuser for DB initialisation                                                                                                                                                                                  |
+| `POSTGRES_PASSWORD`   | ✅       | Superuser password                                                                                                                                                                                               |
+| `POSTGRES_DB`         | ✅       | Database name                                                                                                                                                                                                    |
+| `POSTGRES_HOST`       | ✅       | Postgres host (`localhost` for local dev)                                                                                                                                                                        |
+| `POSTGRES_PORT`       |          | Postgres port (default: `5432`)                                                                                                                                                                                  |
+| `BOT_USERNAME`        | ✅       | Least-privilege bot DB role                                                                                                                                                                                      |
+| `BOT_PASSWORD`        | ✅       | Bot DB role password                                                                                                                                                                                             |
+| `RAG_DB_USER`         | ✅       | RAG DB role (owns `rag_data` schema only)                                                                                                                                                                        |
+| `RAG_DB_PASSWORD`     | ✅       | RAG DB role password                                                                                                                                                                                             |
+| `ML_DB_USER`          | ✅       | ML training role (read-only on `ml` schema, no public access)                                                                                                                                                    |
+| `ML_DB_PASSWORD`      | ✅       | ML training role password                                                                                                                                                                                        |
+| `OLLAMA_ENDPOINT`     | ✅       | `http://localhost:11434` for local dev                                                                                                                                                                           |
+| `OLLAMA_MODEL`        | ✅       | Ollama model name                                                                                                                                                                                                |
+| `BLOCKLIST_PATHS`     |          | Comma-separated paths to Pi-hole blocklist files (link filter)                                                                                                                                                   |
+| `PROFANITY_LIST_PATH` |          | Path to bad-words list (profanity filter)                                                                                                                                                                        |
 
 ### 3. Start the database (Docker)
 

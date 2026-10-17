@@ -13,10 +13,11 @@ import {
   markExternalPostStatus,
   recordAuditEvent,
   upsertStarboardEntry,
+  upsertUser,
   type StarboardEntry,
 } from '~/database';
 import { Client } from '~/core/models';
-import { Logger } from '~/utilities';
+import { logSoftFailure, Logger, softFail } from '~/utilities';
 import { getAllPosters } from '~/core/providers/external';
 
 const STAR_REACTION = '⭐';
@@ -35,10 +36,12 @@ const resolveStarEmoji = (count: number, tiers: StarboardEmojiTier[]): string =>
 export const handleReactionAdd = async (client: Client, reaction: MessageReaction | PartialMessageReaction): Promise<void> => {
   if (reaction.emoji.name !== STAR_REACTION) return;
 
-  const full: MessageReaction | null = reaction.partial ? await reaction.fetch().catch(() => null) : (reaction as MessageReaction);
+  const full: MessageReaction | null = reaction.partial
+    ? await reaction.fetch().catch(softFail(AppFeature.System, 'STARBOARD_REACTION_FETCH'))
+    : (reaction as MessageReaction);
   if (!full) return;
 
-  const message = full.message.partial ? await full.message.fetch().catch(() => null) : full.message;
+  const message = full.message.partial ? await full.message.fetch().catch(softFail(AppFeature.System, 'STARBOARD_MESSAGE_FETCH')) : full.message;
   if (!message || !message.inGuild()) return;
   if (message.author?.bot) return;
 
@@ -50,10 +53,15 @@ export const handleReactionAdd = async (client: Client, reaction: MessageReactio
 
   if (count < settings.starboardThreshold) return;
 
+  // audit_log.target_user_id is FK-constrained to users; a purely popular poster may never have been seen before.
+  await upsertUser({ id: message.author!.id, username: message.author!.username });
+
   const logger = Logger.getInstance(AppFeature.Surveillance);
   const existing = await findStarboardEntry(message.id);
 
-  const starboardChannel = (await client.channels.fetch(settings.starboardChannelId).catch(() => null)) as TextChannel | null;
+  const starboardChannel = (await client.channels
+    .fetch(settings.starboardChannelId)
+    .catch(softFail(AppFeature.System, 'STARBOARD_CHANNEL_FETCH', { starboardChannelId: settings.starboardChannelId }))) as TextChannel | null;
   if (!starboardChannel) {
     logger.warn(`Starboard channel ${settings.starboardChannelId} not accessible.`);
     return;
@@ -75,7 +83,7 @@ export const handleReactionAdd = async (client: Client, reaction: MessageReactio
         starCount: count,
       });
     } catch (err) {
-      logger.error(Object(err), `Failed to update starboard entry for ${message.id}`);
+      logSoftFailure(AppFeature.System, 'STARBOARD_ENTRY_UPDATE', { messageId: message.id, channelId: message.channelId, starCount: count }, err);
     }
 
     if (count >= settings.starboardExternalThreshold && !(await hasExternalPostsForMessage(message.id))) {
@@ -127,7 +135,6 @@ const renderStarboardEmbed = (message: Message): EmbedBuilder => {
 };
 
 const dispatchExternalPosters = async (entry: StarboardEntry, message: Message): Promise<void> => {
-  const logger = Logger.getInstance(AppFeature.System);
   const posters = getAllPosters();
 
   for (const poster of posters) {
@@ -149,7 +156,7 @@ const dispatchExternalPosters = async (entry: StarboardEntry, message: Message):
       });
       await markExternalPostStatus(row.id, ExternalPostStatus.Posted, { remoteId, postedAt: new Date() });
     } catch (err) {
-      logger.error(Object(err), `External poster ${poster.platform} failed.`);
+      logSoftFailure(AppFeature.System, 'STARBOARD_EXTERNAL_POST', { platform: poster.platform, externalPostId: row.id }, err, 'error');
       await markExternalPostStatus(row.id, ExternalPostStatus.Failed, { error: String((err as Error).message ?? err) });
     }
   }

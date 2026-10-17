@@ -11,6 +11,10 @@ const logger = Logger.getInstance(AppFeature.Surveillance);
 export const recordMemberUpdate = async (_client: Client, oldMember: GuildMember | PartialGuildMember, newMember: GuildMember): Promise<void> => {
   await upsertUser({ id: newMember.id, username: newMember.user.username });
 
+  // Partials.GuildMember is enabled: an uncached old member has no roles and no nickname, so every
+  // field below would diff as "everything just changed".
+  if (oldMember.partial) return;
+
   if (oldMember.displayName !== newMember.displayName) {
     await recordUsernameChange(newMember.id, newMember.displayName);
     await recordAuditEvent({

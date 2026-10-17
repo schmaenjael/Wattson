@@ -11,6 +11,7 @@ import {
   StringSelectMenuOptionBuilder,
 } from 'discord.js';
 import { Command, Permission } from '~/core/models';
+import { useFeatureFlag } from '~/core/middleware';
 import { AppFeature, appFeatureMap } from '~/settings';
 import {
   getSettings,
@@ -57,7 +58,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
   feature: AppFeature.Events,
   type: ApplicationCommandType.ChatInput,
   requiredPermissions: [Permission.Community],
-  middleware: [],
+  middleware: [useFeatureFlag('featureEventsEnabled')],
   data: new SlashCommandBuilder()
     .setName('event')
     .setDescription('Manage and browse server events.')
@@ -379,7 +380,11 @@ export default new Command<ApplicationCommandType.ChatInput>({
       });
 
       collector.on('end', async () => {
-        await attempt(() => interaction.editReply({ components: [] }));
+        await attempt(() => interaction.editReply({ components: [] }), {
+          feature: AppFeature.Events,
+          errorCode: 'EVENT_INTERACTION_COMPONENT_STRIP',
+          context: { userId: interaction.user.id },
+        });
       });
 
       return;

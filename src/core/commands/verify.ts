@@ -7,13 +7,21 @@ import {
   SlashCommandBuilder,
 } from 'discord.js';
 
-import { AuditEventType, findUserById, findVerificationByDiscordId, getSettings, recordAuditEvent, upsertVoltVerification } from '~/database';
+import {
+  AuditEventType,
+  findUserById,
+  findVerificationByDiscordId,
+  getSettings,
+  recordAuditEvent,
+  upsertUser,
+  upsertVoltVerification,
+} from '~/database';
 import { Command, Permission } from '~/core/models';
 import { L } from '~/core/locales';
 import { AppFeature, Colors } from '~/settings';
-import { Logger, discordTimestamp } from '~/utilities';
+import { discordTimestamp, Logger, logSoftFailure, softFail } from '~/utilities';
 import { activeVerifications, runVerification } from '~/core/providers/verification';
-import { initiateDeviceFlow, pollForToken } from '~/core/providers/logto';
+import { logtoClient } from '~/core/providers/logto';
 
 const activeVolterVerifications = new Set<string>();
 
@@ -36,14 +44,16 @@ export default new Command<ApplicationCommandType.ChatInput>({
   async executeCommand(_command, client, interaction) {
     const sub = interaction.options.getSubcommand(true);
 
-    const guild = await client.guilds.fetch(process.env.GUILD_ID!).catch(() => null);
+    const guild = await client.guilds.fetch(process.env.GUILD_ID!).catch(softFail(AppFeature.VolterVerification, 'VERIFICATION_GUILD_FETCH'));
     if (!guild) {
       await interaction.reply({ content: L[interaction.locale].GENERAL.COMMAND_GUILD_UNAVAILABLE(), flags: MessageFlags.Ephemeral });
       return;
     }
 
     const locale = guild.preferredLocale;
-    const member = await guild.members.fetch(interaction.user.id).catch(() => null);
+    const member = await guild.members
+      .fetch(interaction.user.id)
+      .catch(softFail(AppFeature.VolterVerification, 'VERIFICATION_MEMBER_FETCH', { userId: interaction.user.id }));
     if (!member) {
       await interaction.reply({ content: L[locale].GENERAL.COMMAND_NOT_A_MEMBER(), flags: MessageFlags.Ephemeral });
       return;
@@ -65,8 +75,11 @@ export default new Command<ApplicationCommandType.ChatInput>({
       }
 
       await interaction.reply({ content: R.SUCCESS(), flags: MessageFlags.Ephemeral });
+      // audit_log.targetUserId is FK-constrained; a throw here would abort before runVerification
+      // and the member would be told the flow started while no DM ever arrives.
+      await upsertUser({ id: interaction.user.id, username: interaction.user.username });
       await recordAuditEvent({ eventType: AuditEventType.VerificationRestarted, targetUserId: interaction.user.id, payload: {} });
-      runVerification(client, member).catch(() => null);
+      runVerification(client, member).catch(softFail(AppFeature.VolterVerification, 'VERIFICATION_FLOW_RESTART', { userId: interaction.user.id }));
       return;
     }
 
@@ -105,8 +118,9 @@ export default new Command<ApplicationCommandType.ChatInput>({
       try {
         let flow;
         try {
-          flow = await initiateDeviceFlow();
-        } catch {
+          flow = await logtoClient.initiateDeviceFlow();
+        } catch (error) {
+          logSoftFailure(AppFeature.VolterVerification, 'VERIFICATION_DEVICE_FLOW_INIT_FAILED', { userId: interaction.user.id }, error, 'error');
           await interaction.editReply({ content: V.ERROR() });
           return;
         }
@@ -121,7 +135,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
           ],
         });
 
-        const result = await pollForToken(flow.device_code, flow.expires_in, flow.interval);
+        const result = await logtoClient.pollForToken(flow.device_code, flow.expires_in, flow.interval);
 
         if (!result.success) {
           const msg = result.reason === 'denied' ? V.DENIED() : V.TIMEOUT();
@@ -129,18 +143,32 @@ export default new Command<ApplicationCommandType.ChatInput>({
           return;
         }
 
-        await upsertVoltVerification(interaction.user.id, result.sub);
-
         const logger = Logger.getInstance(AppFeature.VolterVerification);
+        let roleGranted = true;
         if (settings.roleMemberId) {
           try {
             await member.roles.add(settings.roleMemberId, 'Volt membership verified via LogTo');
           } catch (err) {
-            logger.error({ ...Object(err), roleId: settings.roleMemberId, userId: interaction.user.id }, 'Failed to assign Volter role.');
+            roleGranted = false;
+            logSoftFailure(
+              AppFeature.VolterVerification,
+              'VERIFICATION_VOLTER_ROLE_ADD',
+              { roleId: settings.roleMemberId, userId: interaction.user.id },
+              err
+            );
           }
         } else {
           logger.warn({ userId: interaction.user.id }, 'roleMemberId not configured — skipping Volter role assignment.');
         }
+
+        if (!roleGranted) {
+          // Persisting the verification would make the row block every retry via the
+          // "already verified" guard, leaving the member with no role and no way to self-repair.
+          await interaction.editReply({ embeds: [new EmbedBuilder().setTitle('❌').setDescription(V.ERROR()).setColor(Colors.Red)] });
+          return;
+        }
+
+        await upsertVoltVerification(interaction.user.id, result.sub);
 
         await interaction.editReply({ embeds: [new EmbedBuilder().setTitle(V.SUCCESS_TITLE()).setDescription(V.SUCCESS()).setColor(Colors.Green)] });
 

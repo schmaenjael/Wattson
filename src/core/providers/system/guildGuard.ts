@@ -2,7 +2,7 @@ import { Guild } from 'discord.js';
 
 import { Client } from '~/core/models';
 import { AppFeature } from '~/settings';
-import { Logger } from '~/utilities';
+import { logSoftFailure, Logger } from '~/utilities';
 
 const logger = Logger.getInstance(AppFeature.System);
 
@@ -19,6 +19,6 @@ export const enforceSingleGuild = async (_client: Client, guild: Guild): Promise
   try {
     await guild.leave();
   } catch (error) {
-    logger.error(Object(error), `Failed to leave unexpected guild ${guild.id}.`);
+    logSoftFailure(AppFeature.System, 'SYSTEM_UNEXPECTED_GUILD_LEAVE', { guildId: guild.id, guildName: guild.name }, error);
   }
 };

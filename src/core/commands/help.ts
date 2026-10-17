@@ -3,6 +3,7 @@ import { ApplicationCommandType, EmbedBuilder, MessageFlags, PermissionFlagsBits
 import { Command, Permission } from '~/core/models';
 import { AppFeature, appFeatureMap } from '~/settings';
 import { getSettings, type Settings } from '~/database';
+import { softFail } from '~/utilities';
 
 const PERMISSION_TIERS = [
   Permission.Unregistered,
@@ -39,7 +40,11 @@ export default new Command<ApplicationCommandType.ChatInput>({
 
   async executeCommand(command, client, interaction) {
     const settings = await getSettings();
-    const member = interaction.guild ? await interaction.guild.members.fetch(interaction.user.id).catch(() => null) : null;
+    const member = interaction.guild
+      ? await interaction.guild.members
+          .fetch(interaction.user.id)
+          .catch(softFail(AppFeature.System, 'HELP_MEMBER_FETCH', { userId: interaction.user.id }))
+      : null;
 
     const memberRoleIds = member ? new Set(member.roles.cache.keys()) : new Set<string>();
     const hasManageGuild = member?.permissions.has(PermissionFlagsBits.ManageGuild) ?? false;

@@ -25,6 +25,7 @@ export type Settings = {
   publicLogChannelId: string | null;
   surveillanceLogChannelId: string | null;
   reportsLogChannelId: string | null;
+  reportsTodoChannelId: string | null;
   welcomeChannelId: string | null;
   approvalChannelId: string | null;
   courtParentChannelId: string | null;
@@ -50,6 +51,18 @@ export type Settings = {
   featureAntiHoistEnabled: boolean;
   featureInviteTrackingEnabled: boolean;
   featureAutoSlowmodeEnabled: boolean;
+  featureAskEnabled: boolean;
+  featureRagEnabled: boolean;
+  featureModmailEnabled: boolean;
+  featureAppealEnabled: boolean;
+  featureSuggestionsEnabled: boolean;
+  featureEventsEnabled: boolean;
+  featureStickyEnabled: boolean;
+  featureReactEnabled: boolean;
+  featureForumRolesEnabled: boolean;
+  featureAnalyticsEnabled: boolean;
+  featureStatChannelsEnabled: boolean;
+  featureReportsEnabled: boolean;
 
   // Thresholds
   starboardThreshold: number;
@@ -60,6 +73,7 @@ export type Settings = {
   badWordDeleteThreshold: number;
   antiSpamMaxMessages: number;
   antiSpamWindowMs: number;
+  antiSpamMuteMinutes: number;
   inviteRaidThreshold: number;
   inviteRaidWindowMs: number;
   autoSlowmodeThreshold: number;
@@ -87,6 +101,7 @@ export const getSettings = async (): Promise<Settings> => {
     publicLogChannelId: channels.publicLog ?? null,
     surveillanceLogChannelId: channels.surveillanceLog ?? null,
     reportsLogChannelId: channels.reportsLog ?? null,
+    reportsTodoChannelId: channels.reportsTodo ?? null,
     welcomeChannelId: channels.welcome ?? null,
     approvalChannelId: channels.approval ?? null,
     courtParentChannelId: channels.courtParent ?? null,
@@ -111,6 +126,18 @@ export const getSettings = async (): Promise<Settings> => {
     featureAntiHoistEnabled: features.antiHoist,
     featureInviteTrackingEnabled: features.inviteTracking,
     featureAutoSlowmodeEnabled: features.autoSlowmode,
+    featureAskEnabled: features.ask,
+    featureRagEnabled: features.rag,
+    featureModmailEnabled: features.modmail,
+    featureAppealEnabled: features.appeal,
+    featureSuggestionsEnabled: features.suggestions,
+    featureEventsEnabled: features.events,
+    featureStickyEnabled: features.sticky,
+    featureReactEnabled: features.react,
+    featureForumRolesEnabled: features.forumRoles,
+    featureAnalyticsEnabled: features.analytics,
+    featureStatChannelsEnabled: features.statChannels,
+    featureReportsEnabled: features.reports,
 
     starboardThreshold: thresholds.starboard,
     starboardExternalThreshold: thresholds.starboardExternal,
@@ -120,6 +147,7 @@ export const getSettings = async (): Promise<Settings> => {
     badWordDeleteThreshold: thresholds.badWordDelete,
     antiSpamMaxMessages: thresholds.antiSpamMaxMessages,
     antiSpamWindowMs: thresholds.antiSpamWindowMs,
+    antiSpamMuteMinutes: thresholds.antiSpamMuteMinutes,
     inviteRaidThreshold: thresholds.inviteRaidThreshold,
     inviteRaidWindowMs: thresholds.inviteRaidWindowMs,
     autoSlowmodeThreshold: thresholds.autoSlowmodeThreshold,

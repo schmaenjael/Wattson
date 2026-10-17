@@ -1,21 +1,15 @@
 import { ApplicationCommandType, EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
 
 import { Command, Permission, BotException } from '~/core/models';
-import { logModAction } from '~/core/middleware';
 import { AppFeature, appFeatureMap, MOD_LIST_PAGE_SIZE } from '~/settings';
-import { Logger, validateModerationTarget, discordTimestamp } from '~/utilities';
-import { applyWarnAutoMute } from '~/core/providers/automod';
+import { discordTimestamp, validateModerationTarget } from '~/utilities';
+import { issueWarning } from '~/core/providers/moderation';
 import {
   AuditEventType,
-  countActiveWarnings,
-  countActiveWarningsSince,
   findWarningById,
-  getSettings,
-  insertWarning,
   listWarningsForUser,
   recordAuditEvent,
   revokeWarning,
-  upsertUser,
   WARNING_DEFAULT_EXPIRY_DAYS,
   type Warning,
 } from '~/database';
@@ -36,7 +30,6 @@ export default new Command<ApplicationCommandType.ChatInput>({
   type: ApplicationCommandType.ChatInput,
   requiredPermissions: [Permission.Moderation, Permission.Administration],
   middleware: [],
-  afterware: [logModAction],
   data: new SlashCommandBuilder()
     .setName('warn')
     .setDescription('Issue and manage warnings.')
@@ -83,86 +76,15 @@ export default new Command<ApplicationCommandType.ChatInput>({
 
       const expiresAt = expiryDays === 0 ? null : new Date(Date.now() + (expiryDays ?? WARNING_DEFAULT_EXPIRY_DAYS) * 24 * 60 * 60 * 1000);
 
-      const settings = await getSettings();
-      await Promise.all([
-        upsertUser({ id: target.id, username: target.username }),
-        upsertUser({ id: interaction.user.id, username: interaction.user.username }),
-      ]);
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-      let warning: Warning;
-      try {
-        warning = await insertWarning({ targetUserId: target.id, moderatorId: interaction.user.id, reason, expiresAt });
-      } catch (error) {
-        throw new BotException(client, `Failed to record warning against ${target.tag}`, error);
-      }
-
+      const { warning, escalationNote } = await issueWarning(client, interaction.guild!, { target, moderator: interaction.user, reason, expiresAt });
       const expiryLine = warning.expiresAt ? `Expires ${discordTimestamp(warning.expiresAt, 'R')}.` : 'No expiry.';
 
-      const dm = await target.createDM().catch(() => null);
-      if (dm) {
-        await dm
-          .send({
-            embeds: [
-              new EmbedBuilder()
-                .setColor(appFeatureMap[command.options.feature].color)
-                .setTitle('You received a warning')
-                .addFields(
-                  { name: 'Reason', value: reason },
-                  { name: 'Warning ID', value: `#${warning.id}`, inline: true },
-                  { name: 'Issued at', value: `${discordTimestamp(warning.createdAt, 'F')}`, inline: true },
-                  { name: 'Expires', value: warning.expiresAt ? `${discordTimestamp(warning.expiresAt, 'F')}` : 'Never', inline: true }
-                )
-                .setTimestamp(),
-            ],
-          })
-          .catch(() => null);
-      }
-
-      const logger = Logger.getInstance(AppFeature.Warn);
-      await logger.log({
-        level: 'info',
-        message: `Warning #${warning.id} issued against ${target.id}`,
-        data: { warningId: warning.id, targetId: target.id, moderatorId: interaction.user.id },
-        target: 'moderation',
-        internalEmbed: new EmbedBuilder()
-          .setColor(appFeatureMap[command.options.feature].color)
-          .setTitle(`Warning #${warning.id}`)
-          .addFields(
-            { name: 'Target', value: `<@${target.id}>`, inline: true },
-            { name: 'Moderator', value: `<@${interaction.user.id}>`, inline: true },
-            { name: 'Expires', value: warning.expiresAt ? `${discordTimestamp(warning.expiresAt, 'R')}` : 'Never', inline: true },
-            { name: 'Reason', value: reason }
-          )
-          .setTimestamp(warning.createdAt),
-        publicEmbed: new EmbedBuilder()
-          .setColor(appFeatureMap[command.options.feature].color)
-          .setTitle('⚠️ Member Warned')
-          .addFields({ name: 'User', value: `<@${target.id}>` }, { name: 'Reason', value: reason })
-          .setTimestamp(warning.createdAt),
-      });
-
-      const windowStart = new Date(Date.now() - settings.warnAutoEscalateWindowDays * 24 * 60 * 60 * 1000);
-      const [activeCount, windowCount] = await Promise.all([countActiveWarnings(target.id), countActiveWarningsSince(target.id, windowStart)]);
-
-      let escalationNote = '';
-      if (windowCount >= settings.warnAutoEscalateCount) {
-        escalationNote = `\n\n⚠️ **Auto-escalation threshold reached** (${windowCount} active warnings in the last ${settings.warnAutoEscalateWindowDays} days). Consider a ban or court case.`;
-      }
-
-      const autoMuteNote = await applyWarnAutoMute(client, interaction.guild!, target, activeCount, settings);
-      if (autoMuteNote) escalationNote += autoMuteNote;
-
-      await interaction.reply({
+      await interaction.editReply({
         content: `Warned <@${target.id}> (reason: ${reason}). Warning **#${warning.id}** recorded. ${expiryLine}${escalationNote}`,
-        flags: MessageFlags.Ephemeral,
       });
-
-      return {
-        eventType: AuditEventType.WarnIssued,
-        actorUserId: interaction.user.id,
-        targetUserId: target.id,
-        payload: { warningId: warning.id, reason },
-      };
+      return;
     }
 
     if (sub === 'list') {

@@ -5,12 +5,21 @@ import { reports } from '~/database/schema/reports';
 import { ReportStatus } from '~/database/schema/enums';
 
 export type Report = InferSelectModel<typeof reports>;
-export type NewReport = Omit<InferInsertModel<typeof reports>, 'id' | 'status' | 'createdAt' | 'resolvedAt' | 'resolvedBy'>;
+export type NewReport = Omit<
+  InferInsertModel<typeof reports>,
+  'id' | 'status' | 'createdAt' | 'resolvedAt' | 'resolvedBy' | 'logMessageId' | 'todoMessageId'
+>;
+export type ReportMessageIds = Pick<Report, 'logMessageId' | 'todoMessageId'>;
 
 export const insertReport = async (input: NewReport): Promise<Report> => {
   const db = getDb();
   const [row] = await db.insert(reports).values(input).returning();
   return row;
+};
+
+export const setReportMessageIds = async (id: number, ids: ReportMessageIds): Promise<void> => {
+  const db = getDb();
+  await db.update(reports).set(ids).where(eq(reports.id, id));
 };
 
 export const listOpenReports = async (): Promise<Report[]> => {

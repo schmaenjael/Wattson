@@ -2,6 +2,8 @@ import { Colors, EmbedBuilder, TextChannel } from 'discord.js';
 
 import type { Client } from '~/core/models';
 import type { Modmail } from '~/database';
+import { AppFeature } from '~/settings';
+import { softFail } from '~/utilities';
 
 export enum CloseActionType {
   VerificationFollowUp = 'verification_followup',
@@ -18,10 +20,10 @@ type CloseActionHandler = (client: Client, modmail: Modmail, payload: unknown) =
 async function handleVerificationFollowUp(client: Client, modmail: Modmail, payload: unknown): Promise<void> {
   const { memberId, channelId, messageId } = payload as VerificationFollowUpPayload;
 
-  const rawChannel = await client.channels.fetch(channelId).catch(() => null);
+  const rawChannel = await client.channels.fetch(channelId).catch(softFail(AppFeature.Modmail, 'MODMAIL_CHANNEL_FETCH', { channelId }));
   if (!(rawChannel instanceof TextChannel)) return;
 
-  const approvalMessage = await rawChannel.messages.fetch(messageId).catch(() => null);
+  const approvalMessage = await rawChannel.messages.fetch(messageId).catch(softFail(AppFeature.Modmail, 'MODMAIL_MESSAGE_FETCH', { messageId }));
 
   await rawChannel
     .send({
@@ -37,7 +39,7 @@ async function handleVerificationFollowUp(client: Client, modmail: Modmail, payl
           .setTimestamp(),
       ],
     })
-    .catch(() => null);
+    .catch(softFail(AppFeature.Modmail, 'MODMAIL_CHANNEL_SEND'));
 }
 
 const ACTION_HANDLERS: Record<string, CloseActionHandler> = { [CloseActionType.VerificationFollowUp]: handleVerificationFollowUp };
@@ -46,5 +48,5 @@ export const dispatchCloseAction = async (client: Client, modmail: Modmail): Pro
   if (!modmail.closeAction?.type) return;
   const handler = ACTION_HANDLERS[modmail.closeAction.type];
   if (!handler) return;
-  await handler(client, modmail, modmail.closeAction.payload ?? {}).catch(() => null);
+  await handler(client, modmail, modmail.closeAction.payload ?? {}).catch(softFail(AppFeature.Modmail, 'MODMAIL_CLOSE_ACTION', { client }));
 };

@@ -1,4 +1,5 @@
 import { flushActivityDeltas, type ActivityDelta } from '~/database';
+import { getConfig } from '~/config';
 
 export * from './events';
 
@@ -22,6 +23,8 @@ export const recordReaction = (userId: string): void => {
 };
 
 export const startVoiceSession = (userId: string): void => {
+  if (!getConfig().config.features.analytics) return;
+
   if (!voiceSessions.has(userId)) {
     voiceSessions.set(userId, Date.now());
   }

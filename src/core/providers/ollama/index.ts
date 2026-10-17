@@ -1,6 +1,6 @@
 import { getConfig } from '~/config';
 import { AppFeature } from '~/settings';
-import { Logger } from '~/utilities';
+import { logSoftFailure } from '~/utilities';
 
 const SYSTEM_PROMPT = `You are Wattson, the official AI assistant of the Volt Europa Discord server. You are an advocate for Volt Europa and respond from Volt's perspective — you are not neutral.
 
@@ -43,19 +43,18 @@ export interface OllamaGenerateParams {
   prompt: string;
   system?: string;
   timeoutMs: number;
-  logger: Logger;
-  failureMessage: string;
+  feature: AppFeature;
+  /** Stable soft-failure code logged when the call fails, e.g. `MODMAIL_SUMMARIZE`. */
+  errorCode: string;
 }
 
-export const callOllamaGenerate = async ({
-  endpoint,
-  model,
-  prompt,
-  system,
-  timeoutMs,
-  logger,
-  failureMessage,
-}: OllamaGenerateParams): Promise<string | null> => {
+/** Public contract for the Ollama-backed LLM service: raw prompt generation plus the Ask-command convenience query. */
+export interface OllamaClient {
+  generate(params: OllamaGenerateParams): Promise<string | null>;
+  query(question: string): Promise<string | null>;
+}
+
+const generate = async ({ endpoint, model, prompt, system, timeoutMs, feature, errorCode }: OllamaGenerateParams): Promise<string | null> => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -72,25 +71,27 @@ export const callOllamaGenerate = async ({
     if (!body.response) throw new Error('Ollama response missing "response" field');
     return body.response.trim() || null;
   } catch (err) {
-    logger.warn(Object(err), failureMessage);
+    logSoftFailure(feature, errorCode, { endpoint, model }, err);
     return null;
   } finally {
     clearTimeout(timer);
   }
 };
 
-export const queryOllama = async (question: string): Promise<string | null> => {
+const query = async (question: string): Promise<string | null> => {
   const endpoint = process.env.OLLAMA_ENDPOINT;
   const model = process.env.OLLAMA_MODEL;
   if (!endpoint || !model) return null;
 
-  return callOllamaGenerate({
+  return generate({
     endpoint,
     model,
     prompt: question,
     system: SYSTEM_PROMPT,
     timeoutMs: getConfig().config.timeouts.ollamaMs,
-    logger: Logger.getInstance(AppFeature.Ask),
-    failureMessage: 'Ollama query failed.',
+    feature: AppFeature.Ask,
+    errorCode: 'OLLAMA_ASK_QUERY',
   });
 };
+
+export const ollamaClient: OllamaClient = { generate, query };

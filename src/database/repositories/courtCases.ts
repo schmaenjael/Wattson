@@ -55,18 +55,25 @@ export const listCasesForUser = async (accusedUserId: string): Promise<CourtCase
   return db.select().from(courtCases).where(eq(courtCases.accusedUserId, accusedUserId)).orderBy(desc(courtCases.openedAt));
 };
 
+/**
+ * Closes a case. Pass `fromStatus` to make the update a compare-and-swap: the row is only written
+ * when it is still in that status, so concurrent callers cannot both win. Returns undefined when
+ * the predicate did not match — the caller lost the race and must not run the verdict's side effects.
+ */
 export const closeCourtCase = async (
   id: number,
   closedBy: string,
   status: CourtStatus,
   verdict: string | null,
-  summary?: string | null
+  summary?: string | null,
+  fromStatus?: CourtStatus
 ): Promise<CourtCase | undefined> => {
   const db = getDb();
+  const predicate = fromStatus ? and(eq(courtCases.id, id), eq(courtCases.status, fromStatus)) : eq(courtCases.id, id);
   const [row] = await db
     .update(courtCases)
     .set({ status, closedBy, closedAt: new Date(), verdict, summary: summary ?? null })
-    .where(eq(courtCases.id, id))
+    .where(predicate)
     .returning();
   return row;
 };

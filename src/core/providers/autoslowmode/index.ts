@@ -1,9 +1,11 @@
-import { ChannelType, Colors, EmbedBuilder, type Guild, type Message, type TextChannel } from 'discord.js';
+import { ChannelType, Colors, EmbedBuilder, type Guild, type TextChannel } from 'discord.js';
 
 import { AuditEventType, findLockedChannel, lockChannel, recordAuditEvent, unlockChannel, upsertUser, type Settings } from '~/database';
 import type { Client } from '~/core/models';
+import type { MessageContext } from '~/core/types';
 import { getConfig } from '~/config';
-import { Logger } from '~/utilities';
+import { Logger, runDiscordAction, softFail } from '~/utilities';
+import { AppFeature } from '~/settings';
 
 interface ChannelState {
   level: number;
@@ -72,7 +74,14 @@ async function applyAutoSlowmodeAction(
     if (action.level === 1) {
       const previousSlowmode = channel.rateLimitPerUser ?? 0;
       await upsertUser({ id: client.user!.id, username: client.user!.username });
-      await channel.setRateLimitPerUser(action.slowmodeSeconds).catch(() => null);
+      const applied = await runDiscordAction(logger, 'channel.setRateLimitPerUser', { channelId: channel.id, seconds: action.slowmodeSeconds }, () =>
+        channel.setRateLimitPerUser(action.slowmodeSeconds)
+      );
+      if (!applied) {
+        // A lock row + public announcement for a slowmode that was never applied would claim the
+        // channel is throttled while messages keep flowing.
+        return;
+      }
       await lockChannel({
         channelId: channel.id,
         moderatorId: client.user!.id,
@@ -89,9 +98,13 @@ async function applyAutoSlowmodeAction(
               .setTimestamp(),
           ],
         })
-        .catch(() => null);
-    } else {
-      await channel.setRateLimitPerUser(action.slowmodeSeconds).catch(() => null);
+        .catch(softFail(AppFeature.AntiSpam, 'ANTISPAM_CHANNEL_SEND'));
+    } else if (
+      !(await runDiscordAction(logger, 'channel.setRateLimitPerUser', { channelId: channel.id, seconds: action.slowmodeSeconds }, () =>
+        channel.setRateLimitPerUser(action.slowmodeSeconds)
+      ))
+    ) {
+      return;
     }
     await logger.log({
       level: 'info',
@@ -116,7 +129,9 @@ async function applyAutoSlowmodeAction(
   }
 
   if (action.type === 'step_down') {
-    await channel.setRateLimitPerUser(action.slowmodeSeconds).catch(() => null);
+    await channel
+      .setRateLimitPerUser(action.slowmodeSeconds)
+      .catch(softFail(AppFeature.AntiSpam, 'ANTISPAM_SLOWMODE_SET', { slowmodeSeconds: action.slowmodeSeconds }));
     await logger.log({
       level: 'info',
       message: `Auto-slowmode step down level ${action.level} in ${channel.id}`,
@@ -142,7 +157,14 @@ async function applyAutoSlowmodeAction(
   if (action.type === 'restore') {
     const lock = await findLockedChannel(channel.id);
     const previousSlowmode = lock?.previousSlowmode ?? 0;
-    await channel.setRateLimitPerUser(previousSlowmode).catch(() => null);
+    const restored = await runDiscordAction(logger, 'channel.setRateLimitPerUser', { channelId: channel.id, seconds: previousSlowmode }, () =>
+      channel.setRateLimitPerUser(previousSlowmode)
+    );
+    if (!restored) {
+      // Keep the lock row and the in-memory level: dropping both would leave the channel
+      // permanently slowmoded with nothing left that knows to restore it.
+      return;
+    }
     await unlockChannel(channel.id);
     clearChannelSlowmodeState(channel.id);
     await channel
@@ -155,7 +177,7 @@ async function applyAutoSlowmodeAction(
             .setTimestamp(),
         ],
       })
-      .catch(() => null);
+      .catch(softFail(AppFeature.AntiSpam, 'ANTISPAM_CHANNEL_SEND'));
     await logger.log({
       level: 'info',
       message: `Auto-slowmode removed from ${channel.id}`,
@@ -176,12 +198,8 @@ async function applyAutoSlowmodeAction(
  * results (step up, step down, restore). No-op outside guild text channels, when the feature is
  * disabled, or when the channel is already under a manual (non-auto) lock.
  */
-export async function enforce(
-  client: Client,
-  message: Message<true>,
-  settings: Settings,
-  logger: ReturnType<typeof Logger.getInstance>
-): Promise<void> {
+export async function enforce(ctx: MessageContext): Promise<void> {
+  const { client, message, settings, logger } = ctx;
   if (!settings.featureAutoSlowmodeEnabled || message.channel.type !== ChannelType.GuildText) return;
 
   const channel = message.channel;

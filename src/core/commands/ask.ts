@@ -1,8 +1,9 @@
 import { ApplicationCommandType, EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
 
 import { Command } from '~/core/models';
+import { useFeatureFlag } from '~/core/middleware';
 import { AppFeature, appFeatureMap } from '~/settings';
-import { queryOllama } from '~/core/providers/ollama';
+import { ollamaClient } from '~/core/providers/ollama';
 
 const MAX_QUESTION_DISPLAY = 800;
 const MAX_ANSWER_DISPLAY = 3_200;
@@ -11,7 +12,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
   feature: AppFeature.Ask,
   type: ApplicationCommandType.ChatInput,
   requiredPermissions: [],
-  middleware: [],
+  middleware: [useFeatureFlag('featureAskEnabled')],
   data: new SlashCommandBuilder()
     .setName('ask')
     .setDescription('Ask Wattson a question — answered by the configured AI model.')
@@ -31,7 +32,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
 
     await interaction.deferReply();
 
-    const answer = await queryOllama(question);
+    const answer = await ollamaClient.query(question);
 
     if (!answer) {
       await interaction.editReply({

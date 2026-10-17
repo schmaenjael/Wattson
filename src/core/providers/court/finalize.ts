@@ -13,8 +13,9 @@ export const finalizeCourtCase = async (client: Client, caseRow: CourtCase): Pro
   const thread = await client.channels.fetch(caseRow.threadId);
   if (!thread || !thread.isThread()) return false;
 
-  await attempt(async () => {
-    await thread.setLocked(true, 'Court finalization — moderator deliberation in progress');
+  await attempt(async () => await thread.setLocked(true, 'Court finalization — moderator deliberation in progress'), {
+    errorCode: 'COURT_THREAD_LOCK',
+    context: { threadId: thread.id, caseId: caseRow.id },
   });
 
   const tallies = { ban: 0, warn: 0, dismiss: 0 };

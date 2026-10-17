@@ -14,7 +14,7 @@ import {
 import { getConfig } from '~/config';
 import { Schedulable } from '~/core/models/Schedulable';
 import { Client } from '~/core/models/Client';
-import { Logger, discordTimestamp } from '~/utilities';
+import { logSoftFailure, Logger, discordTimestamp } from '~/utilities';
 
 let lastEventDigestAt: Date | null = null;
 
@@ -57,7 +57,7 @@ const announceEvent = async (client: Client, settings: Awaited<ReturnType<typeof
           await ch.send(payload);
           sentChannels.add(settings.eventAnnouncementChannelId);
         } catch (err) {
-          logger.error(Object(err), `Failed to send announcement to eventAnnouncementChannelId for event ${event.id}`);
+          logSoftFailure(AppFeature.Events, 'EVENT_ANNOUNCEMENT_SEND', { eventId: event.id, channelId: settings.eventAnnouncementChannelId }, err);
         }
       }
 
@@ -66,7 +66,7 @@ const announceEvent = async (client: Client, settings: Awaited<ReturnType<typeof
           const ch = (await client.channels.fetch(event.textChannelId)) as TextChannel;
           await ch.send(payload);
         } catch (err) {
-          logger.error(Object(err), `Failed to send announcement to textChannelId for event ${event.id}`);
+          logSoftFailure(AppFeature.Events, 'EVENT_ANNOUNCEMENT_SEND', { eventId: event.id, channelId: event.textChannelId }, err);
         }
       }
 
@@ -94,12 +94,12 @@ const announceEvent = async (client: Client, settings: Awaited<ReturnType<typeof
             });
             logger.info({ eventId: event.id, nextDate }, 'Next recurring event created');
           } catch (err) {
-            logger.error(Object(err), `Failed to create next recurring instance for event ${event.id}`);
+            logSoftFailure(AppFeature.Events, 'EVENT_RECURRENCE_CREATE', { eventId: event.id, rootId }, err, 'error');
           }
         }
       }
     } catch (err) {
-      logger.error(Object(err), `Error processing event ${event.id}`);
+      logSoftFailure(AppFeature.Events, 'EVENT_TICK_PROCESSING', { eventId: event.id }, err, 'error');
     }
   }
 
@@ -145,7 +145,7 @@ const weeklyDigest = async (client: Client, settings: Awaited<ReturnType<typeof 
     await ch.send({ embeds: [embed] });
     logger.info({ count: events.length }, 'Weekly event digest sent');
   } catch (err) {
-    logger.error(Object(err), 'Failed to send weekly event digest');
+    logSoftFailure(AppFeature.Events, 'EVENT_WEEKLY_DIGEST_SEND', { channelId: settings.eventAnnouncementChannelId, eventCount: events.length }, err);
   }
 
   lastEventDigestAt = now;
@@ -158,6 +158,8 @@ export const eventSchedulable = new Schedulable({
   description: 'Announces upcoming events and sends weekly digests.',
   defaultCron: () => getConfig().config.schedules.eventDigest,
   execute: async (client, logger) => {
+    if (!getConfig().config.features.events) return;
+
     const settings = await getSettings();
     const announced = await announceEvent(client, settings, logger);
     const digest = await weeklyDigest(client, settings, logger);

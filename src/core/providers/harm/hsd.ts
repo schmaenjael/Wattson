@@ -1,6 +1,6 @@
 import { getConfig } from '~/config';
 import { AppFeature } from '~/settings';
-import { Logger } from '~/utilities';
+import { logSoftFailure, Logger } from '~/utilities';
 
 import type { HarmCategory, HarmCategoryResult, HarmDetectionConfig, HarmDetectionResult } from './types';
 
@@ -51,7 +51,15 @@ interface HsdHealthResponse {
   model?: string;
 }
 
-export class HateSpeechDetector {
+/** Public contract for the hate-speech-detection service: warm up the model, then classify content. */
+export interface HarmDetectionClient {
+  warmup(): Promise<void>;
+  detect(content: string): Promise<HarmDetectionResult>;
+}
+
+const logger = Logger.getInstance(AppFeature.Surveillance);
+
+export class HateSpeechDetector implements HarmDetectionClient {
   private available = true;
   private modelVersion = 'unknown';
 
@@ -61,7 +69,6 @@ export class HateSpeechDetector {
   ) {}
 
   async warmup(): Promise<void> {
-    const logger = Logger.getInstance(AppFeature.Surveillance);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), getConfig().config.timeouts.harmMs);
     try {
@@ -75,7 +82,7 @@ export class HateSpeechDetector {
       }
     } catch (err) {
       this.available = false;
-      logger.warn(Object(err), 'Hate speech detection unavailable — detect calls will be skipped.');
+      logSoftFailure(AppFeature.Surveillance, 'HARM_DETECTOR_WARMUP', { endpoint: this.endpoint }, err);
     } finally {
       clearTimeout(timer);
     }
@@ -84,7 +91,6 @@ export class HateSpeechDetector {
   async detect(content: string): Promise<HarmDetectionResult> {
     if (!this.available) return DEFAULT_RESULT;
 
-    const logger = Logger.getInstance(AppFeature.Surveillance);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.config.timeoutMs);
 
@@ -119,7 +125,7 @@ export class HateSpeechDetector {
 
       return { categories, anyDetected: true, detectedCategories: [mappedCategory], modelVersion: this.modelVersion, scores: body.all_scores ?? {} };
     } catch (err) {
-      logger.warn(Object(err), 'Hate speech detection failed — returning safe default.');
+      logSoftFailure(AppFeature.Surveillance, 'HARM_DETECTION_REQUEST', { endpoint: this.endpoint }, err);
       return DEFAULT_RESULT;
     } finally {
       clearTimeout(timer);

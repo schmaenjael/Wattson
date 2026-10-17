@@ -33,14 +33,24 @@ import { ModmailOpenThreadEmbed, VerificationFollowUpUserDmEmbed } from '~/core/
 import { L } from '~/core/locales';
 import type { FlowAnswers } from './flow';
 import { grantAccess, postWelcomeEmbed } from './actions';
+import { Logger, runDiscordAction, softFail } from '~/utilities';
+
+const logger = Logger.getInstance(AppFeature.Welcome);
 
 const isModerator = async (interaction: ButtonInteraction): Promise<boolean> => {
   const settings = await getSettings();
-  const actor = await interaction.guild?.members.fetch(interaction.user.id).catch(() => null);
+  const actor = await interaction.guild?.members
+    .fetch(interaction.user.id)
+    .catch(softFail(AppFeature.VolterVerification, 'VERIFICATION_MEMBER_FETCH', { userId: interaction.user.id }));
   return actor ? memberHasAnyPermission(actor, settings, [Permission.Moderation, Permission.Administration]) : false;
 };
 
 const handleReject = async (interaction: ButtonInteraction, memberId: string, isDecided: boolean): Promise<void> => {
+  // Gate before showModal — a modal cannot be preceded by defer/reply, so this must be the first branch.
+  if (!(await isModerator(interaction))) {
+    await interaction.reply({ content: 'Only moderators can act on verification requests.', flags: MessageFlags.Ephemeral });
+    return;
+  }
   if (isDecided) {
     await interaction.reply({ content: 'This verification has already been decided.', flags: MessageFlags.Ephemeral });
     return;
@@ -83,17 +93,23 @@ const handleAskQuestion = async (interaction: ButtonInteraction, memberId: strin
 
   const settings = await getSettings();
   if (!settings.modmailChannelId) {
-    await interaction.editReply({ content: 'Modmail channel not configured. Set it with `/config channel`.' });
+    await interaction.editReply({ content: 'Modmail channel not configured. Set `channels.modmail` in the bot config.' });
     return;
   }
 
-  const applicant = await interaction.guild?.members.fetch(memberId).catch(() => null);
+  const applicant = await interaction.guild?.members
+    .fetch(memberId)
+    .catch(softFail(AppFeature.VolterVerification, 'VERIFICATION_MEMBER_FETCH', { memberId }));
   if (!applicant) {
     await interaction.editReply({ content: `<@${memberId}> is no longer in the server.` });
     return;
   }
 
-  const modmailChannel = (await interaction.guild?.channels.fetch(settings.modmailChannelId).catch(() => null)) as TextChannel | null;
+  const modmailChannel = (await interaction.guild?.channels
+    .fetch(settings.modmailChannelId)
+    .catch(
+      softFail(AppFeature.VolterVerification, 'VERIFICATION_CHANNEL_FETCH', { modmailChannelId: settings.modmailChannelId })
+    )) as TextChannel | null;
   if (!modmailChannel) {
     await interaction.editReply({ content: 'Modmail channel not found.' });
     return;
@@ -119,13 +135,17 @@ const handleAskQuestion = async (interaction: ButtonInteraction, memberId: strin
     closeAction: { type: CloseActionType.VerificationFollowUp, payload: closePayload as unknown as Record<string, unknown> },
   });
 
-  await thread.setName(`📬 Modmail #${modmail.id} — ${applicant.user.username}`).catch(() => null);
+  await thread
+    .setName(`📬 Modmail #${modmail.id} — ${applicant.user.username}`)
+    .catch(softFail(AppFeature.VolterVerification, 'VERIFICATION_THREAD_RENAME'));
 
   const pingContent = settings.roleModmailHandlerId ? `<@&${settings.roleModmailHandlerId}>` : undefined;
   await thread.send({ content: pingContent, embeds: [new ModmailOpenThreadEmbed({ modmail, user: applicant.user }).render()] });
 
-  const dmChannel = await applicant.createDM().catch(() => null);
-  await dmChannel?.send({ embeds: [new VerificationFollowUpUserDmEmbed({ modmail }).render()] }).catch(() => null);
+  const dmChannel = await applicant.createDM().catch(softFail(AppFeature.VolterVerification, 'VERIFICATION_DM_OPEN'));
+  await dmChannel
+    ?.send({ embeds: [new VerificationFollowUpUserDmEmbed({ modmail }).render()] })
+    .catch(softFail(AppFeature.VolterVerification, 'VERIFICATION_DM_SEND'));
 
   await recordAuditEvent({
     eventType: AuditEventType.ModmailOpened,
@@ -164,7 +184,9 @@ const handleApprove = async (
   }
 
   const embed = interaction.message.embeds[0];
-  const member = await interaction.guild?.members.fetch(memberId).catch(() => null);
+  const member = await interaction.guild?.members
+    .fetch(memberId)
+    .catch(softFail(AppFeature.VolterVerification, 'VERIFICATION_MEMBER_FETCH', { memberId }));
   if (!member) {
     await interaction.followUp({ content: `Member <@${memberId}> is no longer in the server.`, flags: MessageFlags.Ephemeral });
     return;
@@ -199,14 +221,24 @@ const handleApprove = async (
   const locale = interaction.guild?.preferredLocale ?? 'en-US';
   const color = appFeatureMap[AppFeature.Welcome].color;
 
-  await grantAccess(member, answers as FlowAnswers);
+  const granted = await grantAccess(member, answers as FlowAnswers);
+  if (!granted) {
+    // Without the access role the applicant has nothing; marking the request approved here would
+    // strip the buttons and leave no way to retry.
+    await interaction.followUp({
+      content: '⚠️ The access role could not be applied — see the bot log. The request stays open.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
   await postWelcomeEmbed(client, member);
+  await upsertUser({ id: interaction.user.id, username: interaction.user.username });
   await recordAuditEvent({ eventType: AuditEventType.VerificationCompleted, actorUserId: interaction.user.id, targetUserId: memberId });
 
   const updatedEmbed = EmbedBuilder.from(embed).setTitle(`✅ Approved by ${interaction.user.tag}`);
   await interaction.message.edit({ embeds: [updatedEmbed], components: [] });
 
-  const dm = await member.createDM().catch(() => null);
+  const dm = await member.createDM().catch(softFail(AppFeature.VolterVerification, 'VERIFICATION_DM_OPEN'));
   await dm
     ?.send({
       embeds: [
@@ -216,7 +248,7 @@ const handleApprove = async (
           .setDescription(L[locale].SYSTEM.VERIFICATION.ACCEPTED.EMBED_DESCRIPTION()),
       ],
     })
-    .catch(() => null);
+    .catch(softFail(AppFeature.VolterVerification, 'VERIFICATION_DM_SEND'));
 };
 
 export const handleVerifyButton = async (client: Client, interaction: ButtonInteraction): Promise<void> => {
@@ -253,8 +285,23 @@ export const handleVerifyModal = async (client: Client, interaction: ModalSubmit
 
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-  const approvalChannel = await client.channels.fetch(channelId).catch(() => null);
-  const approvalMessage = approvalChannel?.isTextBased() ? await (approvalChannel as TextChannel).messages.fetch(messageId).catch(() => null) : null;
+  const actor = await interaction.guild?.members
+    .fetch(interaction.user.id)
+    .catch(softFail(AppFeature.VolterVerification, 'VERIFICATION_MEMBER_FETCH', { userId: interaction.user.id }));
+  const settings = await getSettings();
+  if (!actor || !memberHasAnyPermission(actor, settings, [Permission.Moderation, Permission.Administration])) {
+    await interaction.editReply({ content: 'Only moderators can act on verification requests.' });
+    return;
+  }
+
+  const approvalChannel = await client.channels
+    .fetch(channelId)
+    .catch(softFail(AppFeature.VolterVerification, 'VERIFICATION_CHANNEL_FETCH', { channelId }));
+  const approvalMessage = approvalChannel?.isTextBased()
+    ? await (approvalChannel as TextChannel).messages
+        .fetch(messageId)
+        .catch(softFail(AppFeature.VolterVerification, 'VERIFICATION_MESSAGE_FETCH', { messageId }))
+    : null;
 
   if (approvalMessage) {
     const existingEmbed = approvalMessage.embeds[0];
@@ -269,6 +316,7 @@ export const handleVerifyModal = async (client: Client, interaction: ModalSubmit
     await approvalMessage.edit({ embeds: [updatedEmbed], components: [] });
   }
 
+  await upsertUser({ id: interaction.user.id, username: interaction.user.username });
   await recordAuditEvent({
     eventType: AuditEventType.VerificationRejected,
     actorUserId: interaction.user.id,
@@ -276,12 +324,15 @@ export const handleVerifyModal = async (client: Client, interaction: ModalSubmit
     payload: { reason },
   });
 
-  const member = await interaction.guild?.members.fetch(memberId).catch(() => null);
+  const member = await interaction.guild?.members
+    .fetch(memberId)
+    .catch(softFail(AppFeature.VolterVerification, 'VERIFICATION_MEMBER_FETCH', { memberId }));
   const locale = interaction.guild?.preferredLocale ?? 'en-US';
   const color = appFeatureMap[AppFeature.Welcome].color;
+  let kicked = true;
 
   if (member) {
-    const dm = await member.createDM().catch(() => null);
+    const dm = await member.createDM().catch(softFail(AppFeature.VolterVerification, 'VERIFICATION_DM_OPEN'));
     await dm
       ?.send({
         embeds: [
@@ -291,9 +342,11 @@ export const handleVerifyModal = async (client: Client, interaction: ModalSubmit
             .setDescription(`${L[locale].SYSTEM.VERIFICATION.DENIED.EMBED_DESCRIPTION()}\n\n**${reason}**`),
         ],
       })
-      .catch(() => null);
-    await member.kick(`Verification rejected: ${reason.slice(0, 200)}`).catch(() => null);
+      .catch(softFail(AppFeature.VolterVerification, 'VERIFICATION_DM_SEND'));
+    kicked = await runDiscordAction(logger, 'member.kick', { userId: memberId }, () => member.kick(`Verification rejected: ${reason.slice(0, 200)}`));
   }
 
-  await interaction.editReply({ content: '✅ Rejection processed.' });
+  await interaction.editReply({
+    content: kicked ? '✅ Rejection processed.' : '⚠️ Rejection recorded, but the member could not be kicked — remove them manually.',
+  });
 };

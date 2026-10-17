@@ -4,11 +4,11 @@ import { sql } from 'drizzle-orm';
 
 import { getConfig } from '~/config';
 import { AppFeature } from '~/settings';
-import { Logger } from '~/utilities';
+import { Logger, logSoftFailure } from '~/utilities';
 import { getDb } from '~/database';
 import type { Client } from '~/core/models';
 
-const DEFAULT_HEALTHCHECK_PORT = 3001;
+const DEFAULT_HEALTHCHECK_PORT = 30001;
 
 let server: Server | null = null;
 
@@ -27,7 +27,8 @@ const isDatabaseReady = async (): Promise<boolean> => {
 
     await Promise.race([probe, timeout]);
     return true;
-  } catch {
+  } catch (error) {
+    logSoftFailure(AppFeature.Database, 'HEALTH_DATABASE_PROBE_FAILED', {}, error, 'error');
     return false;
   }
 };

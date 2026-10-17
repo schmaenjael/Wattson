@@ -1,6 +1,8 @@
 import { getConfig } from '~/config';
+import { AppFeature } from '~/settings';
+import { softFail } from '~/utilities';
 
-type DeviceFlowResponse = {
+export type DeviceFlowResponse = {
   device_code: string;
   user_code: string;
   verification_uri: string;
@@ -13,13 +15,24 @@ type TokenErrorResponse = { error: string };
 
 export type DeviceFlowResult = { success: true; sub: string } | { success: false; reason: 'timeout' | 'denied' | 'error' };
 
+/**
+ * Public contract for the LogTo identity provider. Unlike the ollama/rag/harm clients this one
+ * throws on transport failure — verification is a user-facing flow where the caller must
+ * surface the error, not silently degrade.
+ */
+export interface LogtoClient {
+  initiateDeviceFlow(): Promise<DeviceFlowResponse>;
+  pollForToken(deviceCode: string, expiresIn: number, interval?: number): Promise<DeviceFlowResult>;
+  getUser(sub: string): Promise<{ isSuspended: boolean }>;
+}
+
 let m2mToken: string | null = null;
 let m2mTokenExpiresAt = 0;
 
 const endpoint = () => process.env.LOGTO_ENDPOINT!.replace(/\/$/, '');
 const tokenEndpoint = () => `${endpoint()}/oidc/token`;
 
-export const initiateDeviceFlow = async (): Promise<DeviceFlowResponse> => {
+const initiateDeviceFlow = async (): Promise<DeviceFlowResponse> => {
   const body = new URLSearchParams({ client_id: process.env.LOGTO_DEVICE_APP_ID!, scope: 'openid' });
 
   const resp = await fetch(`${endpoint()}/oidc/device/auth`, {
@@ -35,7 +48,7 @@ export const initiateDeviceFlow = async (): Promise<DeviceFlowResponse> => {
   return resp.json() as Promise<DeviceFlowResponse>;
 };
 
-export const pollForToken = async (deviceCode: string, expiresIn: number, interval: number = 5): Promise<DeviceFlowResult> => {
+const pollForToken = async (deviceCode: string, expiresIn: number, interval: number = 5): Promise<DeviceFlowResult> => {
   const deadline = Date.now() + expiresIn * 1000;
   let pollMs = Math.max(getConfig().config.timeouts.logtoPollMs, interval * 1000);
 
@@ -94,7 +107,7 @@ const getManagementApiToken = async (): Promise<string> => {
   });
 
   if (!resp.ok) {
-    const errBody = await resp.text().catch(() => '(unreadable)');
+    const errBody = await resp.text().catch(softFail(AppFeature.VolterVerification, 'VERIFICATION_RESPONSE_BODY_READ', {}, '(unreadable)'));
     throw new Error(`LogTo M2M token request failed: ${resp.status} — ${errBody}`);
   }
 
@@ -104,7 +117,7 @@ const getManagementApiToken = async (): Promise<string> => {
   return m2mToken;
 };
 
-export const getLogtoUser = async (sub: string): Promise<{ isSuspended: boolean }> => {
+const getUser = async (sub: string): Promise<{ isSuspended: boolean }> => {
   const token = await getManagementApiToken();
   const resp = await fetch(`${endpoint()}/api/users/${encodeURIComponent(sub)}`, { headers: { Authorization: `Bearer ${token}` } });
 
@@ -115,3 +128,5 @@ export const getLogtoUser = async (sub: string): Promise<{ isSuspended: boolean 
   const data = (await resp.json()) as { isSuspended?: boolean };
   return { isSuspended: data.isSuspended ?? false };
 };
+
+export const logtoClient: LogtoClient = { initiateDeviceFlow, pollForToken, getUser };

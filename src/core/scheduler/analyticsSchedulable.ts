@@ -9,6 +9,8 @@ export const analyticsSchedulable = new Schedulable({
   description: 'Flushes buffered member activity (messages, voice time, reactions) to the database.',
   defaultCron: () => getConfig().config.schedules.analyticsFlush,
   execute: async () => {
+    if (!getConfig().config.features.analytics) return;
+
     const flushed = await flushAnalytics();
     if (flushed === 0) {
       return;

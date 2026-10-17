@@ -2,7 +2,7 @@ import { EmbedBuilder, Message, PartialMessage } from 'discord.js';
 
 import { AppFeature } from '~/settings';
 import { Colors } from '~/settings/theme';
-import { AuditEventType, getSettings, recordAuditEvent } from '~/database';
+import { AuditEventType, getSettings, recordAuditEvent, upsertUser } from '~/database';
 import { Client } from '~/core/models';
 import { Logger, diffWords, jaccardWordDistance, levenshtein } from '~/utilities';
 
@@ -19,6 +19,9 @@ export const reportMessageEdit = async (
   if (!newMessage.inGuild()) return;
   if (newMessage.author?.bot) return;
   if (oldMessage.content === newMessage.content) return;
+  // Partials.Message is enabled: an uncached old message reports content === null, which would make
+  // every embed-unfurl update look like a user edit from "(not in cache)" to the original text.
+  if (oldMessage.partial) return;
 
   const settings = await getSettings();
   if (!settings.featureSurveillanceEnabled) return;
@@ -58,6 +61,9 @@ export const reportMessageEdit = async (
     target: 'surveillance',
     internalEmbed: embed,
   });
+
+  // audit_log.target_user_id is FK-constrained to users; the author may never have been seen before.
+  await upsertUser({ id: newMessage.author.id, username: newMessage.author.username });
 
   await recordAuditEvent({
     eventType: AuditEventType.MessageEdited,

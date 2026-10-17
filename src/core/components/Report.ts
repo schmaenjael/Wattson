@@ -1,10 +1,11 @@
-import { AttachmentBuilder, EmbedBuilder, MessageFlags } from 'discord.js';
+import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, MessageFlags } from 'discord.js';
 
 import { BaseEmbed } from '~/core/components/BaseEmbed';
 import { assets } from '~/settings';
 import { L } from '~/core/locales';
 
 interface ReportEmbedParams {
+  reportId: number;
   authorName: string;
   authorIcon: string;
   authorId: string;
@@ -18,10 +19,10 @@ export class ReportEmbed extends BaseEmbed<ReportEmbedParams> {
 
   protected build(): EmbedBuilder {
     const { locale } = this.required;
-    const { authorName, authorIcon, authorId, targetChannel, reporterId, targetUrl } = this.required;
+    const { reportId, authorName, authorIcon, authorId, targetChannel, reporterId, targetUrl } = this.required;
 
     return new EmbedBuilder()
-      .setTitle(L[locale].MODERATION.REPORT.EMBED_TITLE())
+      .setTitle(`${L[locale].MODERATION.REPORT.EMBED_TITLE()} #${reportId}`)
       .setAuthor({ name: authorName.slice(0, 256), iconURL: authorIcon || undefined })
       .addFields(
         { name: `${L[locale].MODERATION.REPORT.EMBED_OFFENDER()}`, value: `<@${authorId}>` },
@@ -54,3 +55,11 @@ export class ReportReceivedEmbed extends BaseEmbed<ReportReceivedEmbedParams> {
       );
   }
 }
+
+export const buildReportActionRow = (reportId: number): ActionRowBuilder<ButtonBuilder> =>
+  new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setCustomId(`report:dismiss:${reportId}`).setLabel('Dismiss').setEmoji('❌').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`report:warn:${reportId}`).setLabel('Warn').setEmoji('⚠️').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`report:mute:${reportId}`).setLabel('Mute').setEmoji('🔇').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(`report:ban:${reportId}`).setLabel('Ban').setEmoji('🔨').setStyle(ButtonStyle.Danger)
+  );

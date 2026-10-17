@@ -3,6 +3,9 @@ import { EmbedBuilder, MessageReaction, PartialMessageReaction, PartialUser, Tex
 import { Client } from '~/core/models';
 import { getStickyByLastMessageId } from '~/database';
 import { STICKY_COLOR } from './constants';
+import { getConfig } from '~/config';
+import { AppFeature } from '~/settings';
+import { softFail } from '~/utilities';
 
 /** DMs the channel's extended sticky explanation when a user reacts with ❓ on the sticky message. */
 export const sendStickyInfo = async (
@@ -10,11 +13,12 @@ export const sendStickyInfo = async (
   reaction: MessageReaction | PartialMessageReaction,
   user: User | PartialUser
 ): Promise<void> => {
+  if (!getConfig().config.features.sticky) return;
   if (user.bot) return;
   if (reaction.emoji.name !== '❓') return;
 
-  if (reaction.partial) await reaction.fetch().catch(() => null);
-  if (reaction.message.partial) await reaction.message.fetch().catch(() => null);
+  if (reaction.partial) await reaction.fetch().catch(softFail(AppFeature.Sticky, 'STICKY_REACTION_FETCH'));
+  if (reaction.message.partial) await reaction.message.fetch().catch(softFail(AppFeature.Sticky, 'STICKY_MESSAGE_FETCH'));
 
   const sticky = await getStickyByLastMessageId(reaction.message.id);
   if (!sticky) return;
@@ -39,5 +43,5 @@ export const sendStickyInfo = async (
     .setDescription(parts.join('\n\n'))
     .setFooter({ text: `#${channel.name}` });
 
-  await user.send({ embeds: [embed] }).catch(() => null);
+  await user.send({ embeds: [embed] }).catch(softFail(AppFeature.Sticky, 'STICKY_USER_SEND'));
 };

@@ -13,7 +13,8 @@ import {
 } from '~/database';
 import type { Client } from '~/core/models';
 import { L } from '~/core/locales';
-import { attempt, discordTimestamp } from '~/utilities';
+import { attempt, discordTimestamp, logSoftFailure } from '~/utilities';
+import { AppFeature } from '~/settings';
 
 export const toUtc = (dateStr: string, timeStr: string, tz: string): Date => {
   const local = new Date(`${dateStr}T${timeStr}:00`);
@@ -31,7 +32,8 @@ export const parseNewEventSchedule = (dateStr: string, timeStr: string, tz: stri
     const scheduledAt = toUtc(dateStr, timeStr, tz);
     if (isNaN(scheduledAt.getTime())) return null;
     return scheduledAt;
-  } catch {
+  } catch (error) {
+    logSoftFailure(AppFeature.Events, 'EVENT_SCHEDULE_PARSE_FAILED', { dateStr, timeStr, tz }, error, 'debug');
     return null;
   }
 };
@@ -52,7 +54,8 @@ export const resolveRecreateSchedule = (original: Event, dateStr: string | null,
     const scheduledAt = toUtc(resolvedDate, resolvedTime, resolvedTz);
     if (isNaN(scheduledAt.getTime())) return null;
     return scheduledAt;
-  } catch {
+  } catch (error) {
+    logSoftFailure(AppFeature.Events, 'EVENT_RECREATE_SCHEDULE_PARSE_FAILED', { resolvedDate, resolvedTime, resolvedTz }, error, 'debug');
     return null;
   }
 };
@@ -61,7 +64,8 @@ export const isValidCron = (cronStr: string): boolean => {
   try {
     new Cron(cronStr);
     return true;
-  } catch {
+  } catch (error) {
+    logSoftFailure(AppFeature.Events, 'EVENT_CRON_PARSE_FAILED', { cronStr }, error, 'debug');
     return false;
   }
 };
@@ -120,10 +124,13 @@ export const cancelEventAndNotify = async (client: Client, event: Event, locale:
 
   let notified = 0;
   for (const reg of registrations) {
-    const sent = await attempt(async () => {
-      const user = await client.users.fetch(reg.userId);
-      return user.send(L[locale].EVENT.COMMAND_CANCEL.DM_NOTIFY({ name: event.name, time: discordTimestamp(event.scheduledAt, 'F') }));
-    });
+    const sent = await attempt(
+      async () => {
+        const user = await client.users.fetch(reg.userId);
+        return user.send(L[locale].EVENT.COMMAND_CANCEL.DM_NOTIFY({ name: event.name, time: discordTimestamp(event.scheduledAt, 'F') }));
+      },
+      { feature: AppFeature.Events, errorCode: 'EVENT_CANCELLATION_DM_SEND', context: { eventId: event.id, userId: reg.userId } }
+    );
     if (sent !== null) notified++;
   }
   return notified;

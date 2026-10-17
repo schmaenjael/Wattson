@@ -1,4 +1,4 @@
-import { Logger } from '~/utilities';
+import { logSoftFailure, Logger } from '~/utilities';
 import { AppFeature } from '~/settings';
 
 const IP_PATTERN = /^\d+\.\d+\.\d+\.\d+$/;
@@ -33,7 +33,7 @@ export async function loadBlocklist(paths: string[]): Promise<Set<string>> {
     try {
       text = await import('node:fs/promises').then((fs) => fs.readFile(filePath, 'utf-8'));
     } catch (err) {
-      logger.error({ filePath, err: Object(err) }, 'Failed to load blocklist file.');
+      logSoftFailure(AppFeature.LinkFilter, 'BLOCKLIST_FILE_READ', { filePath }, err, 'error');
       continue;
     }
 

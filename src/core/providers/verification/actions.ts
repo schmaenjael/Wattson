@@ -5,7 +5,9 @@ import { AppFeature, appFeatureMap } from '~/settings';
 import { getRoleMappingsForAnswers } from '~/config';
 import { getSettings, RoleMappingType } from '~/database';
 import type { ChoiceOption, FlowAnswer, FlowAnswers, Step } from './flow';
-import { attempt } from '~/utilities';
+import { attempt, Logger, runDiscordAction, softFail } from '~/utilities';
+
+const logger = Logger.getInstance(AppFeature.Welcome);
 
 const toStringArray = (answer: FlowAnswer | undefined): string[] => {
   if (!answer) return [];
@@ -51,10 +53,14 @@ export const buildApprovalAnswerFields = (
     return { name, value: value.slice(0, 1024), inline: false };
   });
 
-export const grantAccess = async (member: GuildMember, answers: FlowAnswers): Promise<void> => {
+/** Returns false when the access-granting role could not be applied — the member has no access despite "passing". */
+export const grantAccess = async (member: GuildMember, answers: FlowAnswers): Promise<boolean> => {
   const settings = await getSettings();
+  let granted = true;
   if (settings.roleCommunityId) {
-    await member.roles.add(settings.roleCommunityId, 'Verification passed').catch(() => null);
+    granted = await runDiscordAction(logger, 'member.roles.add', { userId: member.id, roleId: settings.roleCommunityId }, () =>
+      member.roles.add(settings.roleCommunityId!, 'Verification passed')
+    );
   }
 
   const countryValues = toStringArray(answers['home_country']);
@@ -68,37 +74,46 @@ export const grantAccess = async (member: GuildMember, answers: FlowAnswers): Pr
   ]);
 
   for (const mapping of [...countryRoles, ...pronounsRoles, ...langRoles]) {
-    await member.roles.add(mapping.roleId, 'Verification role mapping').catch(() => null);
+    await runDiscordAction(logger, 'member.roles.add', { userId: member.id, roleId: mapping.roleId }, () =>
+      member.roles.add(mapping.roleId, 'Verification role mapping')
+    );
   }
+
+  return granted;
 };
 
 export const postWelcomeEmbed = async (client: Client, member: GuildMember): Promise<void> => {
   const settings = await getSettings();
   if (!settings.welcomeChannelId) return;
 
-  const welcomeChannel = await client.channels.fetch(settings.welcomeChannelId).catch(() => null);
+  const welcomeChannel = await client.channels
+    .fetch(settings.welcomeChannelId)
+    .catch(softFail(AppFeature.VolterVerification, 'VERIFICATION_CHANNEL_FETCH', { welcomeChannelId: settings.welcomeChannelId }));
   if (!welcomeChannel?.isSendable()) return;
 
   const createdAt = `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`;
   const joinedAt = `<t:${Math.floor((member.joinedTimestamp ?? Date.now()) / 1000)}:R>`;
 
-  await attempt(async () => {
-    await welcomeChannel.send({
-      embeds: [
-        new EmbedBuilder()
-          .setColor(appFeatureMap[AppFeature.Welcome].color)
-          .setTitle('👋 Welcome!')
-          .setThumbnail(member.user.displayAvatarURL({ size: 2048 }))
-          .addFields(
-            { name: '👤 User', value: `<@${member.id}>`, inline: true },
-            { name: '👤 Username', value: `\`${member.user.tag}\``, inline: true },
-            { name: '📆 Account Created', value: createdAt, inline: true },
-            { name: '🔗 Join Date', value: joinedAt, inline: true }
-          )
-          .setTimestamp(),
-      ],
-    });
-  });
+  await attempt(
+    async () => {
+      await welcomeChannel.send({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(appFeatureMap[AppFeature.Welcome].color)
+            .setTitle('👋 Welcome!')
+            .setThumbnail(member.user.displayAvatarURL({ size: 2048 }))
+            .addFields(
+              { name: '👤 User', value: `<@${member.id}>`, inline: true },
+              { name: '👤 Username', value: `\`${member.user.tag}\``, inline: true },
+              { name: '📆 Account Created', value: createdAt, inline: true },
+              { name: '🔗 Join Date', value: joinedAt, inline: true }
+            )
+            .setTimestamp(),
+        ],
+      });
+    },
+    { feature: AppFeature.Welcome, errorCode: 'WELCOME_MESSAGE_SEND', context: { memberId: member.id, welcomeChannelId: settings.welcomeChannelId } }
+  );
 };
 
 export const createChoiceMenu = (

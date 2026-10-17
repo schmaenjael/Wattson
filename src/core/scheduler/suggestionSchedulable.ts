@@ -12,6 +12,7 @@ import {
 import { getConfig } from '~/config';
 import { SuggestionApprovalEmbed, SuggestionEmbed, buildSuggestionApprovalRow, buildSuggestionVoteRow } from '~/core/components/Suggestion';
 import { Schedulable } from '~/core/models/Schedulable';
+import { logSoftFailure, softFail } from '~/utilities';
 
 export const suggestionSchedulable = new Schedulable({
   name: 'suggestion-schedulable',
@@ -19,13 +20,21 @@ export const suggestionSchedulable = new Schedulable({
   description: 'Closes expired suggestion votes, escalates qualifying ones to approval, and declines the rest.',
   defaultCron: () => getConfig().config.schedules.suggestionSweep,
   execute: async (client, logger) => {
+    if (!getConfig().config.features.suggestions) return;
+
     const settings = await getSettings();
     if (!settings.suggestionChannelId) {
       return;
     }
 
-    const guild = await client.guilds.fetch(process.env.GUILD_ID).catch(() => null);
-    const channel = guild ? ((await guild.channels.fetch(settings.suggestionChannelId).catch(() => null)) as TextChannel | null) : null;
+    const guild = await client.guilds.fetch(process.env.GUILD_ID).catch(softFail(AppFeature.Suggestions, 'SUGGESTIONS_GUILD_FETCH'));
+    const channel = guild
+      ? ((await guild.channels
+          .fetch(settings.suggestionChannelId)
+          .catch(
+            softFail(AppFeature.Suggestions, 'SUGGESTIONS_CHANNEL_FETCH', { suggestionChannelId: settings.suggestionChannelId })
+          )) as TextChannel | null)
+      : null;
     if (!channel?.isTextBased()) {
       logger.warn('Suggestion sweeper: suggestion channel unavailable; skipping this tick.');
       return;
@@ -33,7 +42,11 @@ export const suggestionSchedulable = new Schedulable({
 
     const approvalChannel =
       settings.suggestionApprovalChannelId && guild
-        ? ((await guild.channels.fetch(settings.suggestionApprovalChannelId).catch(() => null)) as TextChannel | null)
+        ? ((await guild.channels
+            .fetch(settings.suggestionApprovalChannelId)
+            .catch(
+              softFail(AppFeature.Suggestions, 'SUGGESTIONS_CHANNEL_FETCH', { suggestionApprovalChannelId: settings.suggestionApprovalChannelId })
+            )) as TextChannel | null)
         : null;
 
     let escalated = 0;
@@ -42,7 +55,11 @@ export const suggestionSchedulable = new Schedulable({
     const expired = await listExpiredActiveSuggestions();
     for (const suggestion of expired) {
       try {
-        const message = suggestion.messageId ? await channel.messages.fetch(suggestion.messageId).catch(() => null) : null;
+        const message = suggestion.messageId
+          ? await channel.messages
+              .fetch(suggestion.messageId)
+              .catch(softFail(AppFeature.Suggestions, 'SUGGESTIONS_MESSAGE_FETCH', { messageId: suggestion.messageId }))
+          : null;
         const tally = await countSuggestionVotes(suggestion.id);
 
         if (suggestion.status === SuggestionStatus.InConsideration && approvalChannel?.isSendable()) {
@@ -61,16 +78,20 @@ export const suggestionSchedulable = new Schedulable({
         }
 
         if (message) {
-          const author = suggestion.userId ? await client.users.fetch(suggestion.userId).catch(() => null) : null;
+          const author = suggestion.userId
+            ? await client.users
+                .fetch(suggestion.userId)
+                .catch(softFail(AppFeature.Suggestions, 'SUGGESTIONS_USER_FETCH', { userId: suggestion.userId }))
+            : null;
           await message
             .edit({
               embeds: [new SuggestionEmbed({ suggestion, author, declineReason: null, tally }).render()],
               components: [buildSuggestionVoteRow(suggestion, tally, true)],
             })
-            .catch(() => null);
+            .catch(softFail(AppFeature.Suggestions, 'SUGGESTIONS_MESSAGE_EDIT'));
         }
       } catch (err) {
-        logger.error(Object(err), `Failed to process expired suggestion #${suggestion.id}.`);
+        logSoftFailure(AppFeature.Suggestions, 'SUGGESTIONS_EXPIRY_PROCESSING', { suggestionId: suggestion.id }, err);
       }
     }
 

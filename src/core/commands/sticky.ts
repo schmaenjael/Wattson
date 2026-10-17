@@ -1,10 +1,11 @@
 import { ApplicationCommandType, ChannelType, EmbedBuilder, MessageFlags, SlashCommandBuilder, TextChannel } from 'discord.js';
 
 import { Command, Permission } from '~/core/models';
+import { useFeatureFlag } from '~/core/middleware';
 import { AppFeature } from '~/settings';
 import { deleteStickyByChannelId, getStickyByChannelId, listStickyMessages, upsertStickyMessage } from '~/database';
 import { invalidateStickyCache, updateCachedLastMessageId } from '~/core/providers/sticky';
-import { Logger } from '~/utilities';
+import { logSoftFailure, softFail } from '~/utilities';
 
 const STICKY_COLOR = { info: '#82D0F4', warning: '#FDC220' } as const;
 
@@ -12,7 +13,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
   feature: AppFeature.Sticky,
   type: ApplicationCommandType.ChatInput,
   requiredPermissions: [Permission.Moderation, Permission.Administration],
-  middleware: [],
+  middleware: [useFeatureFlag('featureStickyEnabled')],
   data: new SlashCommandBuilder()
     .setName('sticky')
     .setDescription('Manage sticky messages for channels.')
@@ -50,7 +51,6 @@ export default new Command<ApplicationCommandType.ChatInput>({
 
   async executeCommand(command, client, interaction) {
     const sub = interaction.options.getSubcommand(true);
-    const logger = Logger.getInstance(AppFeature.Sticky);
 
     if (sub === 'set') {
       const channel = interaction.options.getChannel('channel', true) as TextChannel;
@@ -64,7 +64,9 @@ export default new Command<ApplicationCommandType.ChatInput>({
 
       // Remove previous sticky post if exists
       if (sticky.lastMessageId) {
-        await channel.messages.delete(sticky.lastMessageId).catch(() => null);
+        await channel.messages
+          .delete(sticky.lastMessageId)
+          .catch(softFail(AppFeature.Sticky, 'STICKY_MESSAGE_DELETE', { lastMessageId: sticky.lastMessageId }));
       }
 
       // Post initial sticky right away
@@ -76,14 +78,16 @@ export default new Command<ApplicationCommandType.ChatInput>({
       let posted;
       try {
         posted = await channel.send({ embeds: [embed] });
-        await posted.react('❓');
       } catch (err) {
-        logger.error(Object(err), 'Failed to post initial sticky.');
+        logSoftFailure(AppFeature.Sticky, 'STICKY_INITIAL_POST', { channelId: channel.id }, err, 'error');
         await interaction.reply({ content: `Sticky saved but failed to post in <#${channel.id}>.`, flags: MessageFlags.Ephemeral });
         return;
       }
 
+      // Before the reaction: a failed reaction must not leave lastMessageId pointing at the
+      // already-deleted previous sticky, which orphans this one and duplicates it on every repost.
       await updateCachedLastMessageId(channel.id, posted.id);
+      await posted.react('❓').catch(softFail(AppFeature.Sticky, 'STICKY_INFO_REACTION_ADD', { channelId: channel.id, messageId: posted.id }));
 
       await interaction.reply({
         content: `Sticky set for <#${channel.id}> — reposts every **${interval}** messages.`,
@@ -101,7 +105,9 @@ export default new Command<ApplicationCommandType.ChatInput>({
       }
 
       if (existing.lastMessageId) {
-        await channel.messages.delete(existing.lastMessageId).catch(() => null);
+        await channel.messages
+          .delete(existing.lastMessageId)
+          .catch(softFail(AppFeature.Sticky, 'STICKY_MESSAGE_DELETE', { lastMessageId: existing.lastMessageId }));
       }
 
       await deleteStickyByChannelId(channel.id);

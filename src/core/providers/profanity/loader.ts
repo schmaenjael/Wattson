@@ -1,5 +1,5 @@
 import { AppFeature } from '~/settings';
-import { Logger } from '~/utilities';
+import { logSoftFailure, Logger } from '~/utilities';
 
 export interface CompiledPattern {
   raw: string;
@@ -29,7 +29,7 @@ export async function loadProfanityList(filePath: string): Promise<CompiledPatte
   try {
     text = await import('node:fs/promises').then((fs) => fs.readFile(filePath, 'utf-8'));
   } catch (err) {
-    logger.error({ filePath, err: Object(err) }, 'Failed to load profanity list file.');
+    logSoftFailure(AppFeature.Profanity, 'PROFANITY_FILE_READ', { filePath }, err, 'error');
     return [];
   }
 
@@ -56,7 +56,7 @@ export async function loadProfanityList(filePath: string): Promise<CompiledPatte
     try {
       patterns.push({ raw, severity, regex: new RegExp(source, 'iu') });
     } catch (err) {
-      logger.error({ raw, err: Object(err) }, 'Invalid profanity pattern — skipping.');
+      logSoftFailure(AppFeature.Profanity, 'PROFANITY_PATTERN_COMPILE', { raw, filePath }, err, 'error');
     }
   }
 

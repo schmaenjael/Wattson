@@ -3,6 +3,8 @@ import { join } from 'node:path';
 
 import { loadProfanityList } from './loader';
 import { ProfanityChecker } from './checker';
+import { AppFeature } from '~/settings';
+import { logSoftFailure } from '~/utilities';
 
 const BAD_WORDS_DIR = join(process.cwd(), 'config', 'bad-words');
 
@@ -13,7 +15,8 @@ async function resolveWordlistPaths(): Promise<string[]> {
   try {
     const entries = await readdir(BAD_WORDS_DIR);
     return entries.filter((f) => f.endsWith('.txt') && !f.startsWith('.')).map((f) => join(BAD_WORDS_DIR, f));
-  } catch {
+  } catch (error) {
+    logSoftFailure(AppFeature.Profanity, 'PROFANITY_WORDLIST_DIRECTORY_READ_FAILED', { directory: BAD_WORDS_DIR }, error);
     return [];
   }
 }

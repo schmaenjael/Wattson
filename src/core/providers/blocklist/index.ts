@@ -3,6 +3,8 @@ import { join } from 'node:path';
 
 import { loadBlocklist } from './loader';
 import { BlocklistChecker } from './checker';
+import { AppFeature } from '~/settings';
+import { logSoftFailure } from '~/utilities';
 
 const BLOCKLISTS_DIR = join(process.cwd(), 'config', 'blocklists');
 
@@ -13,7 +15,8 @@ async function resolveBlocklistPaths(): Promise<string[]> {
   try {
     const entries = await readdir(BLOCKLISTS_DIR);
     return entries.filter((f) => f.endsWith('.txt') && !f.startsWith('.')).map((f) => join(BLOCKLISTS_DIR, f));
-  } catch {
+  } catch (error) {
+    logSoftFailure(AppFeature.LinkFilter, 'BLOCKLIST_DIRECTORY_READ_FAILED', { directory: BLOCKLISTS_DIR }, error);
     return [];
   }
 }

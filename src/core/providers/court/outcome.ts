@@ -15,9 +15,10 @@ import {
 } from '~/database';
 import type { Client } from '~/core/models';
 import { summarizeCourtThread } from './summarizer';
-import { attempt } from '~/utilities';
+import { attempt, Logger, logSoftFailure, runDiscordAction, softFail } from '~/utilities';
 
 const COLOR = appFeatureMap[AppFeature.System].color;
+const logger = Logger.getInstance(AppFeature.System);
 
 // ─── Vote embed ────────────────────────────────────────────────────────────────
 
@@ -92,21 +93,26 @@ export const fetchCourtSummary = async (client: Client, caseRow: CourtCase): Pro
       .map((m) => ({ author: m.author.username, content: m.content }));
 
     return summarizeCourtThread(ollamaEndpoint, ollamaModel, threadMessages);
-  } catch {
+  } catch (error) {
+    logSoftFailure(AppFeature.System, 'COURT_THREAD_SUMMARY_FAILED', { ollamaModel }, error);
     return null;
   }
 };
 
 export const archiveCourtThread = async (client: Client, caseRow: CourtCase, message: string): Promise<void> => {
-  await attempt(async () => {
-    const channel = await client.channels.fetch(caseRow.threadId);
-    if (channel && channel.isThread()) {
-      await channel.send({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle('Case closed').setDescription(message).setTimestamp()] });
-      await attempt(async () => {
-        await channel.setArchived(true);
-      });
-    }
-  });
+  await attempt(
+    async () => {
+      const channel = await client.channels.fetch(caseRow.threadId);
+      if (channel && channel.isThread()) {
+        await channel.send({ embeds: [new EmbedBuilder().setColor(COLOR).setTitle('Case closed').setDescription(message).setTimestamp()] });
+        await attempt(async () => await channel.setArchived(true), {
+          errorCode: 'COURT_THREAD_ARCHIVE',
+          context: { caseId: caseRow.id, threadId: caseRow.threadId },
+        });
+      }
+    },
+    { errorCode: 'COURT_CLOSING_NOTICE_SEND', context: { caseId: caseRow.id, threadId: caseRow.threadId } }
+  );
 };
 
 // ─── Outcome execution ───────────────────────────────────────────────────────
@@ -126,37 +132,59 @@ export const executeCaseOutcome = async (
   caseRow: CourtCase,
   outcome: CourtVoteOption,
   settings: Settings
-): Promise<void> => {
+): Promise<string[]> => {
   const botId = client.user!.id;
   const botUsername = client.user!.username;
+  const failures: string[] = [];
 
   await upsertUser({ id: botId, username: botUsername });
+
+  const dbStatus = outcome === CourtVoteOption.Dismiss ? CourtStatus.Dismissed : CourtStatus.Escalated;
+  const summary = await fetchCourtSummary(client, caseRow);
+
+  // Claim the case before acting on it. Two moderators can cross the threshold in the same tick;
+  // without this compare-and-swap both would ban, both would insert a ban row, and both would DM.
+  const closed = await closeCourtCase(caseRow.id, botId, dbStatus, `${outcome} — moderator panel vote`, summary, CourtStatus.Finalizing);
+  if (!closed) {
+    return failures;
+  }
 
   if (caseRow.accusedUserId) {
     if (outcome === CourtVoteOption.Warn) {
       await insertWarning({ targetUserId: caseRow.accusedUserId, moderatorId: botId, reason: `Court case #${caseRow.id} — moderator panel verdict` });
     } else if (outcome === CourtVoteOption.Ban) {
-      await guild.bans.create(caseRow.accusedUserId, { reason: `[court #${caseRow.id}] moderator panel verdict` }).catch(() => null);
-      await insertBan({
-        targetUserId: caseRow.accusedUserId,
-        moderatorId: botId,
-        reason: `Court case #${caseRow.id} — moderator panel verdict`,
-        expiresAt: null,
-        appealable: true,
-      });
+      const banned = await runDiscordAction(logger, 'guild.bans.create', { userId: caseRow.accusedUserId, caseId: caseRow.id }, () =>
+        guild.bans.create(caseRow.accusedUserId!, { reason: `[court #${caseRow.id}] moderator panel verdict` })
+      );
+      if (banned) {
+        await insertBan({
+          targetUserId: caseRow.accusedUserId,
+          moderatorId: botId,
+          reason: `Court case #${caseRow.id} — moderator panel verdict`,
+          expiresAt: null,
+          appealable: true,
+        });
+      } else {
+        // No ban row: an active ban record for a user still in the guild would mislead
+        // /userRecord, the ban sweeper, and any future appeal.
+        failures.push('the Discord ban could not be applied — apply it manually');
+      }
     }
 
     if (outcome !== CourtVoteOption.Ban && settings.roleMutedId) {
-      const member = await guild.members.fetch(caseRow.accusedUserId).catch(() => null);
+      const member = await guild.members
+        .fetch(caseRow.accusedUserId)
+        .catch(softFail(AppFeature.System, 'COURT_MEMBER_FETCH', { accusedUserId: caseRow.accusedUserId }));
       if (member) {
-        await member.roles.remove(settings.roleMutedId, `Court #${caseRow.id} ${outcome}`).catch(() => null);
+        const unmuted = await runDiscordAction(logger, 'member.roles.remove', { userId: member.id, roleId: settings.roleMutedId }, () =>
+          member.roles.remove(settings.roleMutedId!, `Court #${caseRow.id} ${outcome}`)
+        );
+        if (!unmuted) {
+          failures.push('the muted role could not be removed — remove it manually');
+        }
       }
     }
   }
-
-  const dbStatus = outcome === CourtVoteOption.Dismiss ? CourtStatus.Dismissed : CourtStatus.Escalated;
-  const summary = await fetchCourtSummary(client, caseRow);
-  await closeCourtCase(caseRow.id, botId, dbStatus, `${outcome} — moderator panel vote`, summary);
 
   await recordAuditEvent({
     eventType: outcome === CourtVoteOption.Dismiss ? AuditEventType.CourtClosed : AuditEventType.CourtEscalated,
@@ -165,20 +193,25 @@ export const executeCaseOutcome = async (
     payload: { caseId: caseRow.id, outcome },
   });
 
-  await attempt(async () => {
-    if (!caseRow.accusedUserId) return;
-    const dmUser = await client.users.fetch(caseRow.accusedUserId);
-    await dmUser.send({
-      embeds: [
-        new EmbedBuilder()
-          .setColor(COLOR)
-          .setTitle(`⚖️ Court Case #${caseRow.id} — Verdict`)
-          .setDescription(DM_CONTENT[outcome](caseRow.id))
-          .setTimestamp(),
-      ],
-      flags: MessageFlags.SuppressNotifications,
-    });
-  });
+  await attempt(
+    async () => {
+      if (!caseRow.accusedUserId) return;
+      const dmUser = await client.users.fetch(caseRow.accusedUserId);
+      await dmUser.send({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(COLOR)
+            .setTitle(`⚖️ Court Case #${caseRow.id} — Verdict`)
+            .setDescription(DM_CONTENT[outcome](caseRow.id))
+            .setTimestamp(),
+        ],
+        flags: MessageFlags.SuppressNotifications,
+      });
+    },
+    { errorCode: 'COURT_VERDICT_DM_SEND', context: { caseId: caseRow.id, accusedUserId: caseRow.accusedUserId } }
+  );
 
   await archiveCourtThread(client, caseRow, `Verdict: **${outcome.toUpperCase()}** — reached by moderator panel vote.`);
+
+  return failures;
 };

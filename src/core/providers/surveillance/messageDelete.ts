@@ -3,8 +3,9 @@ import { AuditLogEvent, EmbedBuilder, Message, PartialMessage } from 'discord.js
 import { AppFeature } from '~/settings';
 import { Colors } from '~/settings/theme';
 import { Client } from '~/core/models';
-import { AuditEventType, getSettings, recordAuditEvent } from '~/database';
-import { Logger } from '~/utilities';
+import { AuditEventType, getSettings, recordAuditEvent, upsertUser } from '~/database';
+import { Logger, softFail } from '~/utilities';
+import { consumeMessageDeleteSuppression } from './suppression';
 
 const MAX_CONTENT = 1024;
 const logger = Logger.getInstance(AppFeature.Surveillance);
@@ -13,9 +14,16 @@ const logger = Logger.getInstance(AppFeature.Surveillance);
 export const reportMessageDelete = async (_client: Client, message: Message<boolean> | PartialMessage): Promise<void> => {
   if (!message.inGuild()) return;
   if (message.author?.bot) return;
+  // Moderator bulk removals are audited once by the command itself; skip the per-message trail.
+  if (consumeMessageDeleteSuppression(message.id)) return;
 
   const settings = await getSettings();
   if (!settings.featureSurveillanceEnabled) return;
+
+  // audit_log.target_user_id is FK-constrained to users; the author may never have been seen before.
+  if (message.author) {
+    await upsertUser({ id: message.author.id, username: message.author.username });
+  }
 
   await recordAuditEvent({
     eventType: AuditEventType.MessageDeleted,
@@ -33,7 +41,9 @@ export const reportMessageDelete = async (_client: Client, message: Message<bool
   let modId: string | null = null;
 
   if (message.author?.id) {
-    const auditLogs = await message.guild.fetchAuditLogs({ type: AuditLogEvent.MessageDelete, limit: 5 }).catch(() => null);
+    const auditLogs = await message.guild
+      .fetchAuditLogs({ type: AuditLogEvent.MessageDelete, limit: 5 })
+      .catch(softFail(AppFeature.Surveillance, 'SURVEILLANCE_FETCH_AUDIT_LOGS'));
 
     if (auditLogs) {
       const entry = auditLogs.entries.find(

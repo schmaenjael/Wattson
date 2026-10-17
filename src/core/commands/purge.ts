@@ -4,7 +4,7 @@ import { Command, Permission } from '~/core/models';
 import { AppFeature, Colors } from '~/settings';
 import { L } from '~/core/locales';
 import { AuditEventType, deleteBansForUser, deleteReportsForUser, deleteWarningsForUser, insertBan, recordAuditEvent, upsertUser } from '~/database';
-import { attempt } from '~/utilities';
+import { attempt, logSoftFailure } from '~/utilities';
 
 export default new Command<ApplicationCommandType.ChatInput>({
   feature: AppFeature.System,
@@ -43,7 +43,8 @@ export default new Command<ApplicationCommandType.ChatInput>({
         filter: (i) => i.user.id === interaction.user.id,
         time: 30_000,
       });
-    } catch {
+    } catch (error) {
+      logSoftFailure(AppFeature.Clear, 'PURGE_CONFIRMATION_TIMEOUT', { userId: interaction.user.id }, error, 'debug');
       await interaction.editReply({ embeds: [], components: [], content: P.CANCELLED() });
       return;
     }
@@ -77,7 +78,12 @@ export default new Command<ApplicationCommandType.ChatInput>({
       appealable: false,
     });
 
-    const discordBanned = (await attempt(() => interaction.guild!.bans.create(targetUser.id, { reason: 'Data deletion request' }))) !== null;
+    const discordBanned =
+      (await attempt(() => interaction.guild!.bans.create(targetUser.id, { reason: 'Data deletion request' }), {
+        feature: AppFeature.GdprDeletion,
+        errorCode: 'DATA_DELETION_BAN_CREATE',
+        context: { targetUserId: targetUser.id },
+      })) !== null;
 
     const content = discordBanned ? P.SUCCESS({ userId: targetUser.id }) : P.BAN_FAILED({ userId: targetUser.id });
     await interaction.editReply({ embeds: [], components: [], content });

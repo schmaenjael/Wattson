@@ -1,8 +1,11 @@
-import { EmbedBuilder, type Message, type TextChannel } from 'discord.js';
+import { EmbedBuilder, type TextChannel } from 'discord.js';
 
 import { listStickyMessages, updateStickyLastMessageId, type StickyMessage } from '~/database';
-import { Logger } from '~/utilities';
+import type { MessageContext } from '~/core/types';
+import { logSoftFailure, softFail } from '~/utilities';
 import { STICKY_COLOR } from './constants';
+import { getConfig } from '~/config';
+import { AppFeature } from '~/settings';
 
 export type { StickyMessage };
 
@@ -41,9 +44,11 @@ export async function updateCachedLastMessageId(channelId: string, messageId: st
   await updateStickyLastMessageId(channelId, messageId);
 }
 
-async function handleStickyRepost(sticky: StickyMessage, channel: TextChannel, logger: ReturnType<typeof Logger.getInstance>): Promise<void> {
+async function handleStickyRepost(sticky: StickyMessage, channel: TextChannel): Promise<void> {
   if (sticky.lastMessageId) {
-    await channel.messages.delete(sticky.lastMessageId).catch(() => null);
+    await channel.messages
+      .delete(sticky.lastMessageId)
+      .catch(softFail(AppFeature.Sticky, 'STICKY_MESSAGE_DELETE', { lastMessageId: sticky.lastMessageId }));
   }
 
   const embed = new EmbedBuilder()
@@ -54,23 +59,27 @@ async function handleStickyRepost(sticky: StickyMessage, channel: TextChannel, l
   let posted;
   try {
     posted = await channel.send({ embeds: [embed] });
-    await posted.react('❓');
   } catch (err) {
-    logger.error(Object(err), 'Failed to repost sticky message.');
+    logSoftFailure(AppFeature.Sticky, 'STICKY_REPOST', { channelId: sticky.channelId }, err, 'error');
     return;
   }
 
+  // Bookkeeping first: the message is already live, and a failed reaction must not orphan it.
   await updateCachedLastMessageId(sticky.channelId, posted.id);
+  await posted.react('❓').catch(softFail(AppFeature.Sticky, 'STICKY_INFO_REACTION_ADD', { channelId: sticky.channelId, messageId: posted.id }));
 }
 
 /** Bumps the channel's sticky counter and reposts (fire-and-forget) once the interval is reached. */
-export async function onMessage(message: Message<true>, logger: ReturnType<typeof Logger.getInstance>): Promise<void> {
+export async function onMessage(ctx: MessageContext): Promise<void> {
+  if (!getConfig().config.features.sticky) return;
+
+  const { message } = ctx;
   const sticky = await getStickyForChannel(message.channelId);
   if (!sticky) return;
 
   const count = incrementStickyCounter(message.channelId);
   if (count >= sticky.interval) {
     resetStickyCounter(message.channelId);
-    void handleStickyRepost(sticky, message.channel as TextChannel, logger);
+    void handleStickyRepost(sticky, message.channel as TextChannel);
   }
 }

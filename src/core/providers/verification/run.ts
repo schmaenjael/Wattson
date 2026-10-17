@@ -4,7 +4,7 @@ import { AppFeature, appFeatureMap, Colors } from '~/settings';
 import { getCountryLabelMap, getLanguageLabelMap } from '~/config';
 import { AuditEventType, getLatestJoinRecord, getRecentJoinsByCode, getSettings, recordAuditEvent } from '~/database';
 import { Client } from '~/core/models';
-import { Logger } from '~/utilities';
+import { logSoftFailure, Logger, softFail } from '~/utilities';
 import { L } from '~/core/locales';
 
 import { buildVerificationFlow } from './config';
@@ -23,9 +23,21 @@ const formatDuration = (ms: number): string => {
   return `${s}s`;
 };
 
+/**
+ * Guards the single-flight set. The inner flow used to release it inline, so any throw before the
+ * last release left the member permanently unable to verify for the process lifetime.
+ */
 export const runVerification = async (client: Client, member: GuildMember): Promise<void> => {
   if (activeVerifications.has(member.id)) return;
   activeVerifications.add(member.id);
+  try {
+    await runVerificationFlow(client, member);
+  } finally {
+    activeVerifications.delete(member.id);
+  }
+};
+
+const runVerificationFlow = async (client: Client, member: GuildMember): Promise<void> => {
   const startedAt = Date.now();
 
   const logger = Logger.getInstance(AppFeature.Welcome);
@@ -39,8 +51,7 @@ export const runVerification = async (client: Client, member: GuildMember): Prom
   try {
     dm = await member.createDM();
   } catch (error) {
-    activeVerifications.delete(member.id);
-    logger.warn(Object(error), `Cannot DM ${member.user.tag}; skipping verification.`);
+    logSoftFailure(AppFeature.VolterVerification, 'VERIFICATION_DM_OPEN', { memberId: member.id }, error);
     return;
   }
 
@@ -66,7 +77,7 @@ export const runVerification = async (client: Client, member: GuildMember): Prom
       { name: D.FIELD_TIMELINE_TITLE(), value: D.FIELD_TIMELINE_VALUE(), inline: false }
     );
 
-  await dm.send({ embeds: [intro, disclaimer] }).catch(() => null);
+  await dm.send({ embeds: [intro, disclaimer] }).catch(softFail(AppFeature.VolterVerification, 'VERIFICATION_DM_SEND'));
 
   const flow = await buildVerificationFlow(locale, color);
 
@@ -74,7 +85,6 @@ export const runVerification = async (client: Client, member: GuildMember): Prom
   try {
     answers = await flow.run(member.user, dm, { color });
   } catch (err) {
-    activeVerifications.delete(member.id);
     if (err instanceof FlowCancelled) {
       logger.info(`Verification cancelled for ${member.user.tag} at step "${err.step.key}" (${err.reason}).`);
       await recordAuditEvent({
@@ -91,13 +101,11 @@ export const runVerification = async (client: Client, member: GuildMember): Prom
               .setDescription(L[locale].SYSTEM.VERIFICATION.CANCELLED.EMBED_DESCRIPTION()),
           ],
         })
-        .catch(() => null);
+        .catch(softFail(AppFeature.VolterVerification, 'VERIFICATION_DM_SEND'));
       return;
     }
     throw err;
   }
-
-  activeVerifications.delete(member.id);
 
   const answeredEvent = await recordAuditEvent({ eventType: AuditEventType.VerificationAnswered, targetUserId: member.id, payload: answers });
 
@@ -111,11 +119,14 @@ export const runVerification = async (client: Client, member: GuildMember): Prom
         new EmbedBuilder().setColor(Colors.Purple).setDescription(L[locale].SYSTEM.VERIFICATION.FINAL.VOLTER_HINT()),
       ],
     })
-    .catch(() => null);
+    .catch(softFail(AppFeature.VolterVerification, 'VERIFICATION_DM_SEND'));
 
   const autoApprove = async (reason?: string) => {
     if (reason) logger.warn(reason);
-    await grantAccess(member, answers);
+    const granted = await grantAccess(member, answers);
+    if (!granted) {
+      logger.error({ userId: member.id }, 'Verification auto-approved but the access role could not be applied.');
+    }
     await postWelcomeEmbed(client, member);
     await recordAuditEvent({ eventType: AuditEventType.VerificationCompleted, targetUserId: member.id });
   };
@@ -129,7 +140,11 @@ export const runVerification = async (client: Client, member: GuildMember): Prom
   const [countryLabelMap, languageLabelMap, joinRecord] = await Promise.all([
     getCountryLabelMap(),
     getLanguageLabelMap(),
-    settings.featureInviteTrackingEnabled ? getLatestJoinRecord(member.id).catch(() => undefined) : Promise.resolve(undefined),
+    settings.featureInviteTrackingEnabled
+      ? getLatestJoinRecord(member.id).catch(
+          softFail(AppFeature.VolterVerification, 'VERIFICATION_GET_LATEST_JOIN_RECORD', { memberId: member.id }, undefined)
+        )
+      : Promise.resolve(undefined),
   ]);
 
   const approvalEmbed = new EmbedBuilder()

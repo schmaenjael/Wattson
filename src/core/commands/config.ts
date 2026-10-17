@@ -5,6 +5,7 @@ import { AppFeature, appFeatureMap, Colors } from '~/settings';
 import { getSchedulables, SCHEDULABLE_CHOICES } from '~/core/loaders/loadSchedulables';
 import { getSettings, upsertSchedulableConfig, type Settings } from '~/database';
 import { handlePaginatedEmbeds } from '~/core/components';
+import { logSoftFailure } from '~/utilities';
 
 const ch = (id: string | null | undefined) => (id ? `<#${id}>` : '—');
 const ro = (id: string | null | undefined) => (id ? `<@&${id}>` : '—');
@@ -95,6 +96,82 @@ const FEATURES: FeatureDef[] = [
     enabled: (s) => s.featureWarnAutoMuteEnabled,
     warnings: (s) => (!s.roleMutedId ? ['`roleMutedId` not set — auto-mute cannot be applied'] : []),
   },
+  {
+    label: 'AI Ask',
+    description: 'Answers `/ask` questions via the configured Ollama model.',
+    enabled: (s) => s.featureAskEnabled,
+    warnings: () =>
+      !process.env.OLLAMA_ENDPOINT || !process.env.OLLAMA_MODEL ? ['`OLLAMA_ENDPOINT` / `OLLAMA_MODEL` not set — `/ask` cannot answer'] : [],
+  },
+  {
+    label: 'RAG',
+    description: 'Retrieval-augmented answers served by the external RAG service.',
+    enabled: (s) => s.featureRagEnabled,
+    warnings: () => (!process.env.RAG_ENDPOINT ? ['`RAG_ENDPOINT` not set — RAG queries return nothing'] : []),
+  },
+  {
+    label: 'Modmail',
+    description: 'Private moderator threads opened from DMs, including reminders and auto-close.',
+    enabled: (s) => s.featureModmailEnabled,
+    warnings: (s) => (!s.modmailChannelId ? ['`modmailChannelId` not set — threads cannot be created'] : []),
+  },
+  {
+    label: 'Appeals',
+    description: 'Lets banned users submit an appeal that moderators vote on.',
+    enabled: (s) => s.featureAppealEnabled,
+    warnings: (s) => (!s.appealChannelId ? ['`appealChannelId` not set — appeals cannot be posted'] : []),
+  },
+  {
+    label: 'Suggestions',
+    description: 'Community suggestions with voting, approval flow, and automatic closing.',
+    enabled: (s) => s.featureSuggestionsEnabled,
+    warnings: (s) => (!s.suggestionChannelId ? ['`suggestionChannelId` not set — suggestions cannot be posted'] : []),
+  },
+  {
+    label: 'Events',
+    description: 'Server event creation, announcements, and the weekly digest.',
+    enabled: (s) => s.featureEventsEnabled,
+    warnings: (s) => (!s.eventAnnouncementChannelId ? ['`eventAnnouncementChannelId` not set — announcements will be skipped'] : []),
+  },
+  {
+    label: 'Sticky Messages',
+    description: 'Reposts a pinned informational message in a channel at a fixed message interval.',
+    enabled: (s) => s.featureStickyEnabled,
+    warnings: () => [],
+  },
+  {
+    label: 'React',
+    description: 'Adds moderator-triggered reactions to a target message.',
+    enabled: (s) => s.featureReactEnabled,
+    warnings: () => [],
+  },
+  {
+    label: 'Forum Roles',
+    description: 'Auto-subscribes members to forum threads mapped to roles they gain.',
+    enabled: (s) => s.featureForumRolesEnabled,
+    warnings: () => [],
+  },
+  {
+    label: 'Analytics',
+    description: 'Tracks per-member message, reaction, and voice activity for daily aggregation.',
+    enabled: (s) => s.featureAnalyticsEnabled,
+    warnings: () => [],
+  },
+  {
+    label: 'Stat Channels',
+    description: 'Keeps voice-channel names in sync with live server statistics.',
+    enabled: (s) => s.featureStatChannelsEnabled,
+    warnings: () => [],
+  },
+  {
+    label: 'Reports',
+    description: 'Message reporting via context menu plus the moderator resolution flow.',
+    enabled: (s) => s.featureReportsEnabled,
+    warnings: (s) => [
+      ...(!s.reportsLogChannelId ? ['`reportsLogChannelId` not set — reports cannot be delivered'] : []),
+      ...(!s.reportsTodoChannelId ? ['`reportsTodoChannelId` not set — reports cannot be actioned via buttons'] : []),
+    ],
+  },
 ];
 
 const buildConfigPages = (s: Settings): EmbedBuilder[] => {
@@ -127,6 +204,7 @@ const buildConfigPages = (s: Settings): EmbedBuilder[] => {
           `**Public moderation log:** ${ch(s.publicLogChannelId)}`,
           `**Surveillance log:** ${ch(s.surveillanceLogChannelId)}`,
           `**Reports log:** ${ch(s.reportsLogChannelId)}`,
+          `**Reports todo:** ${ch(s.reportsTodoChannelId)}`,
         ].join('\n'),
       },
       {
@@ -219,7 +297,7 @@ const buildConfigPages = (s: Settings): EmbedBuilder[] => {
         value: [
           `**Status:** ${bool(s.featureAntiSpamEnabled)}`,
           `**Max messages:** ${s.antiSpamMaxMessages} per window`,
-          `**Window:** ${s.antiSpamWindowMs}ms\n-# Auto-mute (10 min) applied when threshold exceeded; requires \`roleMutedId\` set`,
+          `**Window:** ${s.antiSpamWindowMs}ms\n-# Auto-mute (${s.antiSpamMuteMinutes} min) applied when threshold exceeded; requires \`roleMutedId\` set`,
         ].join('\n'),
       },
       { name: 'React', value: `**Default emojis:** \`${s.reactDefaultEmojis.join(',')}\`\n-# Overridable per \`/react\` invocation` },
@@ -296,6 +374,7 @@ export default new Command<ApplicationCommandType.ChatInput>({
         try {
           summary = await schedulable.options.execute(client, schedulable.logger);
         } catch (err) {
+          logSoftFailure(AppFeature.Scheduler, 'CONFIG_SCHEDULABLE_RUN_FAILED', { schedulable: name }, err, 'error');
           await interaction.editReply({
             embeds: [
               new EmbedBuilder()
@@ -332,7 +411,8 @@ export default new Command<ApplicationCommandType.ChatInput>({
         }
         try {
           schedulable.restart(client, cron);
-        } catch {
+        } catch (error) {
+          logSoftFailure(AppFeature.Scheduler, 'CONFIG_SCHEDULABLE_CRON_INVALID', { schedulable: name, cron }, error);
           await interaction.reply({ content: `Invalid cron expression: \`${cron}\`.`, flags: MessageFlags.Ephemeral });
           return;
         }

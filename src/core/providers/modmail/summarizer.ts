@@ -2,9 +2,9 @@ import type { Message } from 'discord.js';
 
 import type { Client } from '~/core/models';
 import { getConfig } from '~/config';
-import { callOllamaGenerate } from '~/core/providers/ollama';
+import { ollamaClient } from '~/core/providers/ollama';
 import { AppFeature } from '~/settings';
-import { Logger } from '~/utilities';
+import { logSoftFailure } from '~/utilities';
 
 export interface ModmailMessage {
   author: string;
@@ -28,13 +28,13 @@ export const summarizeModmailThread = async (endpoint: string, model: string, me
 
   const conversation = relevant.map((m) => `[${m.role === 'user' ? 'User' : 'Moderator'} — ${m.author}]: ${m.content}`).join('\n');
 
-  return callOllamaGenerate({
+  return ollamaClient.generate({
     endpoint,
     model,
     prompt: `${SYSTEM_PROMPT}\n\nCONVERSATION:\n${conversation}`,
     timeoutMs: getConfig().config.timeouts.summarizerMs,
-    logger: Logger.getInstance(AppFeature.Modmail),
-    failureMessage: 'Modmail thread summarization failed — skipping summary.',
+    feature: AppFeature.Modmail,
+    errorCode: 'MODMAIL_THREAD_SUMMARIZE',
   });
 };
 
@@ -80,7 +80,8 @@ export const fetchModmailSummary = async (client: Client, threadId: string): Pro
 
     const threadMessages = parseEmbedMessages(collected);
     return summarizeModmailThread(ollamaEndpoint, ollamaModel, threadMessages);
-  } catch {
+  } catch (error) {
+    logSoftFailure(AppFeature.Modmail, 'MODMAIL_THREAD_SUMMARY_FAILED', { ollamaModel }, error);
     return null;
   }
 };

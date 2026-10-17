@@ -6,8 +6,8 @@ import { Permission } from '~/core/models/Permission';
 import { memberHasAnyPermission } from '~/core/middleware/permissionCore';
 import { getSettings } from '~/database';
 import { L } from '~/core/locales';
-import { ProcessExitCode } from '~/settings';
-import { Logger } from '~/utilities';
+import { AppFeature, ProcessExitCode } from '~/settings';
+import { Logger, softFail } from '~/utilities';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export class Event<T extends keyof ClientEvents = any> {
@@ -87,15 +87,23 @@ export class Event<T extends keyof ClientEvents = any> {
       return;
     }
 
-    // Cast is safe: `kind` matched the route's discriminant via the index key.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await route.handler(client, interaction as any);
+    try {
+      // Cast is safe: `kind` matched the route's discriminant via the index key.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await route.handler(client, interaction as any);
+    } catch (err) {
+      // Same isolation the handlers[] archetype gets: a throwing route must not become an unhandled rejection.
+      this.logger.error(Object(err), `Interaction route handler failed for ${kind}${name ? `:${name}` : ''}`);
+    }
   }
 
   private async passesRights(interaction: Interaction, rights: Permission[]): Promise<boolean> {
     if (interaction.user.id === process.env.ADMIN_USER_ID) return true;
 
-    const member = (await interaction.guild?.members.fetch(interaction.user.id).catch(() => null)) ?? null;
+    const member =
+      (await interaction.guild?.members
+        .fetch(interaction.user.id)
+        .catch(softFail(AppFeature.System, 'SYSTEM_MEMBER_FETCH', { userId: interaction.user.id }))) ?? null;
     const settings = await getSettings();
 
     if (member && memberHasAnyPermission(member, settings, rights)) return true;
